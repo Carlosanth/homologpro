@@ -342,7 +342,7 @@ function temAcessoModulo(modulo) {
 async function carregarUsuarios() {
   const { data, error } = await supabaseClient
     .from('profiles')
-    .select('id, nome, email, papel, ativo, permissoes_modulos, ultimo_lembrete_em, ultimo_lembrete_estado, ultimo_erro_lembrete, ultimo_erro_lembrete_em')
+    .select('id, nome, email, papel, ativo, permissoes_modulos, ultimo_lembrete_em, ultimo_lembrete_estado, ultimo_erro_lembrete, ultimo_erro_lembrete_em, recebe_notificacao_cobranca')
     .eq('empresa_id', currentUser.empresaId)
     .order('nome');
 
