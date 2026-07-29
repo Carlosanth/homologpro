@@ -15,12 +15,18 @@
   <header class="navbar">
     <div class="container nav-container">
       <div class="logo">
+        <svg class="logo-seal" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="60" cy="60" r="54" stroke="currentColor" stroke-width="2" stroke-dasharray="3 5"/>
+          <circle cx="60" cy="60" r="44" stroke="currentColor" stroke-width="1.2"/>
+          <path d="M40 61 L53 75 L82 45" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
         <span class="logo-bold">Homolog</span><span class="logo-tag">Pro</span>
       </div>
       <nav class="nav-links">
         <a href="#solucao">A Solução</a>
         <a href="#modulos">Módulos</a>
         <a href="#comparativo">Diferenciais</a>
+        <a href="#planos">Planos</a>
         <a href="#contato">Contato</a>
       </nav>
       <div class="nav-auth">
@@ -52,8 +58,8 @@
     <div class="container hero-container-single">
       <div class="hero-text text-center">
         <span class="badge">Gestão 100% Digital & Auditável</span>
-        <h1>Elimine planilhas, macros e documentos em papel na homologação de fornecedores.</h1>
-        <p>A plataforma <i>all-in-one</i> que automatiza a avaliação de serviços, cobrança de licenças sanitárias e conferência no recebimento com total conformidade.</p>
+        <h1>Elimine planilhas e documentos em papel na homologação de fornecedores.</h1>
+        <p>Uma plataforma completa que automatiza a avaliação de fornecedores, a cobrança de documentos e a conferência no recebimento, com total conformidade.</p>
         <div class="hero-buttons center">
           <a href="app/index.html?cadastro=1" class="btn-primary btn-lg">Quero Testar Gratuitamente</a>
           <a href="#solucao" class="btn-outline btn-lg">Conhecer Recursos</a>
@@ -83,7 +89,7 @@
         <div class="card-feature">
           <div class="icon">🚚</div>
           <h3>Conferência no Recebimento</h3>
-          <p>Não conformidades de temperatura ou transporte na entrada da carga afetam diretamente a nota geral e o ranking do fornecedor.</p>
+          <p>Registre não conformidades no recebimento — o que for relevante para o seu processo — e elas entram automaticamente na nota geral e no ranking do fornecedor.</p>
         </div>
       </div>
     </div>
@@ -111,7 +117,6 @@
           <ul>
             <li>Link único e exclusivo enviado para atualização de certidões.</li>
             <li>Download da versão antiga para consulta e upload facilitado.</li>
-            <li>Armazenamento do histórico das últimas 5 versões por documento.</li>
           </ul>
         </div>
         <div class="card-module">
@@ -120,6 +125,7 @@
             <li>Dashboard com alertas em tempo real de reprovações.</li>
             <li>Emissão automática de Planos de Ação e Certificados Semestrais.</li>
             <li>Desconto automático de pontos por atraso na entrega de licenças.</li>
+            <li>Histórico das últimas 5 versões de cada documento, no cadastro do fornecedor.</li>
           </ul>
         </div>
       </div>
@@ -160,10 +166,57 @@
             <tr>
               <td>Recebimento de Cargas</td>
               <td>Desconectado do cadastro de fornecedores</td>
-              <td class="active-col">Vínculo direto da NF/Temperatura com a média geral</td>
+              <td class="active-col">Conferência de recebimento vinculada direto à média geral</td>
             </tr>
           </tbody>
         </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- PLANOS -->
+  <section id="planos" class="section">
+    <div class="container">
+      <div class="section-header">
+        <h2>Planos para cada tamanho de operação</h2>
+        <p>7 dias grátis para testar, sem precisar cadastrar cartão.</p>
+      </div>
+      <div class="pricing-grid">
+        <div class="price-card">
+          <h3>Essencial</h3>
+          <p class="price-desc">Para quem está começando a digitalizar a homologação.</p>
+          <div class="price-tag" data-plano-preco="essencial">R$ 239,90<span>/mês</span></div>
+          <ul class="price-features">
+            <li>Até 15 fornecedores</li>
+            <li>1 administrador</li>
+            <li>Avaliadores ilimitados</li>
+          </ul>
+          <a href="app/index.html?cadastro=1&plano=essencial" class="btn-outline btn-block">Começar teste grátis</a>
+        </div>
+        <div class="price-card featured">
+          <span class="price-ribbon">Mais escolhido</span>
+          <h3>Profissional</h3>
+          <p class="price-desc">Para operações maiores, com mais de um responsável.</p>
+          <div class="price-tag" data-plano-preco="profissional">R$ 529,90<span>/mês</span></div>
+          <ul class="price-features">
+            <li>Até 80 fornecedores</li>
+            <li>2 administradores</li>
+            <li>Avaliadores ilimitados</li>
+            <li>Avaliação de produto por nota fiscal</li>
+          </ul>
+          <a href="app/index.html?cadastro=1&plano=profissional" class="btn-primary btn-block">Começar teste grátis</a>
+        </div>
+        <div class="price-card">
+          <h3>Enterprise</h3>
+          <p class="price-desc">Para empresas com muitos fornecedores e administradores.</p>
+          <div class="price-tag">Sob consulta</div>
+          <ul class="price-features">
+            <li>Fornecedores ilimitados</li>
+            <li>Administradores ilimitados</li>
+            <li>Atendimento dedicado</li>
+          </ul>
+          <a href="#contato" class="btn-outline btn-block">Falar com a gente</a>
+        </div>
       </div>
     </div>
   </section>
@@ -222,7 +275,14 @@
   <footer class="footer">
     <div class="container footer-container">
       <div class="footer-brand">
-        <span class="logo-bold">Homolog</span><span class="logo-tag">Pro</span>
+        <div class="logo">
+          <svg class="logo-seal" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="60" cy="60" r="54" stroke="currentColor" stroke-width="2" stroke-dasharray="3 5"/>
+            <circle cx="60" cy="60" r="44" stroke="currentColor" stroke-width="1.2"/>
+            <path d="M40 61 L53 75 L82 45" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span class="logo-bold">Homolog</span><span class="logo-tag">Pro</span>
+        </div>
         <p>Solução inteligente para homologação e qualificação de fornecedores.</p>
       </div>
       <div class="footer-links">
@@ -230,6 +290,7 @@
         <a href="#solucao">A Solução</a>
         <a href="#modulos">Módulos</a>
         <a href="#comparativo">Diferenciais</a>
+        <a href="#planos">Planos</a>
       </div>
       <div class="footer-links">
         <h4>Acesso Direto</h4>

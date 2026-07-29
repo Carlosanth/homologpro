@@ -520,3 +520,112 @@ body {
   .hero-text.text-center h1 { font-size: 34px; }
   .form-container { grid-template-columns: 1fr; }
 }
+
+/* PLANOS / PRICING */
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  gap: 30px;
+  align-items: stretch;
+}
+
+.price-card {
+  background: var(--surface-light);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  padding: 35px 30px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.price-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-light);
+}
+
+.price-card.featured {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-light);
+}
+
+.price-ribbon {
+  position: absolute;
+  top: -12px;
+  right: 24px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+
+.price-card h3 {
+  font-size: 20px;
+  color: var(--text-dark);
+  margin-bottom: 8px;
+}
+
+.price-desc {
+  color: var(--text-sec-dark);
+  font-size: 13.5px;
+  line-height: 1.5;
+  min-height: 40px;
+}
+
+.price-tag {
+  font-family: 'Inter', sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin: 18px 0 22px;
+}
+
+.price-tag span {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-sec-dark);
+}
+
+.price-features {
+  list-style: none;
+  margin-bottom: 26px;
+  flex-grow: 1;
+}
+
+.price-features li {
+  font-size: 14px;
+  color: var(--text-sec-dark);
+  padding: 7px 0;
+  border-top: 1px solid var(--border-light);
+}
+
+.price-features li:first-child {
+  border-top: none;
+}
+
+.btn-block {
+  display: block;
+  text-align: center;
+  width: 100%;
+}
+
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logo-seal {
+  width: 26px;
+  height: 26px;
+  color: var(--accent-cyan);
+  flex-shrink: 0;
+}
+
+.footer-brand .logo { margin-bottom: 4px; }

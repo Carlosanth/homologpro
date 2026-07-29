@@ -85,3 +85,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+// Preço dos planos ao vivo, vindo da mesma tabela (planos_config) que o app usa —
+// assim a landing nunca mostra um valor desatualizado.
+async function carregarPrecosPlanoLanding() {
+  try {
+    const { data, error } = await landingSupabase.from('planos_config').select('chave, preco');
+    if (error || !data) return;
+    data.forEach(row => {
+      const el = document.querySelector(`.price-tag[data-plano-preco="${row.chave}"]`);
+      if (el && row.preco != null) {
+        el.innerHTML = `R$ ${Number(row.preco).toFixed(2).replace('.', ',')}<span>/mês</span>`;
+      }
+    });
+  } catch (e) {
+    // se falhar, os preços padrão já escritos no HTML continuam visíveis
+  }
+}
+carregarPrecosPlanoLanding();
