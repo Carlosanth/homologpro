@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HomologPro | Plataforma Integrada de Gestão de Fornecedores</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+</head>
+<body>
+
+  <!-- NAVBAR (NAVY AZUL ESCURO) -->
+  <header class="navbar">
+    <div class="container nav-container">
+      <div class="logo">
+        <span class="logo-bold">Homolog</span><span class="logo-tag">Pro</span>
+      </div>
+      <nav class="nav-links">
+        <a href="#solucao">A Solução</a>
+        <a href="#modulos">Módulos</a>
+        <a href="#comparativo">Diferenciais</a>
+        <a href="#contato">Contato</a>
+      </nav>
+      <div class="nav-auth">
+        <!-- Ajuste "app/" abaixo se o app ficar em outro caminho/domínio -->
+        <div class="login-dropdown-wrap">
+          <button class="btn-login" onclick="event.stopPropagation(); toggleLoginDropdown()">Entrar</button>
+          <div class="login-dropdown" id="loginDropdown">
+            <div class="login-dropdown-error" id="loginDropdownError"></div>
+            <div class="login-dropdown-ok" id="loginDropdownOk"></div>
+            <div class="input-group">
+              <label for="ld-email">E-mail</label>
+              <input type="email" id="ld-email" placeholder="seuemail@empresa.com" autocomplete="username" onkeydown="if(event.key==='Enter')landingLogin()">
+            </div>
+            <div class="input-group">
+              <label for="ld-senha">Senha</label>
+              <input type="password" id="ld-senha" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')landingLogin()">
+              <p class="login-dropdown-forgot"><a href="#" onclick="event.preventDefault(); landingEsqueciSenha()">Esqueci minha senha</a></p>
+            </div>
+            <button class="btn-primary btn-full" onclick="landingLogin()">Entrar</button>
+          </div>
+        </div>
+        <a href="app/index.html?cadastro=1" class="btn-primary">Cadastrar-se</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- HERO SECTION (CENTRALIZADA E LIMPA) -->
+  <section class="hero">
+    <div class="container hero-container-single">
+      <div class="hero-text text-center">
+        <span class="badge">Gestão 100% Digital & Auditável</span>
+        <h1>Elimine planilhas, macros e documentos em papel na homologação de fornecedores.</h1>
+        <p>A plataforma <i>all-in-one</i> que automatiza a avaliação de serviços, cobrança de licenças sanitárias e conferência no recebimento com total conformidade.</p>
+        <div class="hero-buttons center">
+          <a href="app/index.html?cadastro=1" class="btn-primary btn-lg">Quero Testar Gratuitamente</a>
+          <a href="#solucao" class="btn-outline btn-lg">Conhecer Recursos</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- O PROBLEMA VS SOLUÇÃO -->
+  <section id="solucao" class="section gray-bg">
+    <div class="container">
+      <div class="section-header">
+        <h2>Você ainda perde tempo com rotinas manuais?</h2>
+        <p>Veja como o HomologPro substitui a complexidade de planilhas por processos automatizados.</p>
+      </div>
+      <div class="grid-3">
+        <div class="card-feature">
+          <div class="icon">📄</div>
+          <h3>Fim das Pastas Físicas</h3>
+          <p>Esqueça os arquivos em pastas "zebradas" guardados por 5 anos. Guarde e gerencie tudo em nuvem com retenção e descarte programado.</p>
+        </div>
+        <div class="card-feature">
+          <div class="icon">🤖</div>
+          <h3>Sem Robôs de Excel ou Macros</h3>
+          <p>Elimine macros e envios manuais de e-mail no Word. O HomologPro emite certidões, cartas e cobranças de forma 100% automática.</p>
+        </div>
+        <div class="card-feature">
+          <div class="icon">🚚</div>
+          <h3>Conferência no Recebimento</h3>
+          <p>Não conformidades de temperatura ou transporte na entrada da carga afetam diretamente a nota geral e o ranking do fornecedor.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MÓDULOS DA PLATAFORMA -->
+  <section id="modulos" class="section">
+    <div class="container">
+      <div class="section-header">
+        <h2>Módulos Especializados</h2>
+        <p>Desenvolvidos para conectar seu time interno de Qualidade aos fornecedores de bens e serviços.</p>
+      </div>
+
+      <div class="grid-3">
+        <div class="card-module">
+          <h3>Portal do Avaliador</h3>
+          <ul>
+            <li>Lembretes automáticos e contínuos de avaliações pendentes.</li>
+            <li>Histórico completo de Ordens de Serviço (OS) atreladas.</li>
+            <li>Aba de retenção para análise e exclusão segura de arquivos expirados.</li>
+          </ul>
+        </div>
+        <div class="card-module highlight">
+          <h3>Portal do Fornecedor</h3>
+          <ul>
+            <li>Link único e exclusivo enviado para atualização de certidões.</li>
+            <li>Download da versão antiga para consulta e upload facilitado.</li>
+            <li>Armazenamento do histórico das últimas 5 versões por documento.</li>
+          </ul>
+        </div>
+        <div class="card-module">
+          <h3>Inteligência & Qualidade</h3>
+          <ul>
+            <li>Dashboard com alertas em tempo real de reprovações.</li>
+            <li>Emissão automática de Planos de Ação e Certificados Semestrais.</li>
+            <li>Desconto automático de pontos por atraso na entrega de licenças.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TABELA COMPARATIVA -->
+  <section id="comparativo" class="section gray-bg">
+    <div class="container">
+      <div class="section-header">
+        <h2>Processo Tradicional vs. HomologPro</h2>
+      </div>
+      <div class="table-responsive">
+        <table class="comparative-table">
+          <thead>
+            <tr>
+              <th>Funcionalidade</th>
+              <th>Processo Antigo / Manual</th>
+              <th class="active-col">Com HomologPro</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Coleta de Avaliações</td>
+              <td>Formulários impressos preenchidos à mão</td>
+              <td class="active-col">Notificações digitais e portal responsivo</td>
+            </tr>
+            <tr>
+              <td>Cobrança de Documentos</td>
+              <td>Macros em Excel que dependem do usuário</td>
+              <td class="active-col">Disparo automático de links exclusivos aos fornecedores</td>
+            </tr>
+            <tr>
+              <td>Emissão de Documentos</td>
+              <td>Concatenação de dados Word + PDF via VBA</td>
+              <td class="active-col">Geração em 1 clique de cartas e certificados</td>
+            </tr>
+            <tr>
+              <td>Recebimento de Cargas</td>
+              <td>Desconectado do cadastro de fornecedores</td>
+              <td class="active-col">Vínculo direto da NF/Temperatura com a média geral</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- SEÇÃO DE CONTATO -->
+  <section id="contato" class="section">
+    <div class="container form-container">
+      <div class="form-text">
+        <h2>Ainda com dúvida se o HomologPro serve pra sua empresa?</h2>
+        <p>Me manda uma mensagem que eu te explico com calma como funciona — ou, se sua empresa precisa de um plano sob medida (mais fornecedores ou admins do que os planos padrão), é por aqui também.</p>
+        <div class="contact-info">
+          <p><strong>E-mail:</strong> contato@homologpro.com.br</p>
+          <p><strong>Suporte:</strong> suporte@homologpro.com.br</p>
+        </div>
+      </div>
+      <div class="form-box">
+        <h3>Fale comigo</h3>
+        <form id="leadForm">
+          <!-- honeypot: campo invisível pra humano, só bot preenche -->
+          <div class="hp-field" aria-hidden="true">
+            <label for="website">Website</label>
+            <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+          </div>
+          <div class="input-group">
+            <label for="nome">Nome Completo</label>
+            <input type="text" id="nome" placeholder="Seu nome" required>
+          </div>
+          <div class="input-group">
+            <label for="email">E-mail Corporativo</label>
+            <input type="email" id="email" placeholder="seuemail@empresa.com.br" required>
+          </div>
+          <div class="input-group">
+            <label for="empresa">Nome da Empresa</label>
+            <input type="text" id="empresa" placeholder="Razão social ou fantasia" required>
+          </div>
+          <div class="input-group">
+            <label for="fornecedores">Quantidade aproximada de Fornecedores</label>
+            <select id="fornecedores">
+              <option value="1-50">Até 50 fornecedores</option>
+              <option value="51-200">De 51 a 200 fornecedores</option>
+              <option value="201-500">De 201 a 500 fornecedores</option>
+              <option value="500+">Mais de 500 fornecedores</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label for="mensagem">Mensagem (opcional)</label>
+            <textarea id="mensagem" rows="3" placeholder="Conta um pouco do que você precisa..."></textarea>
+          </div>
+          <button type="submit" class="btn-primary btn-full">Enviar mensagem</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- RODAPÉ (AZUL ESCURO NAVY) -->
+  <footer class="footer">
+    <div class="container footer-container">
+      <div class="footer-brand">
+        <span class="logo-bold">Homolog</span><span class="logo-tag">Pro</span>
+        <p>Solução inteligente para homologação e qualificação de fornecedores.</p>
+      </div>
+      <div class="footer-links">
+        <h4>Navegação</h4>
+        <a href="#solucao">A Solução</a>
+        <a href="#modulos">Módulos</a>
+        <a href="#comparativo">Diferenciais</a>
+      </div>
+      <div class="footer-links">
+        <h4>Acesso Direto</h4>
+        <a href="app/index.html">Login de Usuário</a>
+        <a href="app/index.html?cadastro=1">Criar Conta</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2026 HomologPro. Todos os direitos reservados.</p>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
