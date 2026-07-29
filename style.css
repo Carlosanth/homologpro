@@ -415,7 +415,7 @@ body {
   color: var(--text-dark);
 }
 
-.input-group input, .input-group select {
+.input-group input, .input-group select, .input-group textarea {
   width: 100%;
   padding: 12px 16px;
   background: var(--surface-subtle);
@@ -427,7 +427,14 @@ body {
   transition: 0.3s;
 }
 
-.input-group input:focus, .input-group select:focus {
+.input-group textarea {
+  font-family: inherit;
+  min-height: 110px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.input-group input:focus, .input-group select:focus, .input-group textarea:focus {
   border-color: var(--accent);
   background: var(--surface-light);
   box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.15);
