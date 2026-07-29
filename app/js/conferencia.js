@@ -112,22 +112,28 @@ function renderLancarConferenciaTab() {
       </div>
       <p style="font-size:12px; font-weight:600; color:var(--text-sec); margin:14px 0 8px">Critérios</p>
       <div class="form-row three" id="cf-criterios">
-        ${criteriosAtivos.filter(c => c.tipo !== 'faixa').map(c => `
+        ${criteriosAtivos.filter(c => c.tipo !== 'faixa').map(c => {
+          const critProdutoMatch = c.tipo === 'nota'
+            ? d.criteriosProduto.find(cp => cp.ativo && normalizarNomeCriterio(cp.nome) === normalizarNomeCriterio(c.nome))
+            : null;
+          const limiteNota = critProdutoMatch ? critProdutoMatch.peso : 10;
+          return `
           <div class="form-group">
-            <label>${c.nome}${c.tipo === 'sim_nao' ? ` <span style="color:var(--text-muted); font-weight:400">(desconta ${c.desconto_se_nao} se "Não")</span>` : ''}</label>
+            <label>${c.nome}${c.tipo === 'sim_nao' ? ` <span style="color:var(--text-muted); font-weight:400">(desconta ${c.desconto_se_nao} se "Não")</span>` : ''}${c.tipo === 'nota' ? ` <span style="color:var(--text-muted); font-weight:400">(peso ${limiteNota})</span>` : ''}</label>
             ${c.tipo === 'sim_nao' ? `
               <select class="cf-resposta-input" data-criterio-id="${c.id}" data-tipo="sim_nao">
                 <option value="sim">Sim</option>
                 <option value="nao">Não</option>
               </select>
             ` : c.tipo === 'nota' ? `
-              <input type="number" min="0" max="10" step="0.5" class="cf-resposta-input" data-criterio-id="${c.id}" data-tipo="nota" data-criterio-nome="${c.nome}" placeholder="0 a 10" oninput="verificarNotaConferenciaAbaixoPeso(this)">
+              <input type="number" min="0" max="${limiteNota}" step="0.5" class="cf-resposta-input" data-criterio-id="${c.id}" data-tipo="nota" data-criterio-nome="${c.nome}" placeholder="0 a ${limiteNota}" oninput="verificarNotaConferenciaAbaixoPeso(this)">
               <div id="cf-motivo-wrap-${c.id}"></div>
             ` : `
               <input type="text" class="cf-resposta-input" data-criterio-id="${c.id}" data-tipo="texto">
             `}
           </div>
-        `).join('')}
+        `;
+        }).join('')}
       </div>
       ${criteriosAtivos.filter(c => c.tipo === 'faixa').map(c => `
         <div class="form-group" style="margin-top:10px">
@@ -405,12 +411,21 @@ function verificarNotaConferenciaAbaixoPeso(inp) {
   const nomeCriterio = inp.dataset.criterioNome;
   const wrap = document.getElementById(`cf-motivo-wrap-${criterioId}`);
   if (!wrap) return;
-  if (inp.value === '') { wrap.innerHTML = ''; return; }
+  if (inp.value === '') { inp.classList.remove('input-erro'); wrap.innerHTML = ''; return; }
 
   const d = db();
   const val = parseFloat(inp.value);
   const nomeNormalizado = normalizarNomeCriterio(nomeCriterio);
   const critProduto = d.criteriosProduto.find(c => c.ativo && normalizarNomeCriterio(c.nome) === nomeNormalizado);
+  // Sem critério correspondente no Avaliar Produto, a nota daqui usa a escala padrão de 0 a 10.
+  const limite = critProduto ? critProduto.peso : 10;
+
+  if (val > limite) {
+    inp.classList.add('input-erro');
+    wrap.innerHTML = `<span style="color:var(--danger); font-size:11px">Valor máximo para este critério: ${limite}</span>`;
+    return;
+  }
+  inp.classList.remove('input-erro');
 
   if (!critProduto || val >= critProduto.peso) { wrap.innerHTML = ''; return; }
 
@@ -442,6 +457,7 @@ async function salvarConferencia() {
   const respostas = [];
   let descontoTotal = 0;
   let faltando = false;
+  let acimaDoPeso = false;
 
   document.querySelectorAll('.cf-resposta-input').forEach(inp => {
     const criterio = criteriosAtivos.find(c => c.id === inp.dataset.criterioId);
@@ -459,6 +475,8 @@ async function salvarConferencia() {
       // ficou abaixo do peso dele, o motivo é obrigatório aqui.
       const nomeNormalizado = normalizarNomeCriterio(criterio.nome);
       const critProduto = d.criteriosProduto.find(c => c.ativo && normalizarNomeCriterio(c.nome) === nomeNormalizado);
+      const limite = critProduto ? critProduto.peso : 10;
+      if (valor > limite) { acimaDoPeso = true; return; }
       if (critProduto && valor < critProduto.peso) {
         const motivoInp = document.querySelector(`.cf-nota-motivo[data-criterio-id="${criterio.id}"]`);
         motivo = motivoInp ? motivoInp.value.trim() : '';
@@ -468,6 +486,8 @@ async function salvarConferencia() {
     descontoTotal += desconto;
     respostas.push({ criterioId: criterio.id, nome: criterio.nome, tipo: criterio.tipo, valor, desconto, motivo });
   });
+
+  if (acimaDoPeso) { toast('Tem critério com nota acima do limite máximo permitido — corrija antes de salvar.'); return; }
 
   criteriosAtivos.filter(c => c.tipo === 'faixa').forEach(c => {
     const min = parseFloat(document.querySelector(`.cf-faixa-min[data-criterio-id="${c.id}"]`)?.value);
