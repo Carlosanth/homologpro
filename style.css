@@ -625,14 +625,14 @@ body {
 .logo {
   display: flex;
   align-items: center;
-  gap: 8px;
 }
 
 .logo-seal {
-  width: 26px;
-  height: 26px;
+  width: 39px;
+  height: 38px;
   color: var(--accent-cyan);
   flex-shrink: 0;
+  margin-right: 8px;
 }
 
 .footer-brand .logo { margin-bottom: 4px; }

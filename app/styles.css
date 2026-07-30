@@ -126,7 +126,6 @@ body {
   height: 76px;
   color: var(--auth-cyan);
   transform: rotate(-8deg);
-  margin-bottom: 22px;
   opacity: .92;
 }
 
