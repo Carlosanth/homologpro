@@ -154,6 +154,7 @@ body {
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 0 4px 12px rgba(0, 102, 255, 0.3);
+  text-decoration: none;
 }
 
 .btn-primary:hover {
