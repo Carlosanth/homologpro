@@ -10,6 +10,19 @@ supabaseClient.auth.onAuthStateChange((event) => {
   if (event === 'PASSWORD_RECOVERY') mostrarRedefinirSenha();
 });
 
+// Se o link de redefinição já expirou ou já foi usado (às vezes o próprio
+// provedor de e-mail "visita" o link sozinho pra escanear por segurança,
+// antes da pessoa clicar de verdade, e isso consome o link), o Supabase
+// não dispara PASSWORD_RECOVERY — ele só deixa um erro no hash da URL.
+// Sem isso aqui, a pessoa só cairia na tela de login comum, sem entender por quê.
+(() => {
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  if (hash.get('error')) {
+    window.history.replaceState({}, '', window.location.pathname);
+    setTimeout(() => toast('Esse link de redefinição expirou ou já foi usado. Peça um novo link de "esqueci minha senha".', 5000), 300);
+  }
+})();
+
 initDB();
 checkSession();
 carregarPrecosPlanoPublico();

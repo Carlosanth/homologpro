@@ -22,22 +22,13 @@ function donutSituacaoHTML(aprovados, parciais, reprovados) {
     return svg;
   }).join('');
 
-  const legenda = segmentos.map(s => `
-    <div style="display:flex; align-items:center; gap:8px; font-size:12.5px; padding:6px 0; border-bottom:1px solid var(--border)">
-      <span style="width:9px; height:9px; border-radius:50%; background:${s.cor}; flex-shrink:0"></span>
-      <span style="flex:1">${s.label}</span>
-      <span style="font-weight:700">${s.valor}</span>
-      <span style="color:var(--text-muted); font-size:11px; width:36px; text-align:right">${Math.round((s.valor / total) * 100)}%</span>
-    </div>`).join('');
-
   return `
-    <div style="display:flex; align-items:center; gap:26px; flex-wrap:wrap">
-      <svg width="140" height="140" viewBox="0 0 140 140" style="flex-shrink:0">
+    <div style="display:flex; justify-content:center">
+      <svg width="140" height="140" viewBox="0 0 140 140">
         ${arcos}
         <text x="70" y="66" text-anchor="middle" font-size="24" font-weight="700" fill="var(--text)">${total}</text>
         <text x="70" y="83" text-anchor="middle" font-size="10.5" fill="var(--text-muted)">avaliação(ões)</text>
       </svg>
-      <div style="flex:1; min-width:150px">${legenda}</div>
     </div>`;
 }
 
@@ -52,6 +43,12 @@ function renderAdDashboard() {
   const mesAtual = new Date().getMonth() + 1;
   const anoAtual = new Date().getFullYear();
   const chaveMes = `${anoAtual}-${mesAtual}`;
+
+  // Cards com "alerta-shake" agitam em sequência (efeito escada), não todos
+  // de uma vez — cada card chamado por proximoShakeDelay() espera um pouco
+  // mais que o anterior.
+  let shakeIndex = 0;
+  const proximoShakeDelay = () => (0.3 + (shakeIndex++ * 0.15)).toFixed(2);
 
   const podeFornecedores = temAcessoModulo('fornecedores');
   const podeAvaliacoes = temAcessoModulo('avaliacoes');
@@ -78,7 +75,7 @@ function renderAdDashboard() {
     const pendentesAprovacao = (d.documentosPendentesAprovacao || []).filter(p => p.status === 'pendente');
     if (pendentesAprovacao.length) {
       alertaAprovacao = `
-        <div class="card alert-collapse alerta-shake" id="alerta-aprovacao-portal" style="margin-bottom:16px">
+        <div class="card alert-collapse alerta-shake" id="alerta-aprovacao-portal" style="margin-bottom:16px; animation-delay:${proximoShakeDelay()}s">
           <div class="alert-collapse-header" onclick="toggleAlertaCollapse('alerta-aprovacao-portal')">
             <div class="bar bar-accent"></div>
             <span style="flex:1; font-size:13px; font-weight:600">Documentos enviados pelo portal — aguardando aprovação</span>
@@ -145,7 +142,7 @@ function renderAdDashboard() {
         subPendentes = `<span class="dot dot-warn"></span><span>${avaliadoresPendentesLista.length} avaliador(es) com pendência</span>`;
 
         alertaAvaliadoresPendentesHTML = `
-          <div class="card alert-collapse alerta-shake" id="alerta-avaliadores-pendentes" style="margin-bottom:16px">
+          <div class="card alert-collapse alerta-shake" id="alerta-avaliadores-pendentes" style="margin-bottom:16px; animation-delay:${proximoShakeDelay()}s">
             <div class="alert-collapse-header" onclick="toggleAlertaCollapse('alerta-avaliadores-pendentes')">
               <div class="bar bar-warn"></div>
               <span style="flex:1; font-size:13px; font-weight:600">Avaliadores com avaliação pendente</span>
@@ -205,7 +202,7 @@ function renderAdDashboard() {
     // ---------- ALERTA: NOTIFICAR NOTA BAIXA (com "cobrado em") ----------
     if (reprovadosLista.length) {
       alertaNotificar = `
-        <div class="card alert-collapse alerta-shake" id="alerta-notificar-reprovados" style="margin-bottom:16px">
+        <div class="card alert-collapse alerta-shake" id="alerta-notificar-reprovados" style="margin-bottom:16px; animation-delay:${proximoShakeDelay()}s">
           <div class="alert-collapse-header" onclick="toggleAlertaCollapse('alerta-notificar-reprovados')">
             <div class="bar bar-danger"></div>
             <span style="flex:1; font-size:13px; font-weight:600; color:var(--danger)">Fornecedores para notificar (Parcial/Reprovado — ${MESES[mesAtual]})</span>
@@ -353,7 +350,7 @@ function renderAdDashboard() {
         </div>`;
       };
       alertasDoc = `
-        <div class="card alert-collapse alerta-shake" id="alerta-docs-fornecedores" style="margin-bottom:16px">
+        <div class="card alert-collapse alerta-shake" id="alerta-docs-fornecedores" style="margin-bottom:16px; animation-delay:${proximoShakeDelay()}s">
           <div class="alert-collapse-header" onclick="toggleAlertaCollapse('alerta-docs-fornecedores')">
             <div class="bar bar-danger"></div>
             <span style="flex:1; font-size:13px; font-weight:600; color:var(--danger)">Documentos de fornecedores que precisam de atenção</span>
@@ -388,7 +385,7 @@ function renderAdDashboard() {
         </div>`;
       };
       alertasDocUnidades = `
-        <div class="card alert-collapse alerta-shake" id="alerta-docs-unidades" style="margin-bottom:16px">
+        <div class="card alert-collapse alerta-shake" id="alerta-docs-unidades" style="margin-bottom:16px; animation-delay:${proximoShakeDelay()}s">
           <div class="alert-collapse-header" onclick="toggleAlertaCollapse('alerta-docs-unidades')">
             <div class="bar bar-danger"></div>
             <span style="flex:1; font-size:13px; font-weight:600; color:var(--danger)">Documentos de "Meus Documentos" que precisam de atenção</span>
