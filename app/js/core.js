@@ -247,6 +247,13 @@ async function enviarLinkRedefinicao() {
 // (mesmo que já exista uma sessão "normal" salva) e abre direto no
 // formulário de nova senha, ignorando login/cadastro.
 function mostrarRedefinirSenha() {
+  // Tira o token de recuperação da barra de endereço assim que a tela de
+  // nova senha aparece. Sem isso, se o navegador recarregar essa aba sozinho
+  // depois (comum no celular, ao voltar de outro app), ele reprocessa esse
+  // mesmo link do zero e mostra essa tela de novo, mesmo depois da pessoa já
+  // ter trocado a senha e saído normalmente.
+  window.history.replaceState({}, '', window.location.pathname);
+
   const boot = document.getElementById('boot-loading');
   if (boot) boot.style.display = 'none';
   document.getElementById('app').classList.remove('active');
