@@ -1,6 +1,15 @@
 // ============ INIT: dispara depois que todos os outros arquivos já carregaram ============
 // ============ INIT ============
 
+// Precisa rodar de forma síncrona, ANTES de qualquer chamada assíncrona (inclusive
+// checkSession()): quando a pessoa chega aqui pelo link de "esqueci minha senha",
+// o Supabase cria uma sessão de verdade (não é um "modo especial"), e se
+// checkSession() rodar antes de a gente saber que isso é uma recuperação de senha,
+// ele loga a pessoa direto no dashboard — em vez de deixá-la definir a senha nova
+// primeiro. Essa checagem de hash acontece na hora, antes do Supabase processar
+// e limpar a URL, então dá pra saber com certeza se é um link de recuperação.
+window.__isPasswordRecovery = /type=recovery/.test(window.location.hash);
+
 // Precisa ser registrado ANTES do checkSession(): quando a pessoa chega aqui
 // pelo link de "esqueci minha senha", o Supabase cria uma sessão temporária
 // de recuperação e dispara esse evento — sem isso, checkSession() trataria

@@ -836,6 +836,11 @@ async function doLogout() {
 // Ao recarregar a página, o Supabase mantém a sessão salva (em localStorage,
 // gerenciado por ele mesmo) — então recuperamos e já logamos de novo.
 async function checkSession() {
+  // Se for um link de recuperação de senha, não faz nada aqui — deixa o
+  // evento PASSWORD_RECOVERY (registrado em init.js) mostrar a tela de nova
+  // senha sozinho, sem correr o risco de logar a pessoa no dashboard antes.
+  if (window.__isPasswordRecovery) return;
+
   const { data: { session } } = await supabaseClient.auth.getSession();
   let logado = false;
   if (session) logado = await carregarPerfilELogar();
