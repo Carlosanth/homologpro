@@ -273,8 +273,16 @@ async function salvarNovaSenha() {
     return;
   }
 
-  // A sessão de recuperação já vira uma sessão válida depois do updateUser —
-  // aproveita e já loga a pessoa direto, sem pedir a senha de novo.
+  // O Supabase mantém a marcação de "sessão de recuperação" grudada nessa
+  // sessão enquanto ela durar — mesmo depois da senha já ter sido trocada.
+  // Sem isso aqui, checkSession() ia continuar achando (mesmo dias depois)
+  // que essa é uma recuperação de senha e forçaria essa tela de novo sempre.
+  // Trocamos por uma sessão normal, de login de verdade, com a senha nova.
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  const email = user?.email;
+  await supabaseClient.auth.signOut();
+  if (email) await supabaseClient.auth.signInWithPassword({ email, password: senha });
+
   toast('Senha redefinida com sucesso!');
   await carregarPerfilELogar();
 }
@@ -833,6 +841,18 @@ async function doLogout() {
   document.getElementById('login-senha').value = '';
 }
 
+// Decodifica só a parte central do JWT (o "payload"), sem checar assinatura —
+// aqui é só pra ler o campo "amr" (como a sessão foi criada), não pra validar
+// segurança; quem valida a sessão de verdade é o próprio Supabase.
+function sessaoVeioDeRecuperacaoSenha(session) {
+  try {
+    const payload = JSON.parse(atob(session.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return (payload.amr || []).some(m => m.method === 'recovery');
+  } catch (e) {
+    return false;
+  }
+}
+
 // Ao recarregar a página, o Supabase mantém a sessão salva (em localStorage,
 // gerenciado por ele mesmo) — então recuperamos e já logamos de novo.
 async function checkSession() {
@@ -842,6 +862,17 @@ async function checkSession() {
   if (window.__isPasswordRecovery) return;
 
   const { data: { session } } = await supabaseClient.auth.getSession();
+
+  // Mesmo que o link específico já tenha "expirado" (por exemplo, se o app
+  // de e-mail do celular abriu o link sozinho antes, num pré-carregamento),
+  // a sessão que sobrou pode ainda ser uma sessão de recuperação de senha —
+  // e nesse caso a pessoa TEM que trocar a senha antes de entrar, nunca cai
+  // direto no dashboard com a senha antiga.
+  if (session && sessaoVeioDeRecuperacaoSenha(session)) {
+    mostrarRedefinirSenha();
+    return;
+  }
+
   let logado = false;
   if (session) logado = await carregarPerfilELogar();
   if (!logado) document.getElementById('login-screen').style.display = 'flex';
