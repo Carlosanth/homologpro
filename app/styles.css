@@ -407,7 +407,6 @@ body {
 
 .alerta-shake {
   animation: alertaShake 0.4s ease-in-out 2;
-  animation-delay: 0.3s;
 }
 
 .progresso-overlay {
@@ -3038,4 +3037,16 @@ tr:hover td {
   .forms-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ===== Dashboard v2 — grid Assinatura + Lixeira ===== */
+.admin-grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 860px) {
+  .admin-grid2 { grid-template-columns: 1fr; }
 }
