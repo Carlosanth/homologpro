@@ -126,7 +126,6 @@ body {
   height: 76px;
   color: var(--auth-cyan);
   transform: rotate(-8deg);
-  margin-bottom: 22px;
   opacity: .92;
 }
 
@@ -135,7 +134,6 @@ body {
   font-size: 26px;
   font-weight: 700;
   letter-spacing: -.2px;
-  margin-bottom: 6px;
 }
 .auth-wordmark .logo-tag { color: var(--auth-cyan); }
 
@@ -270,7 +268,7 @@ body {
 .auth-shell--avaliador .auth-switch { color: #64748B; }
 .auth-shell--avaliador .auth-perf { grid-area: divider; background-color: rgba(255,255,255,.08); }
 .auth-shell--avaliador .auth-panel { grid-area: panel; }
-.auth-shell--avaliador .auth-brand-top { grid-area: brandtop; padding: 44px 36px 0; }
+.auth-shell--avaliador .auth-brand-top {display: flex;grid-area: brandtop;padding: 44px 36px 0;align-items: center;gap: 10px;}
 .auth-shell--avaliador .auth-brand-bottom { grid-area: brandbottom; padding: 0 36px 44px; }
 .auth-shell--avaliador .auth-brand-bottom .auth-brand-foot { margin-top: 20px; }
 
@@ -1004,7 +1002,7 @@ body {
 }
 
 .form-group input, .form-group select, .form-group textarea {
-  padding: 8px 11px;
+  padding: 11px 11px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   font-size: 13px;
