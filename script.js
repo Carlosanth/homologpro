@@ -63,6 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
       email: document.getElementById('email').value.trim(),
       empresa: document.getElementById('empresa').value.trim(),
       fornecedores: document.getElementById('fornecedores').value,
+      admins: document.getElementById('admins').value,
       mensagem: document.getElementById('mensagem').value.trim(),
       website: document.getElementById('website').value, // honeypot
     };
