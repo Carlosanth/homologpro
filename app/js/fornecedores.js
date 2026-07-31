@@ -214,7 +214,12 @@ function diasParaVencer(dataISO) {
 
 function contarDocumentosVencendo(d) {
   const vencidos = [], proximos = [];
+  // Só considera documentos de fornecedores ativos (não conta desativados),
+  // que é o que aparece por padrão na tela — pra não mostrar o alerta
+  // sobre documentos de fornecedores que o usuário nem está vendo na listagem.
+  const idsFornecedoresAtivos = new Set(d.fornecedores.filter(f => f.ativo !== false).map(f => f.id));
   d.documentos.forEach(doc => {
+    if (!idsFornecedoresAtivos.has(doc.fornecedorId)) return;
     const dias = diasParaVencer(doc.validade);
     const aviso = doc.diasAviso ?? DIAS_AVISO_PADRAO;
     if (dias < 0) vencidos.push(doc);
