@@ -20,23 +20,15 @@
 <div id="login-screen">
   <div class="auth-shell auth-shell--avaliador" id="auth-shell">
 
-    <aside class="auth-brand">
-      <div>
-        <svg class="auth-seal" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <circle cx="60" cy="60" r="54" stroke="currentColor" stroke-width="2" stroke-dasharray="3 5"/>
-          <circle cx="60" cy="60" r="44" stroke="currentColor" stroke-width="1.2"/>
-          <path d="M40 61 L53 75 L82 45" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <h1 class="auth-wordmark">HomologPro</h1>
-        <p class="auth-tagline">Área do avaliador</p>
-        <ul class="auth-points">
-          <li>Veja seus formulários pendentes</li>
-          <li>Envie suas avaliações</li>
-          <li>Acompanhe seu histórico de envios</li>
-        </ul>
-      </div>
-      <div class="auth-brand-foot">Plataforma de gestão de fornecedores</div>
-    </aside>
+    <div class="auth-brand-top">
+      <svg class="auth-seal" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="60" cy="60" r="54" stroke="currentColor" stroke-width="2" stroke-dasharray="3 5"/>
+        <circle cx="60" cy="60" r="44" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M40 61 L53 75 L82 45" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <h1 class="auth-wordmark">HomologPro</h1>
+      <p class="auth-tagline">Área do avaliador</p>
+    </div>
 
     <div class="auth-perf" aria-hidden="true"></div>
 
@@ -58,9 +50,18 @@
           </div>
           <button class="btn btn-primary btn-block" onclick="doLogin()">Entrar</button>
         </div>
-        <p class="auth-switch">Esqueceu a senha ou não tem acesso ainda? Fale com o administrador da sua empresa.</p>
+        <p class="auth-switch">Esqueceu a senha ou não tem acesso ainda?<br>Fale com o administrador da sua empresa.</p>
       </div>
     </section>
+
+    <div class="auth-brand-bottom">
+      <ul class="auth-points">
+        <li>Veja seus formulários pendentes</li>
+        <li>Envie suas avaliações</li>
+        <li>Acompanhe seu histórico de envios</li>
+      </ul>
+      <div class="auth-brand-foot">Plataforma de gestão de fornecedores</div>
+    </div>
   </div>
 </div>
 

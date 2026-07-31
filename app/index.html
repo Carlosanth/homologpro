@@ -27,15 +27,17 @@
   <div class="auth-shell" id="auth-shell">
 
     <aside class="auth-brand">
-      <a href="https://homologpro.com.br">
-        <div>
-          <svg class="auth-seal" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <circle cx="60" cy="60" r="54" stroke="currentColor" stroke-width="2" stroke-dasharray="3 5"/>
-            <circle cx="60" cy="60" r="44" stroke="currentColor" stroke-width="1.2"/>
-            <path d="M40 61 L53 75 L82 45" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-      </a>
+      <div class="auth-brand-top">
+        <a href="https://homologpro.com.br">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <svg class="auth-seal" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <circle cx="60" cy="60" r="54" stroke="currentColor" stroke-width="2" stroke-dasharray="3 5"/>
+              <circle cx="60" cy="60" r="44" stroke="currentColor" stroke-width="1.2"/>
+              <path d="M40 61 L53 75 L82 45" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </a>
         <h1 class="auth-wordmark">Homolog<span class="logo-tag">Pro</span></h1>
+      </div>
         <p class="auth-tagline">Gestão de qualidade e conformidade de fornecedores</p>
         <ul class="auth-points">
           <li>Rastreabilidade completa das avaliações</li>
@@ -172,6 +174,48 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- ACESSO BLOQUEADO (teste acabou ou plano cancelado) -->
+      <div id="bloqueio-form-wrap" style="display:none">
+        <div class="auth-head">
+          <h2 id="bloqueio-titulo">Seu período de teste acabou</h2>
+          <p id="bloqueio-mensagem">Esperamos que tenha gostado da experiência!<br>Escolha um dos planos abaixo para continuar usando o HomologPro.</p>
+        </div>
+        <div class="auth-error" id="bloqueio-error"></div>
+
+        <div id="bloqueio-plan-area">
+          <div class="plan-cards" role="radiogroup" aria-label="Plano">
+            <label class="plan-card" data-plano="essencial" tabindex="0" onclick="assinarPlanoBloqueio('essencial')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();assinarPlanoBloqueio('essencial');}">
+              <div>
+                <div class="plan-name">Essencial</div>
+                <div class="plan-desc">Até 15 fornecedores · 1 admin · avaliadores ilimitados</div>
+              </div>
+              <div class="plan-price" data-plano-preco="essencial">R$ 239,90<span>/mês</span></div>
+            </label>
+            <label class="plan-card recommended" data-plano="profissional" tabindex="0" onclick="assinarPlanoBloqueio('profissional')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();assinarPlanoBloqueio('profissional');}">
+              <div>
+                <div class="plan-name">Profissional</div>
+                <div class="plan-desc">Até 80 fornecedores · 2 admins · avaliadores ilimitados · avaliação de produto por NF</div>
+              </div>
+              <div class="plan-price" data-plano-preco="profissional">R$ 529,90<span>/mês</span></div>
+            </label>
+            <label class="plan-card" tabindex="0" onclick="window.location.href='mailto:contato@homologpro.com.br?subject=Plano Enterprise'">
+              <div>
+                <div class="plan-name">Enterprise</div>
+                <div class="plan-desc">Indicado para empresas que tenham muitos fornecedores e administradores. Entre em contato conosco e saiba mais.</div>
+              </div>
+              <div class="plan-price">Sob consulta</div>
+            </label>
+          </div>
+          <p class="auth-switch"><a href="#" onclick="event.preventDefault(); doLogout()">Sair</a></p>
+        </div>
+
+        <!-- Avaliador vê só isso, sem cards de plano (quem escolhe plano é o admin) -->
+        <p class="auth-switch" id="bloqueio-contato-admin" style="display:none">
+          Fale com o administrador da sua empresa pra continuar usando o sistema.
+          <br><a href="#" onclick="event.preventDefault(); doLogout()">Sair</a>
+        </p>
       </div>
 
     </section>

@@ -126,6 +126,7 @@ body {
   height: 76px;
   color: var(--auth-cyan);
   transform: rotate(-8deg);
+  margin-bottom: 22px;
   opacity: .92;
 }
 
@@ -251,12 +252,45 @@ body {
 .auth-switch a:hover { text-decoration: underline; }
 
 /* -- variação escura, só pro Portal do avaliador (avaliador.html) -- */
-.auth-shell--avaliador { background: var(--auth-ink); }
+.auth-shell--avaliador {
+  background: var(--auth-ink);
+  background-image: radial-gradient(circle at 80% 0%, var(--auth-ink-soft), var(--auth-ink) 60%);
+  color: #eef4f1;
+  display: grid;
+  grid-template-columns: 320px 1px 1fr;
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    "brandtop divider panel"
+    ".        divider panel"
+    "brandbottom divider panel";
+}
 .auth-shell--avaliador .auth-head h2 { color: #EEF4F1; }
 .auth-shell--avaliador .auth-head p { color: var(--auth-cyan); font-weight: 600; }
 .auth-shell--avaliador .auth-form label { color: #94A3B8; }
 .auth-shell--avaliador .auth-switch { color: #64748B; }
-.auth-shell--avaliador .auth-perf { background-color: rgb(255, 255, 255); }
+.auth-shell--avaliador .auth-perf { grid-area: divider; background-color: rgba(255,255,255,.08); }
+.auth-shell--avaliador .auth-panel { grid-area: panel; }
+.auth-shell--avaliador .auth-brand-top { grid-area: brandtop; padding: 44px 36px 0; }
+.auth-shell--avaliador .auth-brand-bottom { grid-area: brandbottom; padding: 0 36px 44px; }
+.auth-shell--avaliador .auth-brand-bottom .auth-brand-foot { margin-top: 20px; }
+
+@media (max-width: 900px) {
+  .auth-shell--avaliador {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    grid-template-areas: "brandtop" "panel" "brandbottom";
+    min-height: 0;
+  }
+  .auth-shell--avaliador .auth-brand-top {
+    padding: 30px 28px 20px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+  .auth-shell--avaliador .auth-panel {
+    padding: 24px 28px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+  .auth-shell--avaliador .auth-brand-bottom { padding: 20px 28px 28px; }
+}
 
 .auth-forgot { text-align: right; margin-top: 6px; font-size: 11.5px; }
 .auth-forgot a { color: var(--auth-text-soft); text-decoration: none; }
