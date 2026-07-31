@@ -89,8 +89,8 @@ async function removerAnexosAvaliacaoRetencao(id) {
 
   for (const a of av.anexos) {
     if (a.caminhoStorage) {
-      const { error: storageErr } = await supabaseClient.storage.from('anexos-avaliacoes').remove([a.caminhoStorage]);
-      if (storageErr) { toast('Erro ao remover anexo: ' + storageErr.message); return; }
+      try { await r2Remover(a.caminhoStorage); }
+      catch (storageErr) { toast('Erro ao remover anexo: ' + storageErr.message); return; }
     }
   }
 
@@ -112,7 +112,7 @@ async function excluirAvaliacaoRetencao(id) {
 
   for (const a of (av.anexos || [])) {
     if (a.caminhoStorage) {
-      await supabaseClient.storage.from('anexos-avaliacoes').remove([a.caminhoStorage]);
+      try { await r2Remover(a.caminhoStorage); } catch (e) { console.error('Falha ao remover anexo do R2:', e); }
     }
   }
 

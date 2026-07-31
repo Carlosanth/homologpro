@@ -490,17 +490,43 @@ async function assinarPlanoBloqueio(plano) {
   const errBox = document.getElementById('bloqueio-error');
   errBox.style.display = 'none';
   toast('Processando...');
-  // Passa o token na mão, em vez de confiar no anexo automático do
-  // supabase-js — nesse ponto específico (bem no início do login, antes da
-  // sessão "assentar" de vez), o anexo automático às vezes ainda não está
-  // pronto, e a function do servidor recebia a chamada sem Authorization.
-  const { data: { session } } = await supabaseClient.auth.getSession();
-  const { data, error } = await supabaseClient.functions.invoke('criar-checkout-sessao', {
-    body: { plano },
-    headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined,
-  });
 
-  if (error || !data || data.ok === false) {
+  let { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session) {
+    errBox.textContent = 'Sua sessão expirou. Clique em Sair e faça login de novo.';
+    errBox.style.display = 'block';
+    return;
+  }
+  // Força um token fresco antes de usar — a renovação automática em segundo
+  // plano pode não ter rodado se a pessoa passou um tempo fora dessa aba
+  // (ex: decidindo no checkout do Stripe e depois voltando), deixando o
+  // token salvo mais velho do que o servidor ainda aceita.
+  const { data: refreshed } = await supabaseClient.auth.refreshSession();
+  if (refreshed && refreshed.session) session = refreshed.session;
+
+  // Chamada direta via fetch, em vez de supabaseClient.functions.invoke() —
+  // nesse ponto específico (tela de bloqueio, antes do dashboard carregar),
+  // o anexo automático do cabeçalho de autenticação pela biblioteca não
+  // estava confiável. Fetch direto elimina essa ambiguidade.
+  let data;
+  try {
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/criar-checkout-sessao`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': SUPABASE_PUBLISHABLE_KEY,
+      },
+      body: JSON.stringify({ plano }),
+    });
+    data = await resp.json();
+  } catch (e) {
+    errBox.textContent = 'Não foi possível processar agora. Tente novamente em instantes.';
+    errBox.style.display = 'block';
+    return;
+  }
+
+  if (!data || data.ok === false) {
     errBox.textContent = (data && data.error) || 'Não foi possível processar agora. Tente novamente em instantes.';
     errBox.style.display = 'block';
     return;

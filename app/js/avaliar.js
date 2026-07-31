@@ -359,8 +359,9 @@ async function enviarAvaliacao() {
 
     const nomeSeguro = sanitizarNomeArquivo(a.nome);
     const caminho = `${currentUser.empresaId}/${currentUser.id}/${Date.now()}_${nomeSeguro}`;
-    const { error: uploadErr } = await supabaseClient.storage.from('anexos-avaliacoes').upload(caminho, a._file);
-    if (uploadErr) { toast('Erro ao enviar anexo "' + a.nome + '": ' + uploadErr.message); return; }
+    try {
+      await r2Upload(caminho, a._file);
+    } catch (uploadErr) { toast('Erro ao enviar anexo "' + a.nome + '": ' + uploadErr.message); return; }
     anexosFinal.push({ nome: a.nome, tamanho: a.tamanho, caminhoStorage: caminho });
   }
 

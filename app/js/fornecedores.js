@@ -64,7 +64,7 @@ async function limparVersoesAntigasDocumento(documentoId) {
   const excedentes = data.slice(LIMITE_VERSOES_DOCUMENTO); // o que passar do limite
   for (const v of excedentes) {
     if (v.caminho_storage) {
-      await supabaseClient.storage.from('documentos-fornecedores').remove([v.caminho_storage]);
+      try { await r2Remover(v.caminho_storage); } catch (e) { console.error('Falha ao remover versão antiga do R2:', e); }
     }
     await supabaseClient.from('documentos_versoes').delete().eq('id', v.id);
   }
@@ -641,8 +641,9 @@ async function salvarEdicaoDocumento(docId, fornecedorId) {
     const nomeArquivoSeguro = sanitizarNomeArquivo(nomeArquivoFinal);
     const caminhoStorage = `${currentUser.empresaId}/${fornecedorId}/${Date.now()}_${nomeArquivoSeguro}`;
 
-    const { error: uploadErr } = await supabaseClient.storage.from('documentos-fornecedores').upload(caminhoStorage, novoArquivo);
-    if (uploadErr) { toast('Erro ao enviar arquivo: ' + uploadErr.message); return; }
+    try {
+      await r2Upload(caminhoStorage, novoArquivo);
+    } catch (uploadErr) { toast('Erro ao enviar arquivo: ' + uploadErr.message); return; }
 
     updatePayload.nome_arquivo = nomeArquivoFinal;
     updatePayload.caminho_storage = caminhoStorage;
@@ -688,15 +689,9 @@ async function baixarVersaoDocumento(versaoId) {
   const v = d.documentosVersoes.find(x => x.id === versaoId);
   if (!v || !v.caminhoStorage) return;
 
-  const { data, error } = await supabaseClient.storage.from('documentos-fornecedores').download(v.caminhoStorage);
-  if (error) { toast('Erro ao abrir arquivo: ' + error.message); return; }
-
-  const url = URL.createObjectURL(data);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = v.nomeArquivo || 'documento';
-  link.click();
-  URL.revokeObjectURL(url);
+  try {
+    await r2Baixar(v.caminhoStorage, v.nomeArquivo || 'documento');
+  } catch (error) { toast('Erro ao abrir arquivo: ' + error.message); }
 }
 
 function toggleMenuFornecedor(id, event) {
@@ -777,8 +772,9 @@ async function enviarAnexoFornecedor(fornecedorId, input) {
   const nomeArquivoSeguro = sanitizarNomeArquivo(file.name);
   const caminhoStorage = `${currentUser.empresaId}/anexos/${fornecedorId}/${Date.now()}_${nomeArquivoSeguro}`;
 
-  const { error: uploadErr } = await supabaseClient.storage.from('documentos-fornecedores').upload(caminhoStorage, file);
-  if (uploadErr) {
+  try {
+    await r2Upload(caminhoStorage, file);
+  } catch (uploadErr) {
     toast('Erro ao enviar arquivo: ' + uploadErr.message);
     if (label) label.innerHTML = `${ic('paperclip', 13)} Clique para selecionar arquivo`;
     return;
@@ -805,15 +801,9 @@ async function baixarAnexoFornecedor(anexoId) {
   const info = anexosFornecedorTemp[anexoId];
   if (!info) return;
 
-  const { data, error } = await supabaseClient.storage.from('documentos-fornecedores').download(info.caminhoStorage);
-  if (error) { toast('Erro ao abrir arquivo: ' + error.message); return; }
-
-  const url = URL.createObjectURL(data);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = info.nomeArquivo;
-  link.click();
-  URL.revokeObjectURL(url);
+  try {
+    await r2Baixar(info.caminhoStorage, info.nomeArquivo);
+  } catch (error) { toast('Erro ao abrir arquivo: ' + error.message); }
 }
 
 async function removerAnexoFornecedor(anexoId, fornecedorId) {
@@ -825,8 +815,8 @@ async function removerAnexoFornecedor(anexoId, fornecedorId) {
   if (error) { toast('Erro ao excluir: ' + error.message); return; }
 
   if (info && info.caminhoStorage) {
-    const { error: storageErr } = await supabaseClient.storage.from('documentos-fornecedores').remove([info.caminhoStorage]);
-    if (storageErr) console.error('Linha do banco removida, mas falhou ao apagar o arquivo do Storage:', storageErr);
+    try { await r2Remover(info.caminhoStorage); }
+    catch (storageErr) { console.error('Linha do banco removida, mas falhou ao apagar o arquivo do R2:', storageErr); }
   }
 
   delete anexosFornecedorTemp[anexoId];
@@ -869,30 +859,17 @@ async function abrirArquivoDoc(docId) {
   const doc = d.documentos.find(x => x.id === docId);
   if (!doc || !doc.caminhoStorage) return;
 
-  const { data, error } = await supabaseClient.storage.from('documentos-fornecedores').download(doc.caminhoStorage);
-  if (error) { toast('Erro ao abrir arquivo: ' + error.message); return; }
-
-  const url = URL.createObjectURL(data);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = doc.nomeArquivo || doc.nome;
-  link.click();
-  URL.revokeObjectURL(url);
+  try {
+    await r2Baixar(doc.caminhoStorage, doc.nomeArquivo || doc.nome);
+  } catch (error) { toast('Erro ao abrir arquivo: ' + error.message); }
 }
 
-// Baixa um anexo de avaliação de serviço (mesmo padrão do documento de fornecedor,
-// só muda o bucket).
+// Baixa um anexo de avaliação de serviço (mesmo padrão do documento de fornecedor).
 async function baixarAnexoAvaliacao(caminhoStorage, nomeArquivo) {
   if (!caminhoStorage) return;
-  const { data, error } = await supabaseClient.storage.from('anexos-avaliacoes').download(caminhoStorage);
-  if (error) { toast('Erro ao abrir anexo: ' + error.message); return; }
-
-  const url = URL.createObjectURL(data);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = nomeArquivo;
-  link.click();
-  URL.revokeObjectURL(url);
+  try {
+    await r2Baixar(caminhoStorage, nomeArquivo);
+  } catch (error) { toast('Erro ao abrir anexo: ' + error.message); }
 }
 
 async function addDocumento(fornecedorId) {
@@ -919,11 +896,9 @@ async function addDocumento(fornecedorId) {
     // Pasta por empresa/fornecedor — é o que a policy de RLS do Storage confere.
     caminhoStorage = `${currentUser.empresaId}/${fornecedorId}/${Date.now()}_${nomeArquivoSeguro}`;
 
-    const { error: uploadErr } = await supabaseClient.storage
-      .from('documentos-fornecedores')
-      .upload(caminhoStorage, file);
-
-    if (uploadErr) { toast('Erro ao enviar arquivo: ' + uploadErr.message); return; }
+    try {
+      await r2Upload(caminhoStorage, file);
+    } catch (uploadErr) { toast('Erro ao enviar arquivo: ' + uploadErr.message); return; }
   }
 
   const { error } = await supabaseClient.from('documentos').insert({

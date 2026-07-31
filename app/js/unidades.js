@@ -276,15 +276,9 @@ async function abrirArquivoUnidadeDoc(docId) {
   const doc = d.unidadesDocumentos.find(x => x.id === docId);
   if (!doc || !doc.caminhoStorage) return;
 
-  const { data, error } = await supabaseClient.storage.from('documentos-unidades').download(doc.caminhoStorage);
-  if (error) { toast('Erro ao abrir arquivo: ' + error.message); return; }
-
-  const url = URL.createObjectURL(data);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = doc.nomeArquivo || doc.nome;
-  link.click();
-  URL.revokeObjectURL(url);
+  try {
+    await r2Baixar(doc.caminhoStorage, doc.nomeArquivo || doc.nome);
+  } catch (error) { toast('Erro ao abrir arquivo: ' + error.message); }
 }
 
 async function addUnidadeDocumento(unidadeId) {
@@ -307,11 +301,9 @@ async function addUnidadeDocumento(unidadeId) {
     const nomeArquivoSeguro = sanitizarNomeArquivo(nomeArquivoFinal);
     caminhoStorage = `${currentUser.empresaId}/${unidadeId}/${Date.now()}_${nomeArquivoSeguro}`;
 
-    const { error: uploadErr } = await supabaseClient.storage
-      .from('documentos-unidades')
-      .upload(caminhoStorage, file);
-
-    if (uploadErr) { toast('Erro ao enviar arquivo: ' + uploadErr.message); return; }
+    try {
+      await r2Upload(caminhoStorage, file);
+    } catch (uploadErr) { toast('Erro ao enviar arquivo: ' + uploadErr.message); return; }
   }
 
   const { error } = await supabaseClient.from('unidades_documentos').insert({

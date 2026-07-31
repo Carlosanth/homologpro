@@ -54,8 +54,6 @@ function renderAdDashboard() {
   const podeAvaliacoes = temAcessoModulo('avaliacoes');
   const podeMeusDocumentos = temAcessoModulo('meusdocumentos');
 
-  let statsHTML = '';
-  let participacaoBadgeHTML = '';
   let alertaAprovacao = '';
   let alertaAvaliadoresPendentesHTML = '';
   let alertaNotificar = '';
@@ -102,35 +100,9 @@ function renderAdDashboard() {
     }
   }
 
-  // ---------- CARDS DE NÚMERO ----------
-  const cards = [];
-  if (podeFornecedores) {
-    cards.push(`
-      <div class="kpi-card">
-        <div class="kpi-label">Fornecedores</div>
-        <div class="kpi-value">${d.fornecedores.length}</div>
-        <div class="kpi-sub">cadastrados</div>
-      </div>`);
-  }
   if (podeAvaliacoes) {
-    const totalFormPendentes = d.associacoes.length;
-    const enviadosMes = d.avaliacoes.filter(av => av.periodo === chaveMes).length;
-    const pendentesMes = totalFormPendentes - enviadosMes;
     const reprovadosLista = d.avaliacoes.filter(av => av.periodo === chaveMes && !av.semServico && (getSituacao(av.nota) === 'reprovado' || getSituacao(av.nota) === 'parcial'));
-    const reprovadosMes = reprovadosLista.filter(av => getSituacao(av.nota) === 'reprovado').length;
 
-    const pctGeral = totalFormPendentes > 0 ? Math.round((enviadosMes / totalFormPendentes) * 100) : 100;
-    const dotGeral = pctGeral >= 100 ? 'dot-ok' : (pctGeral > 0 ? 'dot-warn' : 'dot-danger');
-    participacaoBadgeHTML = `<div class="badge-note"><span class="dot ${dotGeral}"></span> Participação: ${pctGeral}%</div>`;
-
-    cards.push(`
-      <div class="kpi-card">
-        <div class="kpi-label">Avaliações enviadas</div>
-        <div class="kpi-value accent">${enviadosMes}</div>
-        <div class="kpi-sub"><span class="dot ${dotGeral}"></span><span>${enviadosMes} de ${totalFormPendentes} esperadas (${pctGeral}%)</span></div>
-      </div>`);
-
-    let subPendentes = '<span class="dot dot-neutral"></span><span>aguardando setor</span>';
     if (temAcessoModulo('usuarios')) {
       const avaliadoresPendentesLista = d.usuarios
         .filter(u => u.papel === 'avaliador' && u.ativo)
@@ -139,8 +111,6 @@ function renderAdDashboard() {
         .sort((a, b) => b.atrasados - a.atrasados);
 
       if (avaliadoresPendentesLista.length) {
-        subPendentes = `<span class="dot dot-warn"></span><span>${avaliadoresPendentesLista.length} avaliador(es) com pendência</span>`;
-
         alertaAvaliadoresPendentesHTML = `
           <div class="card alert-collapse alerta-shake" id="alerta-avaliadores-pendentes" style="margin-bottom:16px; animation-delay:${proximoShakeDelay()}s">
             <div class="alert-collapse-header" onclick="toggleAlertaCollapse('alerta-avaliadores-pendentes')">
@@ -186,18 +156,6 @@ function renderAdDashboard() {
         }
       }
     }
-    cards.push(`
-      <div class="kpi-card">
-        <div class="kpi-label">Pendentes</div>
-        <div class="kpi-value warn">${Math.max(0, pendentesMes)}</div>
-        <div class="kpi-sub">${subPendentes}</div>
-      </div>`);
-    cards.push(`
-      <div class="kpi-card">
-        <div class="kpi-label">Reprovados</div>
-        <div class="kpi-value danger">${reprovadosMes}</div>
-        <div class="kpi-sub">${reprovadosMes > 0 ? '<span class="dot dot-danger"></span><span>requer notificação</span>' : '<span class="dot dot-ok"></span><span>nenhum este mês</span>'}</div>
-      </div>`);
 
     // ---------- ALERTA: NOTIFICAR NOTA BAIXA (com "cobrado em") ----------
     if (reprovadosLista.length) {
@@ -324,7 +282,6 @@ function renderAdDashboard() {
         </div>`;
     }
   }
-  statsHTML = cards.length ? `<div class="kpi-grid">${cards.join('')}</div>` : '';
 
   // ---------- ALERTA: DOCUMENTOS DE FORNECEDOR VENCENDO (com "cobrado em") ----------
   if (podeFornecedores) {
@@ -525,11 +482,10 @@ function renderAdDashboard() {
     insightGridHTML = `<div class="admin-grid2"${doisCards2 ? '' : ' style="grid-template-columns:1fr"'}>${rankingHistoricoHTML}${atividadeHTML}</div>`;
   }
 
-  const semNadaParaMostrar = !statsHTML && !alertaAprovacao && !alertaAvaliadoresPendentesHTML && !semAvaliadorHTML && !alertaNotificar && !alertasDoc && !alertasDocUnidades && !dashGrid2HTML && !insightGridHTML && !graficosHTML && !tabelaHTML && !adminGridHTML;
+  const semNadaParaMostrar = !alertaAprovacao && !alertaAvaliadoresPendentesHTML && !semAvaliadorHTML && !alertaNotificar && !alertasDoc && !alertasDocUnidades && !dashGrid2HTML && !insightGridHTML && !graficosHTML && !tabelaHTML && !adminGridHTML;
   document.getElementById('ad-page-dashboard').innerHTML = `
-    <div class="page-header"><div><h2>Dashboard e notificações</h2><p>${MESES[mesAtual]} de ${anoAtual}</p></div>${participacaoBadgeHTML}</div>
+    <div class="page-header"><div><h2>Dashboard e notificações</h2><p>${MESES[mesAtual]} de ${anoAtual}</p></div></div>
     ${onboardingHTML}
-    ${statsHTML}
     ${alertaAprovacao}
     ${alertaAvaliadoresPendentesHTML}
     ${semAvaliadorHTML}
@@ -613,13 +569,9 @@ async function baixarPendenteAprovacao(pendenteId) {
   const d = db();
   const p = (d.documentosPendentesAprovacao || []).find(x => x.id === pendenteId);
   if (!p || !p.caminhoStorage) return;
-  const { data, error } = await supabaseClient.storage.from('documentos-fornecedores').download(p.caminhoStorage);
-  if (error) { toast('Erro ao abrir arquivo: ' + error.message); return; }
-  const url = URL.createObjectURL(data);
-  const link = document.createElement('a');
-  link.href = url; link.download = p.nomeArquivo || 'documento';
-  link.click();
-  URL.revokeObjectURL(url);
+  try {
+    await r2Baixar(p.caminhoStorage, p.nomeArquivo || 'documento');
+  } catch (error) { toast('Erro ao abrir arquivo: ' + error.message); }
 }
 
 async function aprovarPendenteAprovacao(pendenteId) {
