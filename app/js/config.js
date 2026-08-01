@@ -1499,7 +1499,9 @@ const LABELS_TEXTO_DOC = {
   'cert-prod': 'Certificado · Produto', 'cert-serv': 'Certificado · Serviço',
   'aprov-prod': 'Aprovado · Produto', 'aprov-serv': 'Aprovado · Serviço',
   'parcial-prod': 'Parcialmente aprovado · Produto', 'parcial-serv': 'Parcialmente aprovado · Serviço',
-  'reprov-prod': 'Reprovado · Produto', 'reprov-serv': 'Reprovado · Serviço'
+  'reprov-prod': 'Reprovado · Produto', 'reprov-serv': 'Reprovado · Serviço',
+  'notif-abertura': 'Notificação ao fornecedor · Abertura', 'notif-plano-acao': 'Notificação ao fornecedor · Plano de ação',
+  'notif-fechamento': 'Notificação ao fornecedor · Fechamento'
 };
 
 // Painel embutido de edição de texto: aparece dentro das propriedades do bloco

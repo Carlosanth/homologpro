@@ -347,7 +347,17 @@ async function doSignupEmpresa() {
   btn.textContent = 'Criar minha conta — 7 dias grátis';
 
   if (error || (data && data.ok === false)) {
-    errBox.textContent = (data && data.error) || error?.message || 'Erro ao criar sua conta.';
+    let mensagem = (data && data.error) || error?.message || 'Erro ao criar sua conta.';
+    // Quando a Edge Function responde com status != 2xx, o supabase-js não
+    // preenche "data" — a mensagem real fica dentro de error.context (a
+    // Response bruta), então precisamos ler o corpo dela manualmente.
+    if (error && error.context && typeof error.context.json === 'function') {
+      try {
+        const corpo = await error.context.json();
+        if (corpo && corpo.error) mensagem = corpo.error;
+      } catch { /* corpo não era JSON — mantém a mensagem genérica */ }
+    }
+    errBox.textContent = mensagem;
     errBox.style.display = 'block';
     return;
   }
@@ -784,6 +794,7 @@ async function carregarAvaliacoesProduto() {
     descontoExtraDetalhe: av.desconto_extra_detalhe || [],
     conferenciaId: av.conferencia_id || null,
     justificativa: av.justificativa || '',
+    notificadoEm: av.notificado_em || null,
   }));
 }
 
@@ -954,7 +965,7 @@ async function carregarUnidadesDocumentos() {
 }
 
 async function doLogout() {
-  addLog('logout', `${currentUser.email} saiu do sistema`);
+  if (currentUser) addLog('logout', `${currentUser.email} saiu do sistema`);
   await supabaseClient.auth.signOut();
   currentUser = null;
   document.getElementById('app').classList.remove('active');

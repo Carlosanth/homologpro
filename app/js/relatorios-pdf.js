@@ -5,6 +5,7 @@ let _ultimoPeriodoAd = '';
 function renderAdRelatorio() {
   const mesAtual = new Date().getMonth() + 1;
   const anoAtual = new Date().getFullYear();
+  const textos = db().textos || {};
   document.getElementById('ad-page-relatorio').innerHTML = `
     <div class="page-header"><div><h2>Relatório & PDFs</h2><p>Selecione o período e gere certificados e cartas automaticamente</p></div></div>
     <div class="card">
@@ -19,6 +20,25 @@ function renderAdRelatorio() {
       <button class="btn btn-primary" onclick="gerarRelatorioAd()">Calcular médias</button>
     </div>
     <div id="relatorio-resultado-ad"></div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Texto da notificação pontual ao fornecedor</div>
+      <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px">
+        Usado nos e-mails enviados ao clicar em "Ver / Notificar" no Dashboard — tanto pra avaliação de Serviço quanto pra Nota Fiscal (Produto).
+        A saudação (bom dia/boa tarde) e os dados (nota, critérios com problema, motivos) são preenchidos automaticamente — aqui é só a parte do texto.
+      </p>
+      <div class="form-group">
+        <label>Abertura</label>
+        <textarea rows="2" onchange="salvarTextoDocumento('notif-abertura', this.value)">${textos['notif-abertura'] || ''}</textarea>
+      </div>
+      <div class="form-group">
+        <label>Pedido de plano de ação (só entra quando a avaliação é reprovada / bate na pior faixa)</label>
+        <textarea rows="2" onchange="salvarTextoDocumento('notif-plano-acao', this.value)">${textos['notif-plano-acao'] || ''}</textarea>
+      </div>
+      <div class="form-group">
+        <label>Fechamento</label>
+        <textarea rows="3" onchange="salvarTextoDocumento('notif-fechamento', this.value)">${textos['notif-fechamento'] || ''}</textarea>
+      </div>
+    </div>
   `;
 }
 
@@ -403,12 +423,18 @@ function notificarFornecedorNota(avId) {
   const setorInfo = form ? `- Setor Avaliador: ${form.setor} · ${tipoLabel} (${form.nome})\n` : '';
   const secaoMelhoriaAuto = melhoriasAuto.length ? `\n📉 Melhoria Esperada para os Próximos Períodos:\n${melhoriasAuto.map(m => `- ${m}`).join('\n')}\n` : '';
 
+  const textos = d.textos || {};
+  const abertura = textos['notif-abertura'] || 'Informamos que foi concluída a análise referente à avaliação abaixo.';
+  const planoAcaoTexto = textos['notif-plano-acao'] || 'Solicitamos o envio de um plano de ação para os pontos identificados.';
+  const fechamento = textos['notif-fechamento'] || `Apresentamos esses dados para que sua equipe possa analisar os pontos de melhoria e alinhar os processos internos. Permanecemos à disposição para esclarecer dúvidas e apoiar no que for necessário para buscarmos juntos a evolução dessa nota.\n\nAtenciosamente,\n${empNome}`;
+
   const assunto = `Avaliação de Desempenho de Fornecedores - ${periodoLabel} - ${forn.nome}`;
-  let corpo = `${saudacao},\nInformamos que foi concluída a avaliação de desempenho referente ao período de ${periodoLabel}.\n\n${setorInfo}- Nota Obtida: ${av.nota.toFixed(1)}${notaMax ? ` de ${notaMax.toFixed(1)}P` : ''} (${getSubtituloDoc(sit)})\n\n`;
+  let corpo = `${saudacao},\n${abertura}\n\n${setorInfo}- Nota Obtida: ${av.nota.toFixed(1)}${notaMax ? ` de ${notaMax.toFixed(1)}P` : ''} (${getSubtituloDoc(sit)})\n\n`;
   if (blocosCriterios.length) corpo += `Para sua ciência, detalhamos abaixo os critérios avaliados, a pontuação que sua empresa obteve e a nossa régua completa de avaliação:\n\n${blocosCriterios.join('\n\n')}\n${secaoMelhoriaAuto}`;
   if (av.justificativa) corpo += `\nOutras melhorias apontadas pelo setor avaliador:\n${av.justificativa}\n`;
   if (av.obs) corpo += `\nObservações:\n${av.obs}\n`;
-  corpo += `\nApresentamos esses dados para que sua equipe possa analisar os pontos de melhoria e alinhar os processos internos. Permanecemos à disposição para esclarecer dúvidas e apoiar no que for necessário para buscarmos juntos a evolução dessa nota.\n\nAtenciosamente,\n${empNome}`;
+  if (sit === 'reprovado') corpo += `\n${planoAcaoTexto}\n`;
+  corpo += `\n${fechamento}`;
 
   const link = `mailto:${encodeURIComponent(forn.email)}?cc=${encodeURIComponent(emailAdminMaster(d))}&subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
   addLog('notificacao_nota_enviada', `${currentUser.email} notificou "${forn.nome}" sobre a nota do período ${periodoLabel}`);
@@ -419,6 +445,90 @@ function notificarFornecedorNota(avId) {
   // "Cobrado em DD/MM" em vez de ficar pedindo ação pra sempre. Não trava a
   // navegação: dispara depois do mailto, sem "await" no fluxo principal.
   supabaseClient.from('avaliacoes').update({ notificado_em: new Date().toISOString() }).eq('id', av.id)
+    .then(({ error }) => { if (!error) { av.notificadoEm = new Date().toISOString(); } });
+}
+
+// ---------- NOTIFICAÇÃO PONTUAL — PRODUTO (NF) ----------
+// Mesmo espírito do abrirNotificacaoAvaliacao/notificarFornecedorNota (Serviço),
+// adaptado pra avaliação de Produto: em vez de "reprovado" fixo, lista os
+// critérios que ficaram abaixo do peso (com o motivo já escrito na Conferência
+// ou no lançamento da NF) e os descontos extras (documentação vencida etc.).
+function abrirNotificacaoProduto(avId) {
+  const d = db();
+  const av = d.avaliacoesProduto.find(a => a.id === avId);
+  if (!av) return;
+  const forn = d.fornecedores.find(f => f.id === av.fornecedorId);
+  const criteriosProblema = (av.notas || []).filter(n => n.motivo);
+  const descontos = av.descontoExtraDetalhe || [];
+
+  openModal(`
+    <h3>Nota Fiscal ${av.numeroNf || ''}</h3>
+    <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px">${forn ? forn.nome + ' · ' : ''}${av.data ? new Date(av.data + 'T00:00:00').toLocaleDateString('pt-BR') : ''}</p>
+    <div style="margin-bottom:14px">${av.conceito ? `<span class="badge badge-neutral">${av.conceito}</span>` : ''} <b style="margin-left:8px; font-size:15px">${av.notaGeral != null ? av.notaGeral.toFixed(1) : '—'}</b></div>
+    ${criteriosProblema.map(n => `
+      <div style="padding:8px 0; border-bottom:1px solid var(--border); font-size:12px">
+        <b>${n.nome}</b> — ${n.nota} de ${n.peso} (peso)
+        <div style="color:var(--text-sec); margin-top:2px">${n.motivo}</div>
+      </div>`).join('')}
+    ${descontos.map(det => `
+      <div style="padding:8px 0; border-bottom:1px solid var(--border); font-size:12px; color:var(--danger)">
+        ${det.motivo} — desconto de ${det.valor} ponto(s)
+      </div>`).join('')}
+    ${av.justificativa ? `<div style="margin-top:12px; padding:10px; background:var(--danger-bg); border-radius:8px; font-size:12px; color:var(--danger)"><b>Melhoria esperada:</b> ${av.justificativa}</div>` : ''}
+    ${!forn || !forn.email ? `<p style="margin-top:12px; font-size:12px; color:var(--danger)">Fornecedor sem e-mail cadastrado — não é possível notificar.</p>` : ''}
+    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px">
+      <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
+      <button class="btn btn-primary" ${!forn || !forn.email ? 'disabled' : ''} onclick="notificarFornecedorProduto('${av.id}')">✉️ Notificar por e-mail</button>
+    </div>
+  `);
+}
+
+// Só pede plano de ação quando o conceito bateu na pior faixa configurada —
+// mesma lógica de "pior faixa" já usada em avaliar.js pra exigir justificativa.
+function conceitoEhPiorFaixaProduto(d, conceito) {
+  if (!conceito || !d.faixasConceitoProduto || !d.faixasConceitoProduto.length) return false;
+  const piorFaixa = [...d.faixasConceitoProduto].sort((a, b) => a.de - b.de)[0];
+  return piorFaixa && piorFaixa.nome === conceito;
+}
+
+function notificarFornecedorProduto(avId) {
+  const d = db();
+  const av = d.avaliacoesProduto.find(a => a.id === avId);
+  if (!av) return;
+  const forn = d.fornecedores.find(f => f.id === av.fornecedorId);
+  if (!forn) return;
+  if (!forn.email) { toast(`"${forn.nome}" não tem e-mail cadastrado. Adicione em Fornecedores › Editar.`); return; }
+  const empNome = d.nomeEmpresa || 'Empresa';
+  const saudacao = saudacaoPorHorario();
+  const dataLabel = av.data ? new Date(av.data + 'T00:00:00').toLocaleDateString('pt-BR') : '';
+
+  const criteriosProblema = (av.notas || []).filter(n => n.motivo);
+  const descontos = av.descontoExtraDetalhe || [];
+
+  const blocosCriterios = criteriosProblema.map((n, i) =>
+    `${i + 1}. ${n.nome} (Nota: ${n.nota} de ${n.peso} — peso)\nMotivo: ${n.motivo}`);
+  const blocosDescontos = descontos.map(det => `- ${det.motivo}: desconto de ${det.valor} ponto(s)`);
+
+  const textos = d.textos || {};
+  const abertura = textos['notif-abertura'] || 'Informamos que foi concluída a análise referente à avaliação abaixo.';
+  const planoAcaoTexto = textos['notif-plano-acao'] || 'Solicitamos o envio de um plano de ação para os pontos identificados.';
+  const fechamento = textos['notif-fechamento'] || `Apresentamos esses dados para que sua equipe possa analisar os pontos de melhoria e alinhar os processos internos. Permanecemos à disposição para esclarecer dúvidas e apoiar no que for necessário para buscarmos juntos a evolução dessa nota.\n\nAtenciosamente,\n${empNome}`;
+
+  const assunto = `Avaliação de Nota Fiscal ${av.numeroNf || ''} - ${forn.nome}`;
+  let corpo = `${saudacao},\n${abertura}\n\n- Nota Fiscal: ${av.numeroNf || '—'}\n- Data: ${dataLabel}\n- Nota Obtida: ${av.notaGeral != null ? av.notaGeral.toFixed(1) : '—'}${av.conceito ? ` (${av.conceito})` : ''}\n\n`;
+
+  if (blocosCriterios.length) corpo += `Detalhamos abaixo os pontos identificados:\n\n${blocosCriterios.join('\n\n')}\n\n`;
+  if (blocosDescontos.length) corpo += `Descontos aplicados:\n${blocosDescontos.join('\n')}\n\n`;
+  if (av.justificativa) corpo += `Outras observações:\n${av.justificativa}\n\n`;
+  if (conceitoEhPiorFaixaProduto(d, av.conceito)) corpo += `${planoAcaoTexto}\n\n`;
+  corpo += fechamento;
+
+  const link = `mailto:${encodeURIComponent(forn.email)}?cc=${encodeURIComponent(emailAdminMaster(d))}&subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
+  addLog('notificacao_produto_enviada', `${currentUser.email} notificou "${forn.nome}" sobre a NF ${av.numeroNf || ''}`);
+  closeModal();
+  window.location.href = link;
+
+  supabaseClient.from('avaliacoes_produto').update({ notificado_em: new Date().toISOString() }).eq('id', av.id)
     .then(({ error }) => { if (!error) { av.notificadoEm = new Date().toISOString(); } });
 }
 
