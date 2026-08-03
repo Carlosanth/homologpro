@@ -600,7 +600,7 @@ function renderAvaliarProdutoTab() {
       <div id="lp-criterios-regua">
         ${criteriosAtivos.filter(c => c.opcoes && c.opcoes.length).map(c => `
           <div class="form-group lp-select-wrap" style="position:relative">
-            <label>${c.nome} <span style="color:var(--text-muted); font-weight:400">(peso ${c.peso})</span></label>
+            <label>${c.nome} <span style="color:var(--text-muted); font-weight:400">(peso ${c.peso})</span> <span id="lp-conf-icone-${c.id}"></span></label>
             <input type="hidden" class="lp-nota-input" data-criterio-id="${c.id}" data-criterio-nome="${c.nome}" data-peso="${c.peso}" value="">
             <textarea class="lp-motivo-input" data-criterio-id="${c.id}" style="display:none"></textarea>
             <div id="lp-select-closed-${c.id}" onclick="toggleLpSelectDropdown('${c.id}')" style="border:1px solid var(--border); border-radius:8px; padding:10px 12px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:8px; background:var(--surface)">
@@ -850,8 +850,19 @@ function aplicarConferenciaVinculada() {
       delete inp.dataset.travadoConferencia;
       delete inp.dataset.conferidoPor;
       delete inp.dataset.motivo;
-      const motivoWrap = document.getElementById(`lp-motivo-wrap-${inp.dataset.criterioId}`);
+      const critId = inp.dataset.criterioId;
+      const motivoWrap = document.getElementById(`lp-motivo-wrap-${critId}`);
       if (motivoWrap) { motivoWrap.innerHTML = ''; motivoWrap.dataset.aberto = '0'; }
+      // Destrava também a caixinha de régua/dropdown, se for esse o tipo de campo.
+      const closedBox = document.getElementById(`lp-select-closed-${critId}`);
+      const labelEl = document.getElementById(`lp-select-label-${critId}`);
+      if (closedBox) {
+        closedBox.onclick = () => toggleLpSelectDropdown(critId);
+        closedBox.style.cursor = 'pointer';
+        closedBox.style.opacity = '1';
+        closedBox.style.background = 'var(--surface)';
+      }
+      if (labelEl) { labelEl.textContent = 'Selecione uma opção'; labelEl.style.color = 'var(--text-muted)'; }
     }
   });
   document.querySelectorAll('[id^="lp-conf-icone-"]').forEach(el => { el.innerHTML = ''; el.onclick = null; });
@@ -885,6 +896,21 @@ function aplicarConferenciaVinculada() {
           icone.title = `Já conferido por ${conferencia.enviadoPorEmail || 'alguém do módulo Conferência'} — clique para detalhes`;
           icone.style.cursor = 'pointer';
           icone.onclick = () => toggleInfoConferenciaCriterio(critId);
+        }
+        // Critério com régua (lista de opções, ex: Transportadora): a nota fica
+        // no input escondido, quem o usuário vê é a caixinha "lp-select-closed".
+        // Trava ela também, senão o campo parece livre mesmo com a nota já presa.
+        const closedBox = document.getElementById(`lp-select-closed-${critId}`);
+        const labelEl = document.getElementById(`lp-select-label-${critId}`);
+        if (closedBox) {
+          closedBox.onclick = null;
+          closedBox.style.cursor = 'not-allowed';
+          closedBox.style.opacity = '0.7';
+          closedBox.style.background = 'var(--surface2)';
+        }
+        if (labelEl) {
+          labelEl.textContent = r.motivo ? `${r.motivo} (${r.valor}P)` : `${r.valor}P (já conferido)`;
+          labelEl.style.color = 'var(--text)';
         }
         verificarNotaProdutoLimites(inp);
       }
