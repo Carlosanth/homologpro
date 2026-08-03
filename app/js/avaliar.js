@@ -876,9 +876,9 @@ function aplicarConferenciaVinculada() {
         inp.dataset.travadoConferencia = '1';
         inp.dataset.conferidoPor = conferencia.enviadoPorEmail || '';
         inp.dataset.motivo = r.motivo || '';
+        const critId = inp.dataset.criterioId;
         const motivoInpRegua = document.querySelector(`.lp-motivo-input[data-criterio-id="${critId}"]`);
         if (motivoInpRegua) motivoInpRegua.value = r.motivo || '';
-        const critId = inp.dataset.criterioId;
         const icone = document.getElementById(`lp-conf-icone-${critId}`);
         if (icone) {
           icone.innerHTML = ic('alertTriangle', 14);
