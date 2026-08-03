@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <link rel="icon" href="/favicon.ico">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Portal do Fornecedor</title>
@@ -106,6 +105,28 @@
   .erro { color: var(--danger); }
   .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--navy); color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 13px; display: none; z-index: 999; max-width: 90vw; text-align: center; }
 
+  /* ---------- Plano de ação ---------- */
+  .secao-titulo { font-size: 13px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); margin: 26px 0 12px; }
+  .secao-titulo:first-child { margin-top: 0; }
+  .pa-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 14px; }
+  .pa-alert { padding: 10px 22px; font-size: 11px; font-weight: 700; letter-spacing: .02em; background: var(--danger-bg); color: var(--danger); }
+  .pa-body { padding: 18px 22px 20px; display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .pa-titulo { font-size: 15px; font-weight: 700; color: var(--navy); }
+  .pa-sub { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+  .pa-anexado { font-size: 12.5px; color: var(--success); display: flex; align-items: center; gap: 6px; }
+  .btn-outline { padding: 9px 16px; border-radius: 8px; border: 1px solid var(--navy); background: transparent; color: var(--navy); font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap; }
+  .btn-outline:hover { background: var(--navy); color: #fff; }
+
+  /* ---------- Modal ---------- */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(10,25,47,.55); z-index: 900; display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
+  .modal-card { background: var(--surface); border-radius: 14px; max-width: 560px; width: 100%; padding: 24px; }
+  .modal-card h3 { color: var(--navy); font-size: 17px; margin-bottom: 4px; }
+  .modal-sub { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
+  .modal-crit { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+  .modal-crit b { color: var(--navy); }
+  .modal-crit .motivo { color: var(--danger); margin-top: 2px; }
+  .modal-close { float: right; background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; line-height: 1; }
+
   /* ---------- Responsivo (celular) ---------- */
   @media (max-width: 640px) {
     .wrap { padding: 22px 14px 14px; }
@@ -114,6 +135,8 @@
     .head-title { font-size: 20px; }
     .doc-card-body { padding: 18px 16px 20px; }
     .doc-alert { padding: 9px 16px; flex-wrap: wrap; gap: 4px 10px; }
+    .pa-body { flex-direction: column; align-items: flex-start; }
+    .btn-outline { width: 100%; }
   }
 
   @media (max-width: 420px) {
@@ -248,7 +271,7 @@ async function carregar() {
     ? `CNPJ: ${data.fornecedorCnpj} — ${data.empresaNome}`
     : data.empresaNome;
 
-  renderDocumentos(data.documentos, data.pendentesIds);
+  renderDocumentos(data.documentos, data.pendentesIds, data.planoAcaoPendente || []);
   iniciarTimerSessao();
 }
 
@@ -261,14 +284,37 @@ function alertaInfo(doc, pendente) {
   return { classe: 'alert-warn', texto: `AÇÃO NECESSÁRIA: VENCE EM ${doc.dias} DIA${doc.dias === 1 ? '' : 'S'}` };
 }
 
-function renderDocumentos(documentos, pendentesIds) {
+function renderDocumentos(documentos, pendentesIds, planoAcaoPendente) {
   const wrap = document.getElementById('conteudo');
-  if (!documentos.length) {
-    wrap.innerHTML = `<div class="empty" style="display:flex; flex-direction:column; align-items:center; gap:10px; color:var(--success)">${ICON_CHECK}<span style="color:var(--text-muted)">Nenhum documento pendente no momento.</span></div>`;
+
+  if (!documentos.length && !planoAcaoPendente.length) {
+    wrap.innerHTML = `<div class="empty" style="display:flex; flex-direction:column; align-items:center; gap:10px; color:var(--success)">${ICON_CHECK}<span style="color:var(--text-muted)">Nenhuma pendência no momento.</span></div>`;
     return;
   }
 
-  wrap.innerHTML = '<div class="docs-grid">' + documentos.map(doc => {
+  let html = '';
+
+  if (planoAcaoPendente.length) {
+    html += '<p class="secao-titulo">Plano de Ação Pendente</p>' + planoAcaoPendente.map(pa => {
+      const prazoLabel = pa.prazo ? new Date(pa.prazo + 'T00:00:00').toLocaleDateString('pt-BR') : null;
+      const diasRestantes = pa.prazo ? Math.ceil((new Date(pa.prazo + 'T00:00:00') - new Date(new Date().toDateString())) / 86400000) : null;
+      const vencido = diasRestantes !== null && diasRestantes < 0;
+      return `
+        <div class="pa-card">
+          <div class="pa-alert">${vencido ? `PRAZO VENCIDO HÁ ${Math.abs(diasRestantes)} DIA${Math.abs(diasRestantes) === 1 ? '' : 'S'}` : (prazoLabel ? `ENVIAR ATÉ ${prazoLabel}` : 'AÇÃO NECESSÁRIA')}</div>
+          <div class="pa-body">
+            <div>
+              <p class="pa-titulo">${pa.titulo}</p>
+              <p class="pa-sub">${pa.tipo === 'produto' ? `NF de ${pa.data ? new Date(pa.data + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}` : `Período ${pa.periodo || '—'}`} · Nota ${pa.nota != null ? pa.nota.toFixed(1) : '—'}</p>
+            </div>
+            <button class="btn-outline" onclick='abrirModalPlanoAcao(${JSON.stringify(pa).replace(/'/g, "&apos;")})'>Ver detalhes e enviar →</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  if (documentos.length) {
+    html += '<p class="secao-titulo">Documentos</p><div class="docs-grid">' + documentos.map(doc => {
     const pendente = pendentesIds.includes(doc.id);
     const alerta = alertaInfo(doc, pendente);
     const dataAtualFormatada = new Date(doc.validade + 'T00:00:00').toLocaleDateString('pt-BR');
@@ -311,11 +357,101 @@ function renderDocumentos(documentos, pendentesIds) {
           `}
         </div>
       </div>`;
-  }).join('') + '</div>';
+    }).join('') + '</div>';
+  }
+
+  wrap.innerHTML = html;
 
   documentos.forEach(doc => {
     if (!pendentesIds.includes(doc.id)) wireDropzone(doc.id);
   });
+}
+
+// ---------- Plano de ação: modal de detalhe + upload ----------
+function abrirModalPlanoAcao(pa) {
+  const criteriosHtml = (pa.criterios || []).map(c => `
+    <div class="modal-crit">
+      <div><b>${c.nome}</b> — ${c.nota} de ${c.peso}</div>
+      ${c.motivo ? `<div class="motivo">${c.motivo}</div>` : ''}
+    </div>
+  `).join('');
+  const descontosHtml = (pa.descontos || []).map(d => `<div class="modal-crit">${d.motivo}: desconto de ${d.valor} ponto(s)</div>`).join('');
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'pa-modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-card">
+      <button class="modal-close" onclick="fecharModalPlanoAcao()">&times;</button>
+      <h3>${pa.titulo}</h3>
+      <p class="modal-sub">${pa.tipo === 'produto' ? `NF de ${pa.data ? new Date(pa.data + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}` : `Período ${pa.periodo || '—'}`} · Nota ${pa.nota != null ? pa.nota.toFixed(1) : '—'}</p>
+      ${criteriosHtml}
+      ${descontosHtml}
+      ${pa.justificativa ? `<div class="modal-crit"><b>Observações</b><br>${pa.justificativa}</div>` : ''}
+
+      <label class="dropzone-label" style="margin-top:18px">Anexar plano de ação</label>
+      <div class="dropzone" id="pa-filedrop" onclick="document.getElementById('pa-arquivo').click()">
+        <input type="file" id="pa-arquivo" accept=".pdf,.png,.jpg,.jpeg" style="display:none" onchange="previewArquivoPlanoAcao(this)">
+        <div id="pa-dropzone-inner">
+          <div class="dz-icon">${ICON_UPLOAD}</div>
+          <p class="dz-main">Clique para escolher ou arraste o arquivo</p>
+          <p class="dz-sub">PDF, JPG ou PNG até 10MB</p>
+        </div>
+      </div>
+      <button class="btn-submit" id="pa-btn-enviar" onclick="enviarPlanoAcao('${pa.tipo}', '${pa.id}')">Enviar Plano de Ação →</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function fecharModalPlanoAcao() {
+  const overlay = document.getElementById('pa-modal-overlay');
+  if (overlay) overlay.remove();
+}
+
+function previewArquivoPlanoAcao(input) {
+  const zone = document.getElementById('pa-filedrop');
+  const inner = document.getElementById('pa-dropzone-inner');
+  if (input.files && input.files[0] && inner) {
+    inner.innerHTML = `
+      <div class="dz-icon">${ICON_CHECK_SM}</div>
+      <p class="dz-main">${input.files[0].name}</p>
+      <p class="dz-sub">Clique ou arraste outro arquivo pra trocar</p>
+    `;
+    if (zone) zone.classList.add('has-file');
+  }
+}
+
+async function enviarPlanoAcao(tipo, avaliacaoId) {
+  const fileInput = document.getElementById('pa-arquivo');
+  const file = fileInput.files[0];
+  const btn = document.getElementById('pa-btn-enviar');
+  if (!file) { toast('Selecione o arquivo.'); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  try {
+    const arquivoBase64 = await fileParaBase64(file);
+    const { data, error } = await supabaseClient.functions.invoke('portal-anexar-plano-acao', {
+      body: { token, tipo, avaliacaoId, nomeArquivo: file.name, arquivoBase64 },
+    });
+
+    if (error || !data || data.ok === false) {
+      toast((data && data.error) || (error && error.message) || 'Erro ao enviar. Tente novamente.');
+      btn.disabled = false;
+      btn.textContent = 'Enviar Plano de Ação →';
+      return;
+    }
+
+    toast('Plano de ação enviado!');
+    fecharModalPlanoAcao();
+    carregar();
+  } catch (e) {
+    toast('Erro ao enviar o arquivo.');
+    btn.disabled = false;
+    btn.textContent = 'Enviar Plano de Ação →';
+  }
 }
 
 function wireDropzone(docId) {

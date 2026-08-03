@@ -159,7 +159,7 @@ function renderCamposExtrasBuilder() {
       <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px">
         <input type="text" value="${c.label}" placeholder="Nome do campo" style="width:160px" oninput="window._camposExtrasBuilder[${i}].label=this.value">
         <input type="text" value="${c.valor}" placeholder="Valor" style="flex:1" oninput="window._camposExtrasBuilder[${i}].valor=this.value">
-        <button class="btn btn-danger btn-sm" onclick="removeCampoExtraBuilder(${i})">✕</button>
+        <button class="btn btn-danger btn-sm" onclick="removeCampoExtraBuilder(${i})">${ic('x', 12)}</button>
       </div>
     `).join('');
   }
@@ -261,7 +261,7 @@ function renderCriteriosBuilder() {
         <div style="display:flex; gap:8px; align-items:center; margin-bottom:6px">
           <input type="text" value="${op.label}" placeholder="Ex: Dentro da expectativa" style="flex:1" oninput="updateOpcaoField('${c.tempId}',${i},'label',this.value)">
           <input type="number" step="0.1" value="${op.pontos || ''}" placeholder="Pts" style="width:70px" oninput="updateOpcaoField('${c.tempId}',${i},'pontos',this.value)">
-          <button class="btn btn-danger btn-sm" onclick="removeOpcaoBuilder('${c.tempId}',${i})">✕</button>
+          <button class="btn btn-danger btn-sm" onclick="removeOpcaoBuilder('${c.tempId}',${i})">${ic('x', 12)}</button>
         </div>
       `).join('')}
       <div style="display:flex; justify-content:space-between; margin-top:8px">

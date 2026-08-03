@@ -315,8 +315,8 @@ function renderAnexosLista() {
   const wrap = document.getElementById('anexos-lista');
   if (!wrap) return;
   wrap.innerHTML = window._formAtual.anexos.map((a, i) => `
-    <div class="anexo-item">
-      <span>📎 ${a.caminhoStorage ? `<a href="#" onclick="event.preventDefault(); baixarAnexoAvaliacao('${a.caminhoStorage}', '${a.nome}')">${a.nome}</a>` : a.nome}</span>
+    <div class="anexo-item" style="display:flex; align-items:center; gap:5px">
+      ${ic('paperclip', 12)}<span>${a.caminhoStorage ? `<a href="#" onclick="event.preventDefault(); baixarAnexoAvaliacao('${a.caminhoStorage}', '${a.nome}')">${a.nome}</a>` : a.nome}</span>
       <span style="color:var(--text-muted)">${a.tamanho}</span>
       <button onclick="removerAnexo(${i})">remover</button>
     </div>`).join('');
@@ -498,11 +498,11 @@ function renderAdAvaliar() {
     <div class="page-header"><div><h2>Avaliar</h2><p>Escolha o tipo de avaliação.</p></div></div>
     <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:20px">
       <div class="card" style="flex:1; min-width:220px">
-        <div class="card-title">📦 Produto</div>
+        <div class="card-title" style="display:flex; align-items:center; gap:7px">${ic('folder', 16)}Produto</div>
         <p style="font-size:12px; color:var(--text-muted)">Lançamento por nota fiscal — critérios com peso, conceito por faixa.</p>
       </div>
       <div class="card" style="flex:1; min-width:220px; cursor:pointer" onclick="irParaAvaliacaoServico()">
-        <div class="card-title">🧰 Serviço</div>
+        <div class="card-title" style="display:flex; align-items:center; gap:7px">${ic('users', 16)}Serviço</div>
         <p style="font-size:12px; color:var(--text-muted)">Preenchido pelos setores (avaliadores). Configure quem avalia o quê em Associações →</p>
       </div>
     </div>
@@ -582,7 +582,7 @@ function renderAvaliarProdutoTab() {
           <label>CNPJ do fornecedor</label>
           <div style="display:flex; gap:6px">
             <input type="text" id="lp-cnpj" placeholder="00.000.000/0000-00" oninput="this.value = formatarCNPJ(this.value)" style="flex:1">
-            <button type="button" class="btn btn-secondary btn-sm" onclick="buscarFornecedorPorCnpj()">🔍 Buscar</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="buscarFornecedorPorCnpj()" style="display:inline-flex; align-items:center; gap:6px">${ic('search', 13)}Buscar</button>
           </div>
         </div>
         <div class="form-group">
@@ -597,8 +597,28 @@ function renderAvaliarProdutoTab() {
       <div class="form-row three" style="margin-top:10px">
       </div>
       <p style="font-size:12px; font-weight:600; color:var(--text-sec); margin:14px 0 8px">Notas (0 a 10)</p>
+      <div id="lp-criterios-regua">
+        ${criteriosAtivos.filter(c => c.opcoes && c.opcoes.length).map(c => `
+          <div class="form-group lp-select-wrap" style="position:relative">
+            <label>${c.nome} <span style="color:var(--text-muted); font-weight:400">(peso ${c.peso})</span></label>
+            <input type="hidden" class="lp-nota-input" data-criterio-id="${c.id}" data-criterio-nome="${c.nome}" data-peso="${c.peso}" value="">
+            <textarea class="lp-motivo-input" data-criterio-id="${c.id}" style="display:none"></textarea>
+            <div id="lp-select-closed-${c.id}" onclick="toggleLpSelectDropdown('${c.id}')" style="border:1px solid var(--border); border-radius:8px; padding:10px 12px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:8px; background:var(--surface)">
+              <span id="lp-select-label-${c.id}" style="color:var(--text-muted)">Selecione uma opção</span>
+              <span style="color:var(--text-muted)">▾</span>
+            </div>
+            <div id="lp-select-dropdown-${c.id}" style="display:none; position:absolute; top:100%; left:0; right:0; z-index:20; background:var(--surface); border:1px solid var(--border); border-radius:8px; margin-top:4px; max-height:260px; overflow-y:auto; box-shadow:0 6px 18px rgba(0,0,0,.18)">
+              ${c.opcoes.map((op, i) => `
+                <div class="lp-select-opcao" onclick="selecionarOpcaoCriterioProduto('${c.id}', ${i})" style="padding:10px 12px; cursor:pointer; display:flex; justify-content:space-between; gap:10px; border-bottom:1px solid var(--border)">
+                  <span>${op.label}</span><span style="font-weight:600; white-space:nowrap">${op.pontos}P</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `).join('')}
+      </div>
       <div class="form-row three" id="lp-criterios">
-        ${criteriosAtivos.map(c => `
+        ${criteriosAtivos.filter(c => !(c.opcoes && c.opcoes.length)).map(c => `
           <div class="form-group">
             <label>${c.nome} <span style="color:var(--text-muted); font-weight:400">(peso ${c.peso})</span> <span id="lp-conf-icone-${c.id}"></span></label>
             <input type="number" min="0" max="${c.peso}" step="0.5" class="lp-nota-input" data-criterio-id="${c.id}" data-criterio-nome="${c.nome}" data-peso="${c.peso}" oninput="verificarNotaProdutoLimites(this); atualizarPreviaNotaProduto()">
@@ -659,8 +679,12 @@ async function buscarFornecedorPorCnpj() {
     nomeInput.value = existente.nome;
     nomeInput.disabled = true;
     const vencido = fornecedorTemDocumentoVencido(existente.id);
-    statusEl.innerHTML = '<span style="color:var(--accent); font-weight:600">🔵 Já cadastrado</span>'
-      + (vencido ? ' &nbsp;<span style="color:var(--danger); font-weight:600">⚠️ Documentação vencida</span>' : '');
+    const avisoVencido = vencido
+      ? (d.descontoDocVencidoAtivo
+          ? ` &nbsp;<span style="color:var(--danger); font-weight:600; display:inline-flex; align-items:center; gap:4px">${ic('alertTriangle', 13)}Documentação vencida (-${d.valorDescontoDocVencido} ponto(s))</span>`
+          : ` &nbsp;<span style="color:var(--danger); font-weight:600; display:inline-flex; align-items:center; gap:4px">${ic('alertTriangle', 13)}Documentação vencida</span>`)
+      : '';
+    statusEl.innerHTML = '<span style="color:var(--accent); font-weight:600; display:inline-flex; align-items:center; gap:4px">' + ic('check', 13) + 'Já cadastrado</span>' + avisoVencido;
     atualizarPreviaNotaProduto();
     return;
   }
@@ -691,8 +715,8 @@ async function buscarFornecedorPorCnpj() {
   window._fornecedorLancamento = { id: null, cnpj: cnpjLimpo, novo: true };
   nomeInput.value = nomeEncontrado || '';
   statusEl.innerHTML = nomeEncontrado
-    ? '<span style="color:var(--success); font-weight:600">🟢 Novo — será cadastrado ao salvar</span>'
-    : '<span style="color:var(--warn); font-weight:600">🟢 Novo — não achamos os dados automaticamente, digite o nome</span>';
+    ? '<span style="color:var(--success); font-weight:600; display:inline-flex; align-items:center; gap:6px"><span style="width:8px; height:8px; border-radius:50%; background:var(--success); flex-shrink:0"></span>Novo — será cadastrado ao salvar</span>'
+    : '<span style="color:var(--warn); font-weight:600; display:inline-flex; align-items:center; gap:6px"><span style="width:8px; height:8px; border-radius:50%; background:var(--warn); flex-shrink:0"></span>Novo — não achamos os dados automaticamente, digite o nome</span>';
   atualizarPreviaNotaProduto();
 }
 
@@ -714,6 +738,48 @@ function normalizarNomeCriterio(nome) {
 //   obrigatório ali mesmo, porque foi quem lançou a NF que avaliou esse critério
 // - abaixo do peso E o campo veio travado da Conferência: o motivo já foi
 //   escrito lá, não pede de novo (fica só a exibição via o ícone de aviso)
+// Critério de Produto com régua: campo fechado que abre uma listinha ao
+// clicar (em vez de mostrar todas as opções já expandidas na tela). Clicar
+// numa opção preenche o input escondido de nota (mesmo formato que o campo
+// livre) e, se a opção não for a nota máxima, guarda o próprio texto da
+// opção como motivo — sem precisar digitar nada.
+function toggleLpSelectDropdown(critId) {
+  const dropdown = document.getElementById(`lp-select-dropdown-${critId}`);
+  if (!dropdown) return;
+  const abrindo = dropdown.style.display === 'none';
+  fecharTodosLpSelectDropdowns();
+  if (abrindo) dropdown.style.display = 'block';
+}
+
+function fecharTodosLpSelectDropdowns() {
+  document.querySelectorAll('[id^="lp-select-dropdown-"]').forEach(el => el.style.display = 'none');
+}
+
+if (!window._lpSelectOutsideClickBound) {
+  window._lpSelectOutsideClickBound = true;
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.lp-select-wrap')) fecharTodosLpSelectDropdowns();
+  });
+}
+
+function selecionarOpcaoCriterioProduto(critId, idx) {
+  const d = db();
+  const c = d.criteriosProduto.find(x => x.id === critId);
+  if (!c) return;
+  const op = c.opcoes[idx];
+  const notaInp = document.querySelector(`.lp-nota-input[data-criterio-id="${critId}"]`);
+  const motivoInp = document.querySelector(`.lp-motivo-input[data-criterio-id="${critId}"]`);
+  const labelEl = document.getElementById(`lp-select-label-${critId}`);
+  if (!notaInp) return;
+
+  notaInp.value = op.pontos;
+  if (motivoInp) motivoInp.value = op.pontos < c.peso ? op.label : '';
+  if (labelEl) { labelEl.textContent = `${op.label} (${op.pontos}P)`; labelEl.style.color = 'var(--text)'; }
+
+  fecharTodosLpSelectDropdowns();
+  atualizarPreviaNotaProduto();
+}
+
 function verificarNotaProdutoLimites(inp) {
   const critId = inp.dataset.criterioId;
   const peso = parseFloat(inp.dataset.peso);
@@ -810,6 +876,8 @@ function aplicarConferenciaVinculada() {
         inp.dataset.travadoConferencia = '1';
         inp.dataset.conferidoPor = conferencia.enviadoPorEmail || '';
         inp.dataset.motivo = r.motivo || '';
+        const motivoInpRegua = document.querySelector(`.lp-motivo-input[data-criterio-id="${critId}"]`);
+        if (motivoInpRegua) motivoInpRegua.value = r.motivo || '';
         const critId = inp.dataset.criterioId;
         const icone = document.getElementById(`lp-conf-icone-${critId}`);
         if (icone) {
@@ -825,12 +893,12 @@ function aplicarConferenciaVinculada() {
 
   const infoTextos = conferencia.respostas.filter(r => r.tipo === 'texto').map(r => `${r.nome}: <b>${r.valor}</b>`);
   const infoFaixas = conferencia.respostas.filter(r => r.tipo === 'faixa').map(r =>
-    `${r.nome}: <b>${r.valor}${r.unidade || ''}</b> (${r.min}-${r.max}${r.unidade || ''}) ${r.dentroFaixa ? '✅' : `⚠️ fora — RPNC ${r.rpnc}`}`
+    `${r.nome}: <b>${r.valor}${r.unidade || ''}</b> (${r.min}-${r.max}${r.unidade || ''}) ${r.dentroFaixa ? ic('check', 12) : `${ic('alertTriangle', 12)} fora — RPNC ${r.rpnc}`}`
   );
   const infoPartes = [...infoTextos, ...infoFaixas];
   if (infoBox) {
-    infoBox.innerHTML = `<div style="margin:10px 0; padding:8px 12px; background:var(--surface2); border-radius:8px; font-size:12px">
-      ✅ Conferência encontrada pra essa NF (por ${conferencia.enviadoPorEmail || '—'})${infoPartes.length ? ' — ' + infoPartes.join(' · ') : ''}${conferencia.descontoTotal > 0 ? ` — <span style="color:var(--danger)">desconto de ${conferencia.descontoTotal} ponto(s) será somado na nota</span>` : ''}
+    infoBox.innerHTML = `<div style="margin:10px 0; padding:8px 12px; background:var(--surface2); border-radius:8px; font-size:12px; display:flex; align-items:center; gap:6px; flex-wrap:wrap">
+      ${ic('check', 13)} Conferência encontrada pra essa NF (por ${conferencia.enviadoPorEmail || '—'})${infoPartes.length ? ' — ' + infoPartes.join(' · ') : ''}${conferencia.descontoTotal > 0 ? ` — <span style="color:var(--danger)">desconto de ${conferencia.descontoTotal} ponto(s) será somado na nota</span>` : ''}
     </div>`;
   }
   atualizarPreviaNotaProduto();
@@ -1037,7 +1105,7 @@ function renderResultadoHistoricoProduto(fornecedorId, mes, ano) {
 
   wrap.innerHTML = `
     <div style="display:flex; justify-content:flex-end; margin-bottom:10px">
-      <button class="btn btn-secondary btn-sm" onclick="abrirExportarRelatorioProduto('${fornecedorId}', ${mes}, ${ano})">📊 Exportar relatório</button>
+      <button class="btn btn-secondary btn-sm" onclick="abrirExportarRelatorioProduto('${fornecedorId}', ${mes}, ${ano})" style="display:inline-flex; align-items:center; gap:6px">${ic('chart', 13)}Exportar relatório</button>
     </div>
     <div style="margin-bottom:14px">
       <table>
@@ -1051,7 +1119,7 @@ function renderResultadoHistoricoProduto(fornecedorId, mes, ano) {
               <td>${fmtDataSimples(av.data)}</td>
               <td>${av.numeroNf || '—'}</td>
               <td style="text-align:center; font-weight:600">${av.notaGeral.toFixed(1)}</td>
-              <td><span style="padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; background:${faixa ? faixa.cor + '22' : 'var(--surface2)'}; color:${faixa ? faixa.cor : 'var(--text-muted)'}">${av.conceito || '—'}</span>${av.contaOcorrencia ? ' <span style="color:var(--danger); font-size:11px">⚠ ocorrência</span>' : ''}</td>
+              <td><span style="padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; background:${faixa ? faixa.cor + '22' : 'var(--surface2)'}; color:${faixa ? faixa.cor : 'var(--text-muted)'}">${av.conceito || '—'}</span>${av.contaOcorrencia ? ` <span style="color:var(--danger); font-size:11px; display:inline-flex; align-items:center; gap:3px">${ic('alertTriangle', 11)}ocorrência</span>` : ''}</td>
               <td><button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); excluirAvaliacaoProduto('${av.id}')">Excluir</button></td>
             </tr>`;
           }).join('')}
@@ -1076,7 +1144,7 @@ function verDetalheAvaliacaoProduto(id) {
     <div style="margin-bottom:14px">
       <span style="padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; background:${faixa ? faixa.cor + '22' : 'var(--surface2)'}; color:${faixa ? faixa.cor : 'var(--text-muted)'}">${av.conceito || '—'}</span>
       <b style="margin-left:8px; font-size:15px">${av.notaGeral.toFixed(1)}</b>
-      ${av.contaOcorrencia ? ' <span style="color:var(--danger); font-size:12px">⚠ conta como ocorrência</span>' : ''}
+      ${av.contaOcorrencia ? ` <span style="color:var(--danger); font-size:12px; display:inline-flex; align-items:center; gap:3px">${ic('alertTriangle', 12)}conta como ocorrência</span>` : ''}
     </div>
     ${(av.notas || []).map(n => `
       <div style="padding:6px 0; border-bottom:1px solid var(--border); font-size:13px">
@@ -1101,7 +1169,14 @@ function verDetalheAvaliacaoProduto(id) {
         <p style="font-size:12px">${av.justificativa}</p>
       </div>
     ` : ''}
-    <div class="no-print" style="display:flex; justify-content:flex-end; margin-top:16px">
+    ${getSituacao(av.notaGeral) === 'reprovado' ? blocoPlanoAcaoHtml('produto', av) : ''}
+    <div class="no-print" style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px">
+      ${(av.notas || []).some(n => n.motivo) || (av.descontoExtraDetalhe || []).length ? `
+        <div style="margin-right:auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap">
+          ${av.notificadoEm ? `<span style="font-size:12px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:4px">${ic('mail', 13)}Cobrado em ${new Date(av.notificadoEm).toLocaleDateString('pt-BR')}</span>` : ''}
+          <button class="btn ${av.notificadoEm ? 'btn-secondary' : 'btn-primary'} btn-sm" onclick="notificarFornecedorProduto('${av.id}')" style="display:inline-flex; align-items:center; gap:6px">${ic('mail', 13)}${av.notificadoEm ? 'Notificar novamente' : 'Notificar por e-mail'}</button>
+        </div>
+      ` : ''}
       <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
     </div>
   `);
@@ -1238,6 +1313,90 @@ async function excluirAvaliacaoProduto(id) {
 }
 
 // ---- Critérios de produto ----
+
+// Modelos de régua sugeridos (só usados quando peso = 10 e o nome bate com um
+// dos 4 padrões — em qualquer outro caso a régua nasce em branco pro cliente
+// montar do jeito dele). São só sugestão inicial: 100% editável depois.
+const MODELOS_REGUA_PRODUTO = {
+  'nota fiscal': [
+    { label: 'Nota fiscal 100% conforme: quantidade, lote e dados corretos', pontos: 10 },
+    { label: 'Pequena divergência de dado cadastral, sem afetar quantidade/lote', pontos: 9 },
+    { label: 'Divergência de lote, sem afetar quantidade', pontos: 8 },
+    { label: 'Falta de 1 item em relação ao faturado', pontos: 7 },
+    { label: 'Falta de mais de 1 item, divergência pequena no total', pontos: 6 },
+    { label: 'Divergência de quantidade relevante (parte do pedido não chegou)', pontos: 5 },
+    { label: 'Divergência de quantidade e de lote juntas', pontos: 4 },
+    { label: 'Divergência significativa de quantidade, vários itens', pontos: 3 },
+    { label: 'Nota fiscal com múltiplos erros (quantidade, lote e dados)', pontos: 2 },
+    { label: 'Nota fiscal totalmente divergente do que foi recebido', pontos: 1 },
+  ],
+  'prazo': [
+    { label: 'Entregue no prazo combinado ou antes', pontos: 10 },
+    { label: 'Atraso de até 1 dia', pontos: 9 },
+    { label: 'Atraso de 2 dias', pontos: 8 },
+    { label: 'Atraso de 3 dias', pontos: 7 },
+    { label: 'Atraso de 4 dias', pontos: 6 },
+    { label: 'Atraso de 5 dias', pontos: 5 },
+    { label: 'Atraso de 6 a 7 dias', pontos: 4 },
+    { label: 'Atraso de 8 a 9 dias', pontos: 3 },
+    { label: 'Atraso de 10 dias', pontos: 2 },
+    { label: 'Atraso de mais de 10 dias', pontos: 1 },
+  ],
+  'qualidade': [
+    { label: 'Produto e embalagem em perfeito estado, sem nenhuma avaria', pontos: 10 },
+    { label: 'Embalagem com pequena amassadura, sem afetar o produto', pontos: 9 },
+    { label: 'Embalagem danificada, produto intacto', pontos: 8 },
+    { label: 'Produto com avaria leve, mas utilizável', pontos: 7 },
+    { label: 'Produto com avaria visível, uso comprometido em parte', pontos: 6 },
+    { label: 'Parte do lote danificado', pontos: 5 },
+    { label: 'Vários itens danificados', pontos: 4 },
+    { label: 'Maior parte do lote com avaria', pontos: 3 },
+    { label: 'Produto com avaria grave, quase todo o lote', pontos: 2 },
+    { label: 'Produto todo danificado/impróprio', pontos: 1 },
+  ],
+  'transportadora': [
+    { label: 'Descarregamento cuidadoso, sem nenhum indício de mau manuseio', pontos: 10 },
+    { label: 'Pequeno deslize no manuseio, sem causar dano', pontos: 9 },
+    { label: 'Manuseio inadequado pontual (ex: empilhamento incorreto), sem dano ao produto', pontos: 8 },
+    { label: 'Manuseio inadequado, causou avaria leve', pontos: 7 },
+    { label: 'Descarregamento com cuidado insuficiente, avaria perceptível', pontos: 6 },
+    { label: 'Manuseio ruim, parte da carga afetada', pontos: 5 },
+    { label: 'Manuseio ruim, vários itens afetados', pontos: 4 },
+    { label: 'Descarregamento descuidado, maior parte da carga afetada', pontos: 3 },
+    { label: 'Manuseio muito ruim, carga jogada/mal empilhada, quase toda afetada', pontos: 2 },
+    { label: 'Descarregamento sem nenhum cuidado, carga toda comprometida', pontos: 1 },
+  ],
+};
+
+// Empresa sem nenhum critério de produto cadastrado (nova, ou legada que nunca
+// criou nenhum) ganha automaticamente os 4 critérios padrão, peso 10, já com
+// a régua sugerida — pode excluir/editar à vontade depois. Empresa que já tem
+// QUALQUER critério (mesmo 1 só, criado manualmente) nunca é tocada por isso,
+// pra não duplicar o que ela já montou.
+async function seedCriteriosProdutoPadrao() {
+  if (criteriosProdutoCache.length > 0) return;
+  const nomesPadrao = ['Nota Fiscal', 'Prazo', 'Qualidade', 'Transportadora'];
+  const linhas = nomesPadrao.map(nome => ({
+    empresa_id: currentUser.empresaId, nome, peso: 10, ativo: true,
+    opcoes: getModeloReguaPadrao(nome, 10),
+  }));
+  const { error } = await supabaseClient.from('criterios_produto').insert(linhas);
+  if (error) { console.error('Erro ao pré-cadastrar critérios de produto padrão:', error.message); return; }
+  addLog('criterios_produto_seed', `${currentUser.email} — critérios padrão de produto pré-cadastrados automaticamente`);
+  await carregarCriteriosProduto();
+}
+
+function getModeloReguaPadrao(nome, peso) {
+  const chave = (nome || '').trim().toLowerCase();
+  if (peso === 10 && MODELOS_REGUA_PRODUTO[chave]) return MODELOS_REGUA_PRODUTO[chave].map(o => ({ ...o }));
+  // Nome não bate com um dos 4 padrões (ou o peso não é 10) — ainda assim,
+  // oferece a régua genérica de 1 até o peso (nota já vem pronta, texto fica
+  // em branco pro admin descrever o que aquele nível significa). Peso 5 gera
+  // 5 linhas, peso 10 gera 10, etc.
+  const n = Math.max(1, Math.round(peso));
+  return Array.from({ length: n }, (_, i) => ({ label: '', pontos: n - i }));
+}
+
 function renderCriteriosProdutoTab() {
   const d = db();
   const wrap = document.getElementById('avaliar-produto-tab');
@@ -1265,14 +1424,108 @@ function renderCriteriosProdutoLista() {
     wrap.innerHTML = '<div class="empty-state"><p>Nenhum critério cadastrado ainda. Adicione acima (ex: Nota Fiscal, Prazo, Quantidade, Condições).</p></div>';
     return;
   }
-  wrap.innerHTML = `<table><thead><tr><th>Critério</th><th style="width:120px">Peso</th><th style="width:90px">Ativo</th><th></th></tr></thead><tbody>
+  wrap.innerHTML = `<table><thead><tr><th>Critério</th><th style="width:120px">Peso</th><th style="width:90px">Ativo</th><th style="width:100px">Régua</th><th></th></tr></thead><tbody>
     ${d.criteriosProduto.map(c => `<tr>
       <td style="font-weight:500">${c.nome}</td>
       <td><input type="number" min="0" step="0.5" value="${c.peso}" style="width:80px" onchange="salvarPesoCriterioProduto('${c.id}', this.value)"></td>
       <td><input type="checkbox" ${c.ativo ? 'checked' : ''} onchange="toggleCriterioProdutoAtivo('${c.id}', this.checked)"></td>
-      <td><div class="actions"><button class="btn btn-danger btn-sm" onclick="excluirCriterioProduto('${c.id}')">Excluir</button></div></td>
-    </tr>`).join('')}
+      <td>${(c.opcoes && c.opcoes.length) ? `<span style="color:var(--accent); font-weight:600">${c.opcoes.length} opções</span>` : '<span style="color:var(--text-muted)">Livre</span>'}</td>
+      <td><div class="actions"><button class="btn btn-secondary btn-sm" onclick="toggleReguaEditor('produto', '${c.id}')">Editar régua</button> <button class="btn btn-danger btn-sm" onclick="excluirCriterioProduto('${c.id}')">Excluir</button></div></td>
+    </tr>
+    ${(window._reguaEmEdicaoTipo === 'produto' && window._reguaEmEdicaoId === c.id) ? `<tr><td colspan="5">${renderReguaEditorHtml('produto', c)}</td></tr>` : ''}`).join('')}
   </tbody></table>`;
+}
+
+// ---- Editor de régua (opções de texto + pontos) — compartilhado entre
+// Critérios de Produto (Avaliar) e Critérios de Conferência. "tipo" decide
+// qual tabela/cache/tela usar; o resto do fluxo é idêntico nos dois.
+window._reguaEmEdicaoTipo = null;
+window._reguaEmEdicaoId = null;
+window._reguaBuilder = [];
+
+function getReguaContexto(tipo) {
+  const d = db();
+  return tipo === 'conferencia'
+    ? { tabela: 'criterios_conferencia', lista: d.criteriosConferencia, renderFn: renderCriteriosConferenciaTab, recarregarFn: carregarCriteriosConferencia, logChave: 'criterio_conferencia_regua_editada', logTexto: 'critério de conferência' }
+    : { tabela: 'criterios_produto', lista: d.criteriosProduto, renderFn: renderCriteriosProdutoLista, recarregarFn: carregarCriteriosProduto, logChave: 'criterio_produto_regua_editada', logTexto: 'critério de produto' };
+}
+
+function toggleReguaEditor(tipo, id) {
+  const ctx = getReguaContexto(tipo);
+  if (window._reguaEmEdicaoTipo === tipo && window._reguaEmEdicaoId === id) {
+    window._reguaEmEdicaoTipo = null; window._reguaEmEdicaoId = null; ctx.renderFn(); return;
+  }
+  const c = ctx.lista.find(x => x.id === id);
+  if (!c) return;
+  window._reguaEmEdicaoTipo = tipo;
+  window._reguaEmEdicaoId = id;
+  window._reguaBuilder = (c.opcoes && c.opcoes.length) ? c.opcoes.map(o => ({ ...o })) : [];
+  ctx.renderFn();
+}
+
+function addReguaOpcao() {
+  window._reguaBuilder.push({ label: '', pontos: 0 });
+  getReguaContexto(window._reguaEmEdicaoTipo).renderFn();
+}
+
+function removeReguaOpcao(idx) {
+  window._reguaBuilder.splice(idx, 1);
+  getReguaContexto(window._reguaEmEdicaoTipo).renderFn();
+}
+
+function updateReguaOpcaoField(idx, field, value) {
+  window._reguaBuilder[idx][field] = field === 'pontos' ? (parseFloat(value) || 0) : value;
+}
+
+function sugerirModeloReguaProduto(tipo, id) {
+  const ctx = getReguaContexto(tipo);
+  const c = ctx.lista.find(x => x.id === id);
+  if (!c) return;
+  const modelo = getModeloReguaPadrao(c.nome, c.peso);
+  if (!modelo) { toast('Não há modelo padrão pra esse nome/peso — monte a régua manualmente.'); return; }
+  window._reguaBuilder = modelo;
+  ctx.renderFn();
+}
+
+async function salvarReguaCriterioProduto(tipo, id) {
+  const ctx = getReguaContexto(tipo);
+  const opcoes = window._reguaBuilder.filter(o => o.label.trim());
+  if (window._reguaBuilder.some(o => !o.label.trim())) toast('Linhas sem texto foram descartadas ao salvar.');
+  const { error } = await supabaseClient.from(ctx.tabela).update({ opcoes }).eq('id', id);
+  if (error) { toast('Erro ao salvar régua: ' + error.message); return; }
+  addLog(ctx.logChave, `${currentUser.email} atualizou a régua de um ${ctx.logTexto}`);
+  window._reguaEmEdicaoTipo = null; window._reguaEmEdicaoId = null;
+  await ctx.recarregarFn();
+  ctx.renderFn();
+  toast('Régua salva!');
+}
+
+function renderReguaEditorHtml(tipo, c) {
+  const modeloDisponivel = getModeloReguaPadrao(c.nome, c.peso) !== null;
+  return `
+    <div class="criterio-block" style="margin:6px 0">
+      <p style="font-size:11px; font-weight:600; color:var(--text-muted); margin-bottom:8px">
+        Régua de "${c.nome}" — deixe em branco (sem opções) pra continuar com número livre de 0 a ${c.peso}
+      </p>
+      ${window._reguaBuilder.map((op, i) => `
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:6px">
+          <input type="text" value="${op.label}" placeholder="Ex: Entregue no prazo combinado" style="flex:1" oninput="updateReguaOpcaoField(${i},'label',this.value)">
+          <input type="number" step="0.5" value="${op.pontos}" placeholder="Pts" style="width:70px" oninput="updateReguaOpcaoField(${i},'pontos',this.value)">
+          <button class="btn btn-danger btn-sm" onclick="removeReguaOpcao(${i})">${ic('x', 12)}</button>
+        </div>
+      `).join('')}
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; flex-wrap:wrap; gap:8px">
+        <div style="display:flex; gap:8px">
+          <button class="btn btn-secondary btn-sm" onclick="addReguaOpcao()">+ Opção</button>
+          ${modeloDisponivel ? `<button class="btn btn-secondary btn-sm" onclick="sugerirModeloReguaProduto('${tipo}', '${c.id}')">Sugerir modelo padrão</button>` : ''}
+        </div>
+        <div style="display:flex; gap:8px">
+          <button class="btn btn-secondary btn-sm" onclick="toggleReguaEditor('${tipo}', '${c.id}')">Cancelar</button>
+          <button class="btn btn-primary btn-sm" onclick="salvarReguaCriterioProduto('${tipo}', '${c.id}')">Salvar régua</button>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 async function addCriterioProduto() {
@@ -1280,8 +1533,10 @@ async function addCriterioProduto() {
   const peso = parseFloat(document.getElementById('ncp-peso').value) || 1;
   if (!nome) { toast('Informe o nome do critério.'); return; }
 
+  const opcoes = getModeloReguaPadrao(nome, peso) || [];
+
   const { error } = await supabaseClient.from('criterios_produto').insert({
-    empresa_id: currentUser.empresaId, nome, peso, ativo: true,
+    empresa_id: currentUser.empresaId, nome, peso, ativo: true, opcoes,
   });
   if (error) { toast('Erro ao criar critério: ' + error.message); return; }
 
@@ -1290,7 +1545,7 @@ async function addCriterioProduto() {
   document.getElementById('ncp-peso').value = '1';
   await carregarCriteriosProduto();
   renderCriteriosProdutoTab();
-  toast('Critério adicionado!');
+  toast(opcoes.length ? 'Critério adicionado com régua sugerida — revise e ajuste se quiser.' : 'Critério adicionado!');
 }
 
 async function salvarPesoCriterioProduto(id, novoPeso) {

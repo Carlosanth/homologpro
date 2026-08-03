@@ -18,7 +18,7 @@ function renderAdUsuarios() {
       <div id="nu-permissoes-wrap" style="display:none; margin-bottom:14px">
         <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:6px">Módulos que esse admin pode acessar (por padrão, todos)</label>
         <div style="display:flex; flex-wrap:wrap; gap:4px 16px">
-          ${MODULOS_MENU.map(m => `<label class="checklist-item"><input type="checkbox" class="nu-modulo-check" value="${m.chave}" checked ${m.chave === 'dashboard' ? 'disabled' : ''}> ${m.label}</label>`).join('')}
+          ${MODULOS_MENU.map(m => `<label class="checklist-item"><input type="checkbox" class="nu-modulo-check" value="${m.chave}" checked> ${m.label}</label>`).join('')}
         </div>
       </div>
       <button class="btn btn-primary" onclick="addUsuario()">Criar usuário</button>
@@ -138,7 +138,7 @@ function abrirPermissoesUsuario(id) {
     <h3>Permissões — ${u.nome}</h3>
     <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px">Módulos que esse admin pode acessar.</p>
     <div style="display:flex; flex-direction:column; gap:4px; max-height:320px; overflow-y:auto">
-      ${MODULOS_MENU.map(m => `<label class="checklist-item"><input type="checkbox" class="pu-modulo-check" value="${m.chave}" ${(!permissoesAtuais || permissoesAtuais.includes(m.chave)) ? 'checked' : ''} ${m.chave === 'dashboard' ? 'disabled' : ''}> ${m.label}</label>`).join('')}
+      ${MODULOS_MENU.map(m => `<label class="checklist-item"><input type="checkbox" class="pu-modulo-check" value="${m.chave}" ${(!permissoesAtuais || permissoesAtuais.includes(m.chave)) ? 'checked' : ''}> ${m.label}</label>`).join('')}
     </div>
     <div style="display:flex; gap:8px; margin-top:18px">
       <button class="btn btn-primary btn-block" onclick="salvarPermissoesUsuario('${id}')">Salvar</button>

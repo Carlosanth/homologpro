@@ -432,6 +432,7 @@ async function carregarPerfilELogar() {
     await carregarDocumentosVersoes();
     await carregarDocumentosPendentesAprovacao();
     await carregarCriteriosProduto();
+    await seedCriteriosProdutoPadrao();
     await carregarAvaliacoesProduto();
     await carregarCriteriosConferencia();
     await carregarConferencias();
@@ -555,11 +556,11 @@ function ehAdmin(papel) {
 
 // Um admin comum só enxerga um módulo se: (a) ele é admin_master (vê tudo),
 // ou (b) não tem lista de permissões configurada (fallback = acesso total),
-// ou (c) o módulo está na lista dele. "dashboard" está sempre liberado, pra
-// nunca cair numa tela em branco.
+// ou (c) o módulo está na lista dele. "dashboard" segue a mesma regra dos
+// outros módulos agora — pode ser desmarcado por admin_master pra um admin
+// específico não ver.
 function temAcessoModulo(modulo) {
   if (!currentUser) return false;
-  if (modulo === 'dashboard') return true;
   if (currentUser.papel === 'admin_master') return true;
   if (currentUser.papel === 'avaliador') return false;
   if (!currentUser.permissoesModulos) return true;
@@ -690,6 +691,8 @@ async function carregarAvaliacoes() {
       travado: av.bloqueada,
       liberadoEdicao: av.liberado_edicao,
       notificadoEm: av.notificado_em || null,
+      planoAcaoPrazo: av.plano_acao_prazo || null,
+      planoAcaoAnexo: av.plano_acao_anexo || null,
       situacao: av.situacao || null,
     };
   });
@@ -795,6 +798,8 @@ async function carregarAvaliacoesProduto() {
     conferenciaId: av.conferencia_id || null,
     justificativa: av.justificativa || '',
     notificadoEm: av.notificado_em || null,
+    planoAcaoPrazo: av.plano_acao_prazo || null,
+    planoAcaoAnexo: av.plano_acao_anexo || null,
   }));
 }
 
@@ -965,7 +970,7 @@ async function carregarUnidadesDocumentos() {
 }
 
 async function doLogout() {
-  if (currentUser) addLog('logout', `${currentUser.email} saiu do sistema`);
+  addLog('logout', `${currentUser.email} saiu do sistema`);
   await supabaseClient.auth.signOut();
   currentUser = null;
   document.getElementById('app').classList.remove('active');
@@ -1046,13 +1051,14 @@ function getSituacao(nota) {
 
 function badgeSit(sit) {
   const map = {
-    certificado: ['badge-accent', '🏆 Certificado'],
-    aprovado: ['badge-success', '✅ Aprovado'],
-    parcial: ['badge-warn', '⚠️ Parcial'],
-    reprovado: ['badge-danger', '❌ Reprovado']
+    certificado: ['badge-accent', 'check', 'Certificado'],
+    aprovado: ['badge-success', 'check', 'Aprovado'],
+    parcial: ['badge-warn', 'alertTriangle', 'Parcial'],
+    reprovado: ['badge-danger', 'xCircle', 'Reprovado']
   };
-  const [cls, label] = map[sit] || ['badge-neutral', sit || '—'];
-  return `<span class="badge ${cls}">${label}</span>`;
+  const [cls, icone, label] = map[sit] || [null, null, sit || '—'];
+  if (!cls) return `<span class="badge badge-neutral">${label}</span>`;
+  return `<span class="badge ${cls}" style="display:inline-flex; align-items:center; gap:4px">${ic(icone, 12)}${label}</span>`;
 }
 
 
@@ -1088,7 +1094,7 @@ function montarNotificacoes() {
     });
     (d.documentosPendentesAprovacao || []).filter(p => p.status === 'pendente').forEach(p => {
       const forn = d.fornecedores.find(f => f.id === p.fornecedorId);
-      itens.push({ urgente: false, texto: `📥 ${forn ? forn.nome : '—'} enviou documento pelo portal — aguardando aprovação`, modulo: 'fornecedores' });
+      itens.push({ urgente: false, texto: `${ic('inbox', 12)}${forn ? forn.nome : '—'} enviou documento pelo portal — aguardando aprovação`, modulo: 'fornecedores' });
     });
   }
 
@@ -1141,7 +1147,7 @@ function abrirCentralNotificacoes() {
           <span style="width:8px; height:8px; border-radius:50%; flex-shrink:0; background:${item.urgente ? 'var(--danger)' : 'var(--warn)'}"></span>
           <span>${item.texto}</span>
         </div>
-      `).join('') : '<div class="empty-state"><p>Nada pendente por aqui. 🎉</p></div>'}
+      `).join('') : '<div class="empty-state"><p>Nada pendente por aqui.</p></div>'}
     </div>
   `);
 }
@@ -1213,8 +1219,8 @@ function renderAdminShell() {
       const hoje0h = new Date(); hoje0h.setHours(0, 0, 0, 0);
       const fimTrial0h = new Date(d.trialTerminaEm); fimTrial0h.setHours(0, 0, 0, 0);
       const diasRestantes = Math.round((fimTrial0h - hoje0h) / 86400000);
-      return `<div style="margin:0 16px 12px; padding:8px 10px; background:var(--warn-bg); border:1px solid var(--warn-border); border-radius:8px; font-size:11px; color:var(--warn)">
-        ${diasRestantes > 0 ? `🕐 Teste grátis: faltam ${diasRestantes} dia${diasRestantes > 1 ? 's' : ''}` : '⚠️ Seu teste grátis acabou'}
+      return `<div style="margin:0 16px 12px; padding:8px 10px; background:var(--warn-bg); border:1px solid var(--warn-border); border-radius:8px; font-size:11px; color:var(--warn); display:flex; align-items:center; gap:5px">
+        ${diasRestantes > 0 ? `${ic('clock', 12)}Teste grátis: faltam ${diasRestantes} dia${diasRestantes > 1 ? 's' : ''}` : `${ic('alertTriangle', 12)}Seu teste grátis acabou`}
       </div>`;
     })()}
     <div class="nav-list" id="nav-list">

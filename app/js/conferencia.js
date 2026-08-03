@@ -112,11 +112,11 @@ function renderLancarConferenciaTab() {
       </div>
       <p style="font-size:12px; font-weight:600; color:var(--text-sec); margin:14px 0 8px">Critérios</p>
       <div class="form-row three" id="cf-criterios">
-        ${criteriosAtivos.filter(c => c.tipo !== 'faixa').map(c => {
+        ${criteriosAtivos.filter(c => c.tipo !== 'faixa' && !(c.tipo === 'nota' && c.opcoes && c.opcoes.length)).map(c => {
           const critProdutoMatch = c.tipo === 'nota'
             ? d.criteriosProduto.find(cp => cp.ativo && normalizarNomeCriterio(cp.nome) === normalizarNomeCriterio(c.nome))
             : null;
-          const limiteNota = critProdutoMatch ? critProdutoMatch.peso : 10;
+          const limiteNota = c.tipo === 'nota' ? (c.peso || (critProdutoMatch ? critProdutoMatch.peso : 10)) : null;
           return `
           <div class="form-group">
             <label>${c.nome}${c.tipo === 'sim_nao' ? ` <span style="color:var(--text-muted); font-weight:400">(desconta ${c.desconto_se_nao} se "Não")</span>` : ''}${c.tipo === 'nota' ? ` <span style="color:var(--text-muted); font-weight:400">(peso ${limiteNota})</span>` : ''}</label>
@@ -134,6 +134,26 @@ function renderLancarConferenciaTab() {
           </div>
         `;
         }).join('')}
+      </div>
+      <div id="cf-criterios-regua">
+        ${criteriosAtivos.filter(c => c.tipo === 'nota' && c.opcoes && c.opcoes.length).map(c => `
+          <div class="form-group lp-select-wrap" style="position:relative">
+            <label>${c.nome} <span style="color:var(--text-muted); font-weight:400">(peso ${c.peso})</span></label>
+            <input type="hidden" class="cf-resposta-input" data-criterio-id="${c.id}" data-tipo="nota" data-criterio-nome="${c.nome}" value="">
+            <textarea class="cf-nota-motivo" data-criterio-id="${c.id}" style="display:none"></textarea>
+            <div id="lp-select-closed-${c.id}" onclick="toggleLpSelectDropdown('${c.id}')" style="border:1px solid var(--border); border-radius:8px; padding:10px 12px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:8px; background:var(--surface)">
+              <span id="lp-select-label-${c.id}" style="color:var(--text-muted)">Selecione uma opção</span>
+              <span style="color:var(--text-muted)">▾</span>
+            </div>
+            <div id="lp-select-dropdown-${c.id}" style="display:none; position:absolute; top:100%; left:0; right:0; z-index:20; background:var(--surface); border:1px solid var(--border); border-radius:8px; margin-top:4px; max-height:260px; overflow-y:auto; box-shadow:0 6px 18px rgba(0,0,0,.18)">
+              ${c.opcoes.map((op, i) => `
+                <div onclick="selecionarOpcaoCriterioConferencia('${c.id}', ${i})" style="padding:10px 12px; cursor:pointer; display:flex; justify-content:space-between; gap:10px; border-bottom:1px solid var(--border)">
+                  <span>${op.label}</span><span style="font-weight:600; white-space:nowrap">${op.pontos}P</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `).join('')}
       </div>
       ${criteriosAtivos.filter(c => c.tipo === 'faixa').map(c => `
         <div class="form-group" style="margin-top:10px">
@@ -388,10 +408,10 @@ function atualizarStatusFaixa(criterioId) {
 
   const dentro = recebida >= min && recebida <= max;
   if (dentro) {
-    statusEl.innerHTML = '<div style="margin-top:6px; font-size:12px; color:var(--success)">✅ Dentro da faixa recomendada</div>';
+    statusEl.innerHTML = `<div style="margin-top:6px; font-size:12px; color:var(--success); display:flex; align-items:center; gap:5px">${ic('check', 13)}Dentro da faixa recomendada</div>`;
   } else {
     statusEl.innerHTML = `
-      <div style="margin-top:6px; font-size:12px; color:var(--danger); font-weight:600">⚠️ Fora da faixa recomendada</div>
+      <div style="margin-top:6px; font-size:12px; color:var(--danger); font-weight:600; display:flex; align-items:center; gap:5px">${ic('alertTriangle', 13)}Fora da faixa recomendada</div>
       <div class="form-group" style="margin-top:6px; max-width:280px">
         <label>RPNC (obrigatório, fora da faixa)</label>
         <input type="text" class="cf-faixa-rpnc" data-criterio-id="${criterioId}" placeholder="Nº ou referência da não conformidade">
@@ -406,6 +426,27 @@ function atualizarStatusFaixa(criterioId) {
 // quem presenciou o problema (ex: caixas amassadas). Se não existir um
 // critério correspondente no Avaliar Produto, não tem peso pra comparar —
 // não pede motivo.
+// Critério de Conferência com régua: mesmo campo fechado (dropdown) que o
+// Avaliar Produto usa — reaproveita toggleLpSelectDropdown/
+// fecharTodosLpSelectDropdopns (definidas em avaliar.js) já que o HTML segue
+// o mesmo padrão de IDs (lp-select-*).
+function selecionarOpcaoCriterioConferencia(critId, idx) {
+  const d = db();
+  const c = d.criteriosConferencia.find(x => x.id === critId);
+  if (!c) return;
+  const op = c.opcoes[idx];
+  const respostaInp = document.querySelector(`.cf-resposta-input[data-criterio-id="${critId}"]`);
+  const motivoInp = document.querySelector(`.cf-nota-motivo[data-criterio-id="${critId}"]`);
+  const labelEl = document.getElementById(`lp-select-label-${critId}`);
+  if (!respostaInp) return;
+
+  respostaInp.value = op.pontos;
+  if (motivoInp) motivoInp.value = op.pontos < c.peso ? op.label : '';
+  if (labelEl) { labelEl.textContent = `${op.label} (${op.pontos}P)`; labelEl.style.color = 'var(--text)'; }
+
+  fecharTodosLpSelectDropdowns();
+}
+
 function verificarNotaConferenciaAbaixoPeso(inp) {
   const criterioId = inp.dataset.criterioId;
   const nomeCriterio = inp.dataset.criterioNome;
@@ -471,16 +512,12 @@ async function salvarConferencia() {
       if (valor === 'nao') desconto = Number(criterio.desconto_se_nao) || 0;
     } else if (criterio.tipo === 'nota') {
       valor = parseFloat(valor);
-      // Se existir um critério de mesmo nome no Avaliar Produto e a nota
-      // ficou abaixo do peso dele, o motivo é obrigatório aqui.
-      const nomeNormalizado = normalizarNomeCriterio(criterio.nome);
-      const critProduto = d.criteriosProduto.find(c => c.ativo && normalizarNomeCriterio(c.nome) === nomeNormalizado);
-      const limite = critProduto ? critProduto.peso : 10;
+      const limite = criterio.peso || 10;
       if (valor > limite) { acimaDoPeso = true; return; }
-      if (critProduto && valor < critProduto.peso) {
+      if (valor < limite) {
         const motivoInp = document.querySelector(`.cf-nota-motivo[data-criterio-id="${criterio.id}"]`);
         motivo = motivoInp ? motivoInp.value.trim() : '';
-        if (!motivo) { faltando = true; toast(`Informe o motivo de "${criterio.nome}" ter ficado abaixo do peso máximo (${critProduto.peso}).`); return; }
+        if (!motivo) { faltando = true; toast(`Informe o motivo de "${criterio.nome}" ter ficado abaixo do peso máximo (${limite}).`); return; }
       }
     }
     descontoTotal += desconto;
@@ -597,6 +634,13 @@ function renderCriteriosConferenciaTab() {
       <div class="form-row three" id="cc-unidade-wrap" style="display:none">
         <div class="form-group"><label>Unidade</label><input type="text" id="cc-unidade" placeholder="Ex: º, %, kg" maxlength="6"></div>
       </div>
+      <div class="form-row three" id="cc-peso-wrap" style="display:none">
+        <div class="form-group">
+          <label>Peso</label>
+          <input type="number" id="cc-peso" min="1" step="1" value="10">
+          <p style="font-size:11px; color:var(--text-muted); margin-top:4px">Se já existir um critério ativo de mesmo nome no Avaliar Produto com régua configurada, essa régua é copiada pra cá (o peso também vem de lá). Senão, geramos uma régua em branco do tamanho do peso pra você preencher.</p>
+        </div>
+      </div>
       <button class="btn btn-primary" style="margin-top:10px" onclick="addCriterioConferencia()">Adicionar critério</button>
       </div>
     </div>
@@ -605,15 +649,18 @@ function renderCriteriosConferenciaTab() {
       ${!d.criteriosConferencia.length ? '<div class="empty-state"><p>Nenhum critério cadastrado ainda.</p></div>' : `
         <div style="overflow-x:auto">
         <table>
-          <thead><tr><th>Nome</th><th>Tipo</th><th>Desconto</th><th>Ativo</th><th></th></tr></thead>
+          <thead><tr><th>Nome</th><th>Tipo</th><th>Peso</th><th>Régua</th><th>Desconto</th><th>Ativo</th><th></th></tr></thead>
           <tbody>
             ${d.criteriosConferencia.map(c => `<tr>
               <td>${c.nome}</td>
               <td>${c.tipo === 'sim_nao' ? 'Sim/Não' : c.tipo === 'nota' ? 'Nota (0-10)' : c.tipo === 'faixa' ? `Faixa (${c.unidade})` : 'Texto'}</td>
+              <td>${c.tipo === 'nota' ? c.peso : '—'}</td>
+              <td>${c.tipo === 'nota' ? ((c.opcoes && c.opcoes.length) ? `<span style="color:var(--accent); font-weight:600">${c.opcoes.length} opções</span>` : '<span style="color:var(--text-muted)">Livre</span>') : '—'}</td>
               <td>${(c.tipo === 'sim_nao' || c.tipo === 'faixa') ? c.desconto_se_nao : '—'}</td>
               <td><input type="checkbox" ${c.ativo ? 'checked' : ''} onchange="toggleCriterioConferenciaAtivo('${c.id}', this.checked)"></td>
-              <td><button class="btn btn-danger btn-sm" onclick="excluirCriterioConferencia('${c.id}')">Excluir</button></td>
-            </tr>`).join('')}
+              <td><div class="actions">${c.tipo === 'nota' ? `<button class="btn btn-secondary btn-sm" onclick="toggleReguaEditor('conferencia', '${c.id}')">Editar régua</button>` : ''} <button class="btn btn-danger btn-sm" onclick="excluirCriterioConferencia('${c.id}')">Excluir</button></div></td>
+            </tr>
+            ${(window._reguaEmEdicaoTipo === 'conferencia' && window._reguaEmEdicaoId === c.id) ? `<tr><td colspan="7">${renderReguaEditorHtml('conferencia', c)}</td></tr>` : ''}`).join('')}
           </tbody>
         </table>
         </div>
@@ -626,6 +673,7 @@ function atualizarCamposTipoCriterioConferencia() {
   const tipo = document.getElementById('cc-tipo').value;
   document.getElementById('cc-desconto-wrap').style.display = (tipo === 'sim_nao' || tipo === 'faixa') ? 'block' : 'none';
   document.getElementById('cc-unidade-wrap').style.display = tipo === 'faixa' ? 'flex' : 'none';
+  document.getElementById('cc-peso-wrap').style.display = tipo === 'nota' ? 'flex' : 'none';
 }
 
 function addLinhaCabecalhoConferencia() {
@@ -669,15 +717,38 @@ async function addCriterioConferencia() {
   if (!nome) { toast('Informe o nome do critério.'); return; }
   if (tipo === 'faixa' && !unidade) { toast('Informe a unidade (ex: º, %, kg).'); return; }
 
+  const d = db();
+  let peso = 10;
+  let opcoes = [];
+  let origemRegua = '';
+
+  if (tipo === 'nota') {
+    peso = parseFloat(document.getElementById('cc-peso').value) || 10;
+    const critProdutoMatch = d.criteriosProduto.find(cp => cp.ativo && normalizarNomeCriterio(cp.nome) === normalizarNomeCriterio(nome));
+    if (critProdutoMatch && critProdutoMatch.opcoes && critProdutoMatch.opcoes.length) {
+      // Já existe um critério ativo de mesmo nome no Avaliar Produto, com
+      // régua configurada — copia a régua (e o peso) de lá, pra ficar igual.
+      peso = critProdutoMatch.peso;
+      opcoes = critProdutoMatch.opcoes.map(o => ({ ...o }));
+      origemRegua = ' (régua copiada do Avaliar Produto)';
+    } else {
+      opcoes = getModeloReguaPadrao(nome, peso);
+      origemRegua = ' com régua sugerida — revise e ajuste se quiser';
+    }
+  }
+
   const { error } = await supabaseClient.from('criterios_conferencia').insert({
     empresa_id: currentUser.empresaId, nome, tipo, desconto_se_nao: desconto,
     unidade: tipo === 'faixa' ? unidade : null, ativo: true,
+    peso: tipo === 'nota' ? peso : null,
+    opcoes: tipo === 'nota' ? opcoes : [],
   });
   if (error) { toast('Erro ao adicionar critério: ' + error.message); return; }
 
   addLog('criterio_conferencia_criado', `${currentUser.email} criou o critério de conferência "${nome}"`);
   await carregarCriteriosConferencia();
   renderCriteriosConferenciaTab();
+  toast(`Critério adicionado${tipo === 'nota' ? origemRegua : ''}!`);
 }
 
 async function toggleCriterioConferenciaAtivo(id, ativo) {
