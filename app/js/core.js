@@ -108,6 +108,7 @@ function db() {
     documentosPendentesAprovacao: documentosPendentesAprovacaoCache,
     cobrancaAutomaticaAtiva: empresaConfigCache.cobranca_automatica_ativa,
     cobrancaAutomaticaFrequencia: empresaConfigCache.cobranca_automatica_frequencia,
+    toleranciaDocumentosMeses: empresaConfigCache.tolerancia_documentos_meses ?? 6,
     lembreteAvaliadorAtivo: empresaConfigCache.lembrete_avaliador_ativo,
     lembreteAvaliadorFrequencia: empresaConfigCache.lembrete_avaliador_frequencia,
     notificarAtividadeAtivo: empresaConfigCache.notificar_atividade_ativo,
@@ -125,7 +126,10 @@ function db() {
 // usuário. Se a gravação falhar, só fica de fora do histórico — não temos
 // como travar o resto do fluxo por causa disso.
 function addLog(acao, detalhe) {
-  const usuario = currentUser ? currentUser.email : 'sistema';
+  // Prioriza o nome do responsável (pessoa) sobre o setor/login — mas cai pro
+  // nome/setor se o responsável não estiver preenchido (ex: contas antigas).
+  // O e-mail continua aparecendo dentro do "detalhe" na maioria das ações.
+  const usuario = currentUser ? (currentUser.responsavel ? `${currentUser.responsavel} — ${currentUser.nome}` : currentUser.nome) : 'sistema';
   const timestamp = new Date().toISOString();
   logsCache.unshift({ id: 'log' + Date.now() + Math.random().toString(36).slice(2, 6), usuario, acao, detalhe, timestamp });
 
@@ -408,7 +412,7 @@ async function carregarPerfilELogar() {
 
   const { data: profile, error } = await supabaseClient
     .from('profiles')
-    .select('id, nome, papel, ativo, empresa_id, permissoes_modulos')
+    .select('id, nome, responsavel, papel, ativo, empresa_id, permissoes_modulos')
     .eq('id', user.id)
     .single();
 
@@ -432,7 +436,7 @@ async function carregarPerfilELogar() {
   }
 
   currentUser = {
-    id: profile.id, email: user.email, nome: profile.nome, papel: profile.papel, empresaId: profile.empresa_id,
+    id: profile.id, email: user.email, nome: profile.nome, responsavel: profile.responsavel || null, papel: profile.papel, empresaId: profile.empresa_id,
     // null = acesso total (admin_master sempre ignora essa lista; admin comum
     // sem nada configurado também cai em acesso total, por segurança).
     permissoesModulos: profile.permissoes_modulos || null,
@@ -595,7 +599,7 @@ function temAcessoModulo(modulo) {
 async function carregarUsuarios() {
   const { data, error } = await supabaseClient
     .from('profiles')
-    .select('id, nome, email, papel, ativo, permissoes_modulos, ultimo_lembrete_em, ultimo_lembrete_estado, ultimo_erro_lembrete, ultimo_erro_lembrete_em, recebe_notificacao_cobranca')
+    .select('id, nome, responsavel, email, papel, ativo, permissoes_modulos, ultimo_lembrete_em, ultimo_lembrete_estado, ultimo_erro_lembrete, ultimo_erro_lembrete_em, recebe_notificacao_cobranca')
     .eq('empresa_id', currentUser.empresaId)
     .order('nome');
 
@@ -696,12 +700,20 @@ async function carregarAvaliacoes() {
         emailAutor = u ? u.email : '—';
       }
     }
+    // Mesma lógica pro nome do responsável: prioriza o valor gravado no
+    // envio; cai pro cadastro atual só em registros antigos sem esse campo.
+    let nomeAutor = av.enviado_por_nome;
+    if (!nomeAutor) {
+      const u = usuariosCache.find(x => x.id === av.usuario_id);
+      nomeAutor = u ? (u.responsavel || u.nome) : null;
+    }
     return {
       id: av.id,
       formularioId: av.formulario_id,
       fornecedorId: av.fornecedor_id,
       usuarioId: av.usuario_id,
       enviadoPor: emailAutor,
+      enviadoPorNome: nomeAutor,
       periodo: av.periodo,
       respostas: av.respostas || {},
       nota: av.nota_media,
@@ -734,7 +746,7 @@ function situacaoDe(av) {
 async function carregarEmpresaConfig() {
   const { data, error } = await supabaseClient
     .from('empresas')
-    .select('nome, campos_fornecedor_custom, colunas_fornecedor_visiveis, tipos_documento, faixas_conceito_produto, desconto_ocorrencia_ativo, valor_desconto_ocorrencia, anos_retencao_avaliacao, config, status, plano, trial_termina_em, limite_fornecedores, limite_admins, cobranca_automatica_ativa, cobranca_automatica_frequencia, lembrete_avaliador_ativo, lembrete_avaliador_frequencia, notificar_atividade_ativo, valor_mensal_atual, plano_ativo_desde, proxima_cobranca_em, proximo_valor_mensal, proximo_reajuste_em, enterprise_composicao, desconto_doc_vencido_ativo, valor_desconto_doc_vencido, conferencia_cabecalho')
+    .select('nome, campos_fornecedor_custom, colunas_fornecedor_visiveis, tipos_documento, faixas_conceito_produto, desconto_ocorrencia_ativo, valor_desconto_ocorrencia, anos_retencao_avaliacao, config, status, plano, trial_termina_em, limite_fornecedores, limite_admins, cobranca_automatica_ativa, cobranca_automatica_frequencia, tolerancia_documentos_meses, lembrete_avaliador_ativo, lembrete_avaliador_frequencia, notificar_atividade_ativo, valor_mensal_atual, plano_ativo_desde, proxima_cobranca_em, proximo_valor_mensal, proximo_reajuste_em, enterprise_composicao, desconto_doc_vencido_ativo, valor_desconto_doc_vencido, conferencia_cabecalho')
     .eq('id', currentUser.empresaId)
     .single();
 
@@ -759,6 +771,7 @@ async function carregarEmpresaConfig() {
     limite_admins: data.limite_admins ?? null, // null = ilimitado
     cobranca_automatica_ativa: !!data.cobranca_automatica_ativa,
     cobranca_automatica_frequencia: data.cobranca_automatica_frequencia || 'chave',
+    tolerancia_documentos_meses: data.tolerancia_documentos_meses ?? 6,
     lembrete_avaliador_ativo: !!data.lembrete_avaliador_ativo,
     lembrete_avaliador_frequencia: data.lembrete_avaliador_frequencia || 'chave',
     notificar_atividade_ativo: !!data.notificar_atividade_ativo,
@@ -814,6 +827,7 @@ async function carregarAvaliacoesProduto() {
     conceito: av.conceito,
     contaOcorrencia: av.conta_ocorrencia,
     enviadoPorEmail: av.enviado_por_email,
+    enviadoPorNome: av.enviado_por_nome,
     criadoEm: av.criado_em,
     descontoExtra: av.desconto_extra || 0,
     descontoExtraDetalhe: av.desconto_extra_detalhe || [],
@@ -1228,10 +1242,10 @@ function renderAdminShell() {
   document.getElementById('sidebar').innerHTML = `
     <div class="sidebar-logo"><h1>HomologPro</h1><p title="${nomeEmpresaSidebar}">${nomeEmpresaSidebar}</p></div>
     <div class="sidebar-user">
-      <div class="sidebar-user-avatar">${currentUser.nome.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</div>
+      <div class="sidebar-user-avatar">${(currentUser.responsavel || currentUser.nome).split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</div>
       <div class="sidebar-user-info">
-        <p>${currentUser.nome}</p>
-        <span>${currentUser.email}</span><br>
+        <p>${currentUser.responsavel || currentUser.nome}</p>
+        <span>${currentUser.responsavel ? currentUser.nome + ' · ' : ''}${currentUser.email}</span><br>
         <span class="role-badge admin">${currentUser.papel === 'admin_master' ? 'Admin+' : 'Admin'}</span>
       </div>
     </div>
@@ -1318,19 +1332,33 @@ function showAdPage(page, btn) {
 
 // ---------- AUDITORIA ----------
 function renderAdAuditoria() {
-  const d = db();
   document.getElementById('ad-page-auditoria').innerHTML = `
     <div class="page-header"><div><h2>Log de auditoria</h2><p>Histórico completo de ações no sistema — útil para auditorias ISO/ONA</p></div></div>
-    <div class="card">
-      ${!d.logs.length ? '<div class="empty-state"><p>Nenhum evento registrado ainda.</p></div>' : d.logs.slice(0, 100).map(l => `
-        <div class="log-item">
-          <div class="log-dot"></div>
-          <div class="log-text">
-            <span><b>${l.usuario}</b> — ${l.detalhe}</span>
-            <div class="log-time">${fmtData(l.timestamp)}</div>
-          </div>
-        </div>
-      `).join('')}
+    <div class="card" style="margin-bottom:14px">
+      <input type="text" id="ad-auditoria-busca" oninput="renderAdAuditoriaLista()" placeholder="Buscar por responsável, setor, e-mail ou ação...">
     </div>
+    <div class="card" id="ad-auditoria-lista"></div>
+  `;
+  renderAdAuditoriaLista();
+}
+
+function renderAdAuditoriaLista() {
+  const d = db();
+  const buscaEl = document.getElementById('ad-auditoria-busca');
+  const termo = (buscaEl ? buscaEl.value : '').trim().toLowerCase();
+  const logsFiltrados = termo
+    ? d.logs.filter(l => (l.usuario || '').toLowerCase().includes(termo) || (l.detalhe || '').toLowerCase().includes(termo) || (l.acao || '').toLowerCase().includes(termo))
+    : d.logs;
+
+  document.getElementById('ad-auditoria-lista').innerHTML = `
+    ${!logsFiltrados.length ? `<div class="empty-state"><p>${termo ? 'Nenhum evento encontrado para essa busca.' : 'Nenhum evento registrado ainda.'}</p></div>` : logsFiltrados.slice(0, 100).map(l => `
+      <div class="log-item">
+        <div class="log-dot"></div>
+        <div class="log-text">
+          <span><b>${l.usuario}</b> — ${l.detalhe}</span>
+          <div class="log-time">${fmtData(l.timestamp)}</div>
+        </div>
+      </div>
+    `).join('')}
   `;
 }

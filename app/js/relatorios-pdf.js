@@ -399,7 +399,7 @@ async function notificarFornecedorNota(avId) {
 
   const notaMax = form ? form.criterios.reduce((s, c) => s + c.pesoMax, 0) : null;
   const tipoLabel = form ? (form.tipo === 'produto' ? 'Produto' : 'Serviço') : '';
-  const setorInfo = form ? `- Setor Avaliador: ${form.setor} · ${tipoLabel} (${form.nome})\n` : '';
+  const setorInfo = form ? `- Setor Avaliador: ${form.setor}${av.enviadoPorNome ? ` (${av.enviadoPorNome})` : ''} · ${tipoLabel} (${form.nome})\n` : '';
   const secaoMelhoriaAuto = melhoriasAuto.length ? `\n📉 Melhoria Esperada para os Próximos Períodos:\n${melhoriasAuto.map(m => `- ${m}`).join('\n')}\n` : '';
 
   const textos = d.textos || {};
@@ -542,7 +542,8 @@ async function notificarFornecedorProduto(avId) {
   }
 
   const assunto = `Avaliação de Nota Fiscal ${av.numeroNf || ''} - ${forn.nome}`;
-  let corpo = `${saudacao},\n${abertura}\n\n- Nota Fiscal: ${av.numeroNf || '—'}\n- Data: ${dataLabel}\n- Nota Obtida: ${av.notaGeral != null ? av.notaGeral.toFixed(1) : '—'} (${getSubtituloDoc(sitProduto)})\n\n`;
+  const responsavelInfo = av.enviadoPorNome ? `- Avaliado por: ${av.enviadoPorNome}\n` : '';
+  let corpo = `${saudacao},\n${abertura}\n\n${responsavelInfo}- Nota Fiscal: ${av.numeroNf || '—'}\n- Data: ${dataLabel}\n- Nota Obtida: ${av.notaGeral != null ? av.notaGeral.toFixed(1) : '—'} (${getSubtituloDoc(sitProduto)})\n\n`;
 
   if (blocosCriterios.length) corpo += `Para sua ciência, detalhamos abaixo os critérios avaliados e a pontuação obtida em cada um:\n\n${blocosCriterios.join('\n\n')}\n\n`;
   if (blocosDescontos.length) corpo += `Descontos aplicados:\n${blocosDescontos.join('\n')}\n\n`;

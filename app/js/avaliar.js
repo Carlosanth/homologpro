@@ -28,10 +28,10 @@ function renderAvaliadorShell() {
   document.getElementById('sidebar').innerHTML = `
     <div class="sidebar-logo"><h1>HomologPro</h1><p>Área do avaliador</p></div>
     <div class="sidebar-user">
-      <div class="sidebar-user-avatar">${currentUser.nome.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</div>
+      <div class="sidebar-user-avatar">${(currentUser.responsavel || currentUser.nome).split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</div>
       <div class="sidebar-user-info">
-        <p>${currentUser.nome}</p>
-        <span>${currentUser.email}</span><br>
+        <p>${currentUser.responsavel || currentUser.nome}</p>
+        <span>${currentUser.responsavel ? currentUser.nome + ' · ' : ''}${currentUser.email}</span><br>
         <span class="role-badge avaliador">Avaliador</span>
       </div>
     </div>
@@ -379,6 +379,7 @@ async function enviarAvaliacao() {
     justificativa,
     enviado_em: new Date().toISOString(),
     enviado_por_email: currentUser.email,
+    enviado_por_nome: currentUser.responsavel || currentUser.nome,
     bloqueada: true,
     liberado_edicao: false,
   };
@@ -1081,6 +1082,7 @@ async function salvarAvaliacaoProduto() {
     conceito: faixa ? faixa.nome : null,
     conta_ocorrencia: contaOcorrencia,
     enviado_por_email: currentUser.email,
+    enviado_por_nome: currentUser.responsavel || currentUser.nome,
     desconto_extra: descontoExtra,
     desconto_extra_detalhe: descontoExtraDetalhe,
     conferencia_id: conferenciaVinculada ? conferenciaVinculada.id : null,

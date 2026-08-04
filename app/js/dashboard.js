@@ -60,6 +60,7 @@ function renderAdDashboard() {
   let alertaNotificarProduto = '';
   let alertaPlanoAcaoAtrasado = '';
   let alertasDoc = '';
+  let alertaDocsEscalonados = '';
   let alertasDocUnidades = '';
   let dashGrid2HTML = '';
   let graficosHTML = '';
@@ -401,6 +402,39 @@ function renderAdDashboard() {
           </div>
         </div>`;
     }
+
+    // ---------- ALERTA: DOCUMENTAÇÃO VENCIDA HÁ MUITO TEMPO (escalonamento) ----------
+    // Não bloqueia nada — é só um alerta a mais quando um documento continua
+    // vencido por mais tempo que a tolerância configurada, mesmo já tendo
+    // sido cobrado do fornecedor várias vezes (mesma tolerância que a
+    // function automática usa pra mandar o e-mail escalonado pra vocês).
+    const toleranciaDias = (d.toleranciaDocumentosMeses || 6) * 30;
+    const docsEscalonados = (d.documentos || []).filter(doc => -diasParaVencer(doc.validade) > toleranciaDias);
+    if (docsEscalonados.length) {
+      alertaDocsEscalonados = `
+        <div class="card alert-collapse alerta-shake" id="alerta-docs-escalonados" style="margin-bottom:16px; animation-delay:${proximoShakeDelay()}s">
+          <div class="alert-collapse-header" onclick="toggleAlertaCollapse('alerta-docs-escalonados')">
+            <div class="bar bar-danger"></div>
+            <span style="flex:1; font-size:13px; font-weight:600; color:var(--danger)">Documentação vencida há muito tempo, sem retorno</span>
+            <span class="alert-count">${docsEscalonados.length} ocorrência(s)</span>
+            <span class="alert-collapse-chevron">${ic('chevronDown', 16)}</span>
+          </div>
+          <div class="alert-collapse-body">
+            ${docsEscalonados.map(doc => {
+              const forn = d.fornecedores.find(f => f.id === doc.fornecedorId);
+              const diasVencido = -diasParaVencer(doc.validade);
+              return `<div style="display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid var(--border); font-size:12px">
+                <span><b>${forn ? forn.nome : '—'}</b> — ${doc.nome}</span>
+                <span class="badge badge-danger">vencido há ${diasVencido} dias</span>
+                ${doc.cobradoEm ? `<span style="color:var(--text-muted); font-size:11px">última cobrança em ${new Date(doc.cobradoEm).toLocaleDateString('pt-BR')}</span>` : ''}
+              </div>`;
+            }).join('')}
+            <div style="margin-top:10px">
+              <button class="btn btn-secondary btn-sm" onclick="showAdPage('fornecedores')">Ver fornecedores →</button>
+            </div>
+          </div>
+        </div>`;
+    }
   }
 
   // ---------- ALERTA: DOCUMENTOS DE "MEUS DOCUMENTOS" VENCENDO ----------
@@ -560,7 +594,7 @@ function renderAdDashboard() {
     insightGridHTML = `<div class="admin-grid2"${doisCards2 ? '' : ' style="grid-template-columns:1fr"'}>${rankingHistoricoHTML}${atividadeHTML}</div>`;
   }
 
-  const semNadaParaMostrar = !alertaAprovacao && !alertaAvaliadoresPendentesHTML && !semAvaliadorHTML && !alertaNotificar && !alertaNotificarProduto && !alertaPlanoAcaoAtrasado && !alertasDoc && !alertasDocUnidades && !dashGrid2HTML && !insightGridHTML && !graficosHTML && !tabelaHTML && !adminGridHTML;
+  const semNadaParaMostrar = !alertaAprovacao && !alertaAvaliadoresPendentesHTML && !semAvaliadorHTML && !alertaNotificar && !alertaNotificarProduto && !alertaPlanoAcaoAtrasado && !alertasDoc && !alertaDocsEscalonados && !alertasDocUnidades && !dashGrid2HTML && !insightGridHTML && !graficosHTML && !tabelaHTML && !adminGridHTML;
   document.getElementById('ad-page-dashboard').innerHTML = `
     <div class="page-header"><div><h2>Dashboard e notificações</h2><p>${MESES[mesAtual]} de ${anoAtual}</p></div></div>
     ${onboardingHTML}
@@ -571,6 +605,7 @@ function renderAdDashboard() {
     ${alertaNotificarProduto}
     ${alertaPlanoAcaoAtrasado}
     ${alertasDoc}
+    ${alertaDocsEscalonados}
     ${alertasDocUnidades}
     ${adminGridHTML}
     ${dashGrid2HTML}

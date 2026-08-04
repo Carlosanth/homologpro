@@ -531,6 +531,12 @@ async function renderAdConfig() {
           </select>
         </div>
 
+        <div class="form-group" style="max-width:360px; margin-bottom:16px">
+          <label>Tolerância de documentação vencida (meses)</label>
+          <input type="number" id="cfg-cobranca-tolerancia" min="1" step="1" value="${d.toleranciaDocumentosMeses}">
+          <p style="font-size:11px; color:var(--text-muted); margin-top:4px">Se um documento continuar vencido por mais tempo que isso, mesmo já cobrado do fornecedor, você recebe um aviso à parte (e-mail + alerta no dashboard) — não bloqueia nada, é só um alerta de atenção.</p>
+        </div>
+
         <button class="btn btn-primary" onclick="salvarConfigCobrancaAutomatica()">Salvar</button>
       </div>
 
@@ -661,17 +667,20 @@ function showConfigTabAd(tab, btn) {
 async function salvarConfigCobrancaAutomatica() {
   const ativa = document.getElementById('cfg-cobranca-ativa').checked;
   const frequencia = document.getElementById('cfg-cobranca-frequencia').value;
+  const tolerancia = parseInt(document.getElementById('cfg-cobranca-tolerancia').value, 10) || 6;
 
   const { error } = await supabaseClient.from('empresas').update({
     cobranca_automatica_ativa: ativa,
     cobranca_automatica_frequencia: frequencia,
+    tolerancia_documentos_meses: tolerancia,
   }).eq('id', currentUser.empresaId);
 
   if (error) { toast('Erro ao salvar: ' + error.message); return; }
 
   empresaConfigCache.cobranca_automatica_ativa = ativa;
   empresaConfigCache.cobranca_automatica_frequencia = frequencia;
-  addLog('config_cobranca_automatica', `${currentUser.email} ${ativa ? 'ativou' : 'desativou'} a cobrança automática (frequência: ${frequencia})`);
+  empresaConfigCache.tolerancia_documentos_meses = tolerancia;
+  addLog('config_cobranca_automatica', `${currentUser.email} ${ativa ? 'ativou' : 'desativou'} a cobrança automática (frequência: ${frequencia}, tolerância: ${tolerancia} meses)`);
   toast('Configuração salva!');
 }
 

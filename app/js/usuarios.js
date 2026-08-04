@@ -8,11 +8,12 @@ function renderAdUsuarios() {
     <div class="card">
       <div class="card-title">Novo usuário</div>
       <div class="form-row three">
-        <div class="form-group"><label>Nome</label><input type="text" id="nu-nome" placeholder="Ex: Setor Compras"></div>
+        <div class="form-group"><label>Setor</label><input type="text" id="nu-nome" placeholder="Ex: Setor Compras"></div>
+        <div class="form-group"><label>Nome do responsável</label><input type="text" id="nu-responsavel" placeholder="Ex: Carlos Antonio"></div>
         <div class="form-group"><label>E-mail</label><input type="email" id="nu-email" placeholder="setor@empresa.com"></div>
-        <div class="form-group"><label>Papel</label><select id="nu-papel" onchange="atualizarCamposPermissaoNovoUsuario()"><option value="avaliador">Avaliador</option><option value="admin">Admin</option></select></div>
       </div>
       <div class="form-row">
+        <div class="form-group"><label>Papel</label><select id="nu-papel" onchange="atualizarCamposPermissaoNovoUsuario()"><option value="avaliador">Avaliador</option><option value="admin">Admin</option></select></div>
         <div class="form-group"><label>Senha inicial</label><input type="text" id="nu-senha" placeholder="Mín. 6 caracteres"></div>
       </div>
       <div id="nu-permissoes-wrap" style="display:none; margin-bottom:14px">
@@ -96,7 +97,7 @@ function atualizarCamposPermissaoNovoUsuario() {
 function renderUsuariosLista() {
   const d = db();
   const wrap = document.getElementById('usuarios-lista');
-  wrap.innerHTML = `<table><thead><tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>Status</th><th></th></tr></thead><tbody>
+  wrap.innerHTML = `<table><thead><tr><th>Setor</th><th>Responsável</th><th>E-mail</th><th>Papel</th><th>Status</th><th></th></tr></thead><tbody>
     ${d.usuarios.map(u => {
       let statusLembrete = '';
       if (u.papel === 'avaliador') {
@@ -112,10 +113,12 @@ function renderUsuariosLista() {
       const recebeCobranca = !!u.recebe_notificacao_cobranca;
       return `<tr>
       <td style="font-weight:500">${u.nome}${statusLembrete}</td>
+      <td style="color:var(--text-sec)">${u.responsavel || '—'}</td>
       <td style="color:var(--text-sec)">${u.email}</td>
       <td><span class="role-badge ${u.papel === 'avaliador' ? 'avaliador' : 'admin'}" style="display:inline-block">${u.papel === 'admin_master' ? 'Admin+' : u.papel === 'admin' ? 'Admin' : 'Avaliador'}</span></td>
       <td>${u.ativo ? '<span class="badge badge-success">Ativo</span>' : '<span class="badge badge-neutral">Inativo</span>'}</td>
       <td><div class="actions">
+        <button class="btn btn-secondary btn-sm" onclick="editarSetorResponsavel('${u.id}')">Editar</button>
         <button class="btn btn-secondary btn-sm" onclick="resetSenha('${u.id}')">Redefinir senha</button>
         ${u.papel === 'admin' ? `<button class="btn btn-secondary btn-sm" onclick="abrirPermissoesUsuario('${u.id}')">Permissões</button>` : ''}
         ${ehAdmin ? `<button class="btn btn-secondary btn-sm" style="display:inline-flex; align-items:center; gap:5px" title="Recebe cópia dos e-mails de cobrança automática e respostas dos fornecedores caem no e-mail dele" onclick="toggleNotificacaoCobranca('${u.id}')">${recebeCobranca ? ic('bell', 13) : ic('bellOff', 13)} Cobrança: ${recebeCobranca ? 'ligada' : 'desligada'}</button>` : ''}
@@ -169,6 +172,7 @@ async function salvarPermissoesUsuario(id) {
 
 async function addUsuario() {
   const nome = document.getElementById('nu-nome').value.trim();
+  const responsavel = document.getElementById('nu-responsavel').value.trim();
   const email = document.getElementById('nu-email').value.trim().toLowerCase();
   const papel = document.getElementById('nu-papel').value;
   const senha = document.getElementById('nu-senha').value;
@@ -192,7 +196,7 @@ async function addUsuario() {
   if (btn) { btn.disabled = true; btn.textContent = 'Criando...'; }
 
   const { data, error } = await supabaseClient.functions.invoke('admin-criar-usuario', {
-    body: { nome, email, senha, papel, permissoesModulos },
+    body: { nome, email, senha, papel, permissoesModulos, responsavel },
   });
 
   if (btn) { btn.disabled = false; btn.textContent = 'Criar usuário'; }
@@ -208,6 +212,7 @@ async function addUsuario() {
 
   addLog('usuario_criado', `${currentUser.email} criou o usuário ${email} (papel: ${papel})`);
   document.getElementById('nu-nome').value = '';
+  document.getElementById('nu-responsavel').value = '';
   document.getElementById('nu-email').value = '';
   document.getElementById('nu-senha').value = '';
   document.querySelectorAll('#nu-permissoes-wrap .nu-modulo-check').forEach(c => c.checked = true);
@@ -253,6 +258,52 @@ async function confirmarResetSenha(id) {
   addLog('senha_redefinida', `${currentUser.email} redefiniu a senha do usuário ${u.email}`);
   closeModal();
   toast('Senha redefinida com sucesso.');
+}
+
+function editarSetorResponsavel(id) {
+  const d = db();
+  const u = d.usuarios.find(x => x.id === id);
+  if (!u) return;
+  openModal(`
+    <h3>Editar — ${u.email}</h3>
+    <div class="form-group" style="margin-bottom:14px">
+      <label>Setor</label>
+      <input type="text" id="er-setor" value="${(u.nome || '').replace(/"/g, '&quot;')}" placeholder="Ex: Setor Compras">
+    </div>
+    <div class="form-group" style="margin-bottom:14px">
+      <label>Nome do responsável</label>
+      <input type="text" id="er-responsavel" value="${(u.responsavel || '').replace(/"/g, '&quot;')}" placeholder="Ex: Carlos Antonio">
+    </div>
+    <div style="display:flex; gap:8px; justify-content:flex-end">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarEditarSetorResponsavel('${id}')">Salvar</button>
+    </div>
+  `);
+}
+
+async function confirmarEditarSetorResponsavel(id) {
+  const d = db();
+  const u = d.usuarios.find(x => x.id === id);
+  if (!u) return;
+  const novoSetor = document.getElementById('er-setor').value.trim();
+  const novoResponsavel = document.getElementById('er-responsavel').value.trim();
+  if (!novoSetor) { toast('O setor não pode ficar vazio.'); return; }
+
+  // Igual toggleUsuario: UPDATE direto em "profiles", coberto pela mesma
+  // RLS que já permite admin editar usuários da própria empresa.
+  const { error } = await supabaseClient
+    .from('profiles')
+    .update({ nome: novoSetor, responsavel: novoResponsavel || null })
+    .eq('id', id);
+
+  if (error) { toast('Erro ao salvar: ' + error.message); return; }
+
+  addLog('usuario_editado', `${currentUser.email} alterou o cadastro do usuário ${u.email} — setor: "${novoSetor}", responsável: "${novoResponsavel || '—'}"`);
+  u.nome = novoSetor;
+  u.responsavel = novoResponsavel || null;
+  closeModal();
+  renderUsuariosLista();
+  toast('Cadastro atualizado.');
 }
 
 async function toggleUsuario(id) {
