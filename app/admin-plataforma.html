@@ -65,7 +65,7 @@
   }
 
   .modal-overlay {
-    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 1000;
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); backdrop-filter: blur(4px); z-index: 1000;
     align-items: center; justify-content: center; padding: 20px;
   }
   .modal-overlay.active { display: flex; }
@@ -229,6 +229,18 @@
     </div>
 
     <div id="ee-resultado"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-detalhes-empresa-overlay" onclick="if(event.target===this) fecharModalDetalhesEmpresa()">
+  <div class="modal-box">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start">
+      <h2 id="de-titulo">Detalhes da empresa</h2>
+      <button onclick="fecharModalDetalhesEmpresa()" style="background:none; border:none; color:var(--text-muted); font-size:20px; line-height:1; cursor:pointer; padding:0 0 0 12px">×</button>
+    </div>
+    <p class="sub">Informações completas de cadastro e uso</p>
+
+    <div id="de-conteudo" style="display:flex; flex-direction:column; gap:10px; font-size:13px"></div>
   </div>
 </div>
 
