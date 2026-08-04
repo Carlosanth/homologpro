@@ -126,16 +126,17 @@ function db() {
 // usuário. Se a gravação falhar, só fica de fora do histórico — não temos
 // como travar o resto do fluxo por causa disso.
 function addLog(acao, detalhe) {
-  // Prioriza o nome do responsável (pessoa) sobre o setor/login — mas cai pro
-  // nome/setor se o responsável não estiver preenchido (ex: contas antigas).
-  // O e-mail continua aparecendo dentro do "detalhe" na maioria das ações.
-  const usuario = currentUser ? (currentUser.responsavel ? `${currentUser.responsavel} — ${currentUser.nome}` : currentUser.nome) : 'sistema';
+  // A tabela "logs" guarda usuario_id (uuid), não um texto solto — o nome
+  // bonito (responsável — setor) é só resolvido na hora de EXIBIR, aqui e
+  // em carregarLogs(), olhando o cadastro em usuariosCache.
+  const usuarioId = currentUser ? currentUser.id : null;
+  const usuarioDisplay = currentUser ? (currentUser.responsavel ? `${currentUser.responsavel} — ${currentUser.nome}` : currentUser.nome) : 'Sistema';
   const timestamp = new Date().toISOString();
-  logsCache.unshift({ id: 'log' + Date.now() + Math.random().toString(36).slice(2, 6), usuario, acao, detalhe, timestamp });
+  logsCache.unshift({ id: 'log' + Date.now() + Math.random().toString(36).slice(2, 6), usuarioId, usuarioDisplay, acao, detalhe, timestamp });
 
   if (!currentUser || !currentUser.empresaId) return;
   supabaseClient.from('logs').insert({
-    empresa_id: currentUser.empresaId, usuario, acao, detalhe,
+    empresa_id: currentUser.empresaId, usuario_id: usuarioId, acao, detalhe,
   }).then(({ error }) => { if (error) console.error('Erro ao gravar log de auditoria:', error.message); });
 }
 
@@ -144,13 +145,19 @@ function addLog(acao, detalhe) {
 async function carregarLogs() {
   const { data, error } = await supabaseClient
     .from('logs')
-    .select('id, usuario, acao, detalhe, criado_em')
+    .select('id, usuario_id, acao, detalhe, criado_em')
     .eq('empresa_id', currentUser.empresaId)
     .order('criado_em', { ascending: false })
     .limit(200);
 
   if (error) { console.error('Erro ao carregar logs:', error.message); logsCache = []; return; }
-  logsCache = (data || []).map(l => ({ id: l.id, usuario: l.usuario, acao: l.acao, detalhe: l.detalhe, timestamp: l.criado_em }));
+  logsCache = (data || []).map(l => {
+    // Resolve o nome pelo cadastro ATUAL do usuário (a tabela logs só
+    // guarda o id) — se o usuário foi excluído depois, cai num rótulo genérico.
+    const u = usuariosCache.find(x => x.id === l.usuario_id);
+    const usuarioDisplay = u ? (u.responsavel ? `${u.responsavel} — ${u.nome}` : u.nome) : (l.usuario_id ? 'Usuário removido' : 'Sistema');
+    return { id: l.id, usuarioId: l.usuario_id, usuarioDisplay, acao: l.acao, detalhe: l.detalhe, timestamp: l.criado_em };
+  });
 }
 
 function toast(msg, dur = 2800) {
@@ -1347,7 +1354,7 @@ function renderAdAuditoriaLista() {
   const buscaEl = document.getElementById('ad-auditoria-busca');
   const termo = (buscaEl ? buscaEl.value : '').trim().toLowerCase();
   const logsFiltrados = termo
-    ? d.logs.filter(l => (l.usuario || '').toLowerCase().includes(termo) || (l.detalhe || '').toLowerCase().includes(termo) || (l.acao || '').toLowerCase().includes(termo))
+    ? d.logs.filter(l => (l.usuarioDisplay || '').toLowerCase().includes(termo) || (l.detalhe || '').toLowerCase().includes(termo) || (l.acao || '').toLowerCase().includes(termo))
     : d.logs;
 
   document.getElementById('ad-auditoria-lista').innerHTML = `
@@ -1355,7 +1362,7 @@ function renderAdAuditoriaLista() {
       <div class="log-item">
         <div class="log-dot"></div>
         <div class="log-text">
-          <span><b>${l.usuario}</b> — ${l.detalhe}</span>
+          <span><b>${l.usuarioDisplay}</b> — ${l.detalhe}</span>
           <div class="log-time">${fmtData(l.timestamp)}</div>
         </div>
       </div>
