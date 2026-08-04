@@ -1197,12 +1197,15 @@ function verDetalheAvaliacaoProduto(id) {
     ` : ''}
     ${getSituacao(av.notaGeral) === 'reprovado' ? blocoPlanoAcaoHtml('produto', av) : ''}
     <div class="no-print" style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px">
-      ${(av.notas || []).some(n => n.motivo) || (av.descontoExtraDetalhe || []).length ? `
+      ${(av.notas || []).some(n => n.motivo) || (av.descontoExtraDetalhe || []).length ? (
+        av.planoAcaoAnexo
+          ? `<span style="margin-right:auto; font-size:12px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:4px">${ic('check', 13)}Plano de ação enviado</span>`
+          : `
         <div style="margin-right:auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap">
           ${av.notificadoEm ? `<span style="font-size:12px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:4px">${ic('mail', 13)}Cobrado em ${new Date(av.notificadoEm).toLocaleDateString('pt-BR')}</span>` : ''}
           <button class="btn ${av.notificadoEm ? 'btn-secondary' : 'btn-primary'} btn-sm" onclick="notificarFornecedorProduto('${av.id}')" style="display:inline-flex; align-items:center; gap:6px">${ic('mail', 13)}${av.notificadoEm ? 'Notificar novamente' : 'Notificar por e-mail'}</button>
         </div>
-      ` : ''}
+      `) : ''}
       <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
     </div>
   `);

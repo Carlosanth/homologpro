@@ -58,6 +58,7 @@ function renderAdDashboard() {
   let alertaAvaliadoresPendentesHTML = '';
   let alertaNotificar = '';
   let alertaNotificarProduto = '';
+  let alertaPlanoAcaoAtrasado = '';
   let alertasDoc = '';
   let alertasDocUnidades = '';
   let dashGrid2HTML = '';
@@ -173,8 +174,9 @@ function renderAdDashboard() {
               const forn = d.fornecedores.find(f => f.id === av.fornecedorId);
               const sit = getSituacao(av.nota);
               const acao = `<div style="margin-left:auto; display:flex; align-items:center; gap:10px">
-                ${av.notificadoEm ? `<span style="font-size:11px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:3px">${ic('mail', 12)} Cobrado em ${new Date(av.notificadoEm).toLocaleDateString('pt-BR')}</span>` : ''}
-                <button class="btn btn-secondary btn-sm" style="display:inline-flex; align-items:center; gap:5px" onclick="verDetalheAvaliacao('${av.id}')">${ic('bell', 13)} Ver / Notificar</button>
+                ${av.planoAcaoAnexo ? `<span style="font-size:11px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:3px">${ic('check', 12)} Plano de ação enviado</span>` : ''}
+                ${av.notificadoEm && !av.planoAcaoAnexo ? `<span style="font-size:11px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:3px">${ic('mail', 12)} Cobrado em ${new Date(av.notificadoEm).toLocaleDateString('pt-BR')}</span>` : ''}
+                <button class="btn btn-secondary btn-sm" style="display:inline-flex; align-items:center; gap:5px" onclick="verDetalheAvaliacao('${av.id}')">${ic('bell', 13)} ${av.planoAcaoAnexo ? 'Ver' : 'Ver / Notificar'}</button>
               </div>`;
               return `<div style="display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--border); font-size:12px">
                 <span><b>${forn ? forn.nome : '—'}</b> — nota ${av.nota.toFixed(1)}</span>
@@ -208,8 +210,9 @@ function renderAdDashboard() {
             ${produtoAtencaoLista.map(av => {
               const forn = d.fornecedores.find(f => f.id === av.fornecedorId);
               const acao = `<div style="margin-left:auto; display:flex; align-items:center; gap:10px">
-                ${av.notificadoEm ? `<span style="font-size:11px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:3px">${ic('mail', 12)} Cobrado em ${new Date(av.notificadoEm).toLocaleDateString('pt-BR')}</span>` : ''}
-                <button class="btn btn-secondary btn-sm" style="display:inline-flex; align-items:center; gap:5px" onclick="verDetalheAvaliacaoProduto('${av.id}')">${ic('bell', 13)} Ver / Notificar</button>
+                ${av.planoAcaoAnexo ? `<span style="font-size:11px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:3px">${ic('check', 12)} Plano de ação enviado</span>` : ''}
+                ${av.notificadoEm && !av.planoAcaoAnexo ? `<span style="font-size:11px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:3px">${ic('mail', 12)} Cobrado em ${new Date(av.notificadoEm).toLocaleDateString('pt-BR')}</span>` : ''}
+                <button class="btn btn-secondary btn-sm" style="display:inline-flex; align-items:center; gap:5px" onclick="verDetalheAvaliacaoProduto('${av.id}')">${ic('bell', 13)} ${av.planoAcaoAnexo ? 'Ver' : 'Ver / Notificar'}</button>
               </div>`;
               return `<div style="display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--border); font-size:12px">
                 <span><b>${forn ? forn.nome : '—'}</b> — NF ${av.numeroNf || '—'} · nota ${av.notaGeral != null ? av.notaGeral.toFixed(1) : '—'}</span>
@@ -221,7 +224,45 @@ function renderAdDashboard() {
         </div>`;
     }
 
-    // ---------- GRÁFICOS ----------
+    // ---------- ALERTA: PLANO DE AÇÃO ATRASADO (recobrança) ----------
+    // Já foi cobrado, o fornecedor tinha um prazo pra mandar o plano de ação,
+    // esse prazo já passou e ainda não anexou nada — junta Serviço e Produto
+    // no mesmo alerta, já que pro admin é a mesma ação (cobrar de novo).
+    // Não filtra por mês — atraso é sobre a data do prazo, não de quando a
+    // avaliação foi feita.
+    const hojeISO = new Date().toISOString().slice(0, 10);
+    const atrasadosServico = (d.avaliacoes || []).filter(av =>
+      !av.semServico && av.notificadoEm && !av.planoAcaoAnexo && av.planoAcaoPrazo && av.planoAcaoPrazo < hojeISO
+    ).map(av => ({ ...av, tipo: 'servico' }));
+    const atrasadosProduto = (d.avaliacoesProduto || []).filter(av =>
+      av.notificadoEm && !av.planoAcaoAnexo && av.planoAcaoPrazo && av.planoAcaoPrazo < hojeISO
+    ).map(av => ({ ...av, tipo: 'produto' }));
+    const planoAcaoAtrasado = [...atrasadosServico, ...atrasadosProduto];
+
+    if (planoAcaoAtrasado.length) {
+      alertaPlanoAcaoAtrasado = `
+        <div class="card alert-collapse alerta-shake" id="alerta-plano-acao-atrasado" style="margin-bottom:16px; animation-delay:${proximoShakeDelay()}s">
+          <div class="alert-collapse-header" onclick="toggleAlertaCollapse('alerta-plano-acao-atrasado')">
+            <div class="bar bar-danger"></div>
+            <span style="flex:1; font-size:13px; font-weight:600; color:var(--danger)">Plano de ação atrasado — fornecedor não respondeu no prazo</span>
+            <span class="alert-count">${planoAcaoAtrasado.length} ocorrência(s)</span>
+            <span class="alert-collapse-chevron">${ic('chevronDown', 16)}</span>
+          </div>
+          <div class="alert-collapse-body">
+            ${planoAcaoAtrasado.map(av => {
+              const forn = d.fornecedores.find(f => f.id === av.fornecedorId);
+              const diasAtraso = Math.floor((new Date(hojeISO) - new Date(av.planoAcaoPrazo)) / 86400000);
+              const titulo = av.tipo === 'produto' ? `NF ${av.numeroNf || '—'}` : `Serviço · ${av.periodo || '—'}`;
+              const onclickVer = av.tipo === 'produto' ? `verDetalheAvaliacaoProduto('${av.id}')` : `verDetalheAvaliacao('${av.id}')`;
+              return `<div style="display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--border); font-size:12px">
+                <span><b>${forn ? forn.nome : '—'}</b> — ${titulo}</span>
+                <span class="badge badge-danger">${diasAtraso} dia${diasAtraso === 1 ? '' : 's'} de atraso</span>
+                <button class="btn btn-secondary btn-sm" style="margin-left:auto; display:inline-flex; align-items:center; gap:5px" onclick="${onclickVer}">${ic('bell', 13)} Ver / Cobrar de novo</button>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+    }
     const avaliacoesMes = d.avaliacoes.filter(av => av.periodo === chaveMes && !av.semServico);
     const aprovados = avaliacoesMes.filter(av => getSituacao(av.nota) === 'aprovado').length;
     const parciais = avaliacoesMes.filter(av => getSituacao(av.nota) === 'parcial').length;
@@ -519,7 +560,7 @@ function renderAdDashboard() {
     insightGridHTML = `<div class="admin-grid2"${doisCards2 ? '' : ' style="grid-template-columns:1fr"'}>${rankingHistoricoHTML}${atividadeHTML}</div>`;
   }
 
-  const semNadaParaMostrar = !alertaAprovacao && !alertaAvaliadoresPendentesHTML && !semAvaliadorHTML && !alertaNotificar && !alertaNotificarProduto && !alertasDoc && !alertasDocUnidades && !dashGrid2HTML && !insightGridHTML && !graficosHTML && !tabelaHTML && !adminGridHTML;
+  const semNadaParaMostrar = !alertaAprovacao && !alertaAvaliadoresPendentesHTML && !semAvaliadorHTML && !alertaNotificar && !alertaNotificarProduto && !alertaPlanoAcaoAtrasado && !alertasDoc && !alertasDocUnidades && !dashGrid2HTML && !insightGridHTML && !graficosHTML && !tabelaHTML && !adminGridHTML;
   document.getElementById('ad-page-dashboard').innerHTML = `
     <div class="page-header"><div><h2>Dashboard e notificações</h2><p>${MESES[mesAtual]} de ${anoAtual}</p></div></div>
     ${onboardingHTML}
@@ -528,6 +569,7 @@ function renderAdDashboard() {
     ${semAvaliadorHTML}
     ${alertaNotificar}
     ${alertaNotificarProduto}
+    ${alertaPlanoAcaoAtrasado}
     ${alertasDoc}
     ${alertasDocUnidades}
     ${adminGridHTML}

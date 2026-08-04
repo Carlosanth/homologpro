@@ -200,12 +200,15 @@ function verDetalheAvaliacao(id) {
     ${av.anexos && av.anexos.length ? `<div style="margin-top:10px"><b style="font-size:12px">Anexos:</b>${av.anexos.map(a => `<div class="anexo-item" style="display:flex; align-items:center; gap:5px">${ic('paperclip', 12)}${a.caminhoStorage ? `<a href="#" onclick="event.preventDefault(); baixarAnexoAvaliacao('${a.caminhoStorage}', '${a.nome}')">${a.nome}</a>` : a.nome} <span style="color:var(--text-muted)">${a.tamanho}</span></div>`).join('')}</div>` : ''}
     ${!av.semServico && sit === 'reprovado' ? blocoPlanoAcaoHtml('servico', av) : ''}
     <div class="no-print" style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px">
-      ${!av.semServico && (sit === 'reprovado' || sit === 'parcial') ? `
+      ${!av.semServico && (sit === 'reprovado' || sit === 'parcial') ? (
+        av.planoAcaoAnexo
+          ? `<span style="margin-right:auto; font-size:12px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:4px">${ic('check', 13)}Plano de ação enviado</span>`
+          : `
         <div style="margin-right:auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap">
           ${av.notificadoEm ? `<span style="font-size:12px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:4px">${ic('mail', 13)}Cobrado em ${new Date(av.notificadoEm).toLocaleDateString('pt-BR')}</span>` : ''}
           <button class="btn ${av.notificadoEm ? 'btn-secondary' : 'btn-primary'} btn-sm" onclick="notificarFornecedorNota('${av.id}')" style="display:inline-flex; align-items:center; gap:6px">${ic('mail', 13)}${av.notificadoEm ? 'Notificar novamente' : 'Notificar por e-mail'}</button>
         </div>
-      ` : ''}
+      `) : ''}
       <button class="btn btn-secondary" onclick="window.print()">Imprimir</button>
       <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
     </div>

@@ -12,6 +12,7 @@ let criteriosProdutoCache = []; // critérios de avaliação de produto — popu
 let avaliacoesProdutoCache = []; // lançamentos de nota fiscal (produto) — populado por carregarAvaliacoesProduto()
 let criteriosConferenciaCache = []; // critérios do módulo Conferência — populado por carregarCriteriosConferencia()
 let conferenciasCache = []; // lançamentos de conferência (NF + fornecedor) — populado por carregarConferencias()
+let logsCache = []; // log de auditoria — populado por carregarLogs() (antes ficava só no localStorage)
 const MATRIZ_PADRAO = { cert: 10, aprov: 8, parcial: 6, usarCert: true, usarAprov: true, usarParcial: true };
 
 let empresaConfigCache = {
@@ -43,7 +44,8 @@ function initDB() {
   // ap_associacoes NÃO é mais seedado aqui — vêm do Supabase (ver associacoesCache).
   // ap_matriz, ap_empresa e ap_textos NÃO são mais seedados aqui — vêm do
   // Supabase (empresas.config), ver empresaConfigCache.
-  if (!localStorage.getItem('ap_logs')) save('ap_logs', []);
+  // ap_logs NÃO é mais seedado aqui — vêm do Supabase (ver logsCache), pra
+  // ser um log de auditoria de verdade, compartilhado entre admins.
   if (!localStorage.getItem('ap_campos_globais')) save('ap_campos_globais', [
     { chave: 'codigo', label: 'Código', valor: 'ANX.GER.076' },
     { chave: 'revisao', label: 'Revisão', valor: '12' },
@@ -80,7 +82,7 @@ function db() {
     associacoes: associacoesCache,
     matriz: empresaConfigCache.config.matriz || MATRIZ_PADRAO,
     avaliacoes: avaliacoesCache,
-    logs: load('ap_logs') || [],
+    logs: logsCache,
     empresa: empresaConfigCache.config.empresa || {},
     textos: migrarTextos(empresaConfigCache.config.textos),
     camposGlobais: load('ap_campos_globais') || [],
@@ -117,15 +119,34 @@ function db() {
   };
 }
 
+// Continua podendo ser chamada sem "await" em todo o resto do código (é o
+// padrão já usado em todo lugar) — atualiza a lista na tela na hora
+// (otimista) e grava no banco em segundo plano, sem travar a ação do
+// usuário. Se a gravação falhar, só fica de fora do histórico — não temos
+// como travar o resto do fluxo por causa disso.
 function addLog(acao, detalhe) {
-  const d = db();
-  d.logs.unshift({
-    id: 'log' + Date.now() + Math.random().toString(36).slice(2,6),
-    usuario: currentUser ? currentUser.email : 'sistema',
-    acao, detalhe,
-    timestamp: new Date().toISOString()
-  });
-  save('ap_logs', d.logs);
+  const usuario = currentUser ? currentUser.email : 'sistema';
+  const timestamp = new Date().toISOString();
+  logsCache.unshift({ id: 'log' + Date.now() + Math.random().toString(36).slice(2, 6), usuario, acao, detalhe, timestamp });
+
+  if (!currentUser || !currentUser.empresaId) return;
+  supabaseClient.from('logs').insert({
+    empresa_id: currentUser.empresaId, usuario, acao, detalhe,
+  }).then(({ error }) => { if (error) console.error('Erro ao gravar log de auditoria:', error.message); });
+}
+
+// Busca os últimos logs da empresa no banco — compartilhado entre todos os
+// admins, não é mais por navegador/aparelho.
+async function carregarLogs() {
+  const { data, error } = await supabaseClient
+    .from('logs')
+    .select('id, usuario, acao, detalhe, criado_em')
+    .eq('empresa_id', currentUser.empresaId)
+    .order('criado_em', { ascending: false })
+    .limit(200);
+
+  if (error) { console.error('Erro ao carregar logs:', error.message); logsCache = []; return; }
+  logsCache = (data || []).map(l => ({ id: l.id, usuario: l.usuario, acao: l.acao, detalhe: l.detalhe, timestamp: l.criado_em }));
 }
 
 function toast(msg, dur = 2800) {
@@ -433,6 +454,7 @@ async function carregarPerfilELogar() {
     await carregarDocumentosPendentesAprovacao();
     await carregarCriteriosProduto();
     await seedCriteriosProdutoPadrao();
+    await carregarLogs();
     await carregarAvaliacoesProduto();
     await carregarCriteriosConferencia();
     await carregarConferencias();
