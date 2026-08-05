@@ -976,6 +976,12 @@ function montarEnderecoPorCnpj(j) {
 
 function montarTelefonePorCnpj(j) {
   if (!j) return '';
+  // OpenCNPJ devolve um array "telefones": [{ddd, numero, is_fax}, ...].
+  // BrasilAPI (reserva) usa outros formatos, mantidos abaixo por compatibilidade.
+  if (Array.isArray(j.telefones) && j.telefones.length) {
+    const tel = j.telefones.find(t => !t.is_fax) || j.telefones[0];
+    if (tel) return `${tel.ddd || ''}${tel.numero || ''}`.replace(/\D/g, '');
+  }
   if (j.ddd_telefone_1) return j.ddd_telefone_1.replace(/\D/g, '');
   if (j.ddd && j.telefone) return `${j.ddd}${j.telefone}`.replace(/\D/g, '');
   if (j.telefone) return String(j.telefone).replace(/\D/g, '');
