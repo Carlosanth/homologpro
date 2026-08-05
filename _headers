@@ -1,0 +1,20 @@
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.sheetjs.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://qmvfsgwzbrhbxyonntgh.supabase.co wss://qmvfsgwzbrhbxyonntgh.supabase.co https://*.r2.cloudflarestorage.com https://static.cloudflareinsights.com https://cdnjs.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+
+# Termos de Uso e Política de Privacidade precisam ser carregáveis dentro de
+# um iframe (o modal do cadastro em app/index.html embute elas via
+# ?embed=1). Regra abaixo é mais específica que o /* acima e sobrescreve só
+# o frame-ancestors dessas duas páginas — 'self' quer dizer "só o próprio
+# domínio pode embutir", nenhum site de fora consegue. Todo o resto do site
+# continua com frame-ancestors 'none', sem exceção.
+/termos.html
+  X-Frame-Options: SAMEORIGIN
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.sheetjs.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://qmvfsgwzbrhbxyonntgh.supabase.co wss://qmvfsgwzbrhbxyonntgh.supabase.co https://*.r2.cloudflarestorage.com https://static.cloudflareinsights.com https://cdnjs.cloudflare.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self'
+
+/privacidade.html
+  X-Frame-Options: SAMEORIGIN
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.sheetjs.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://qmvfsgwzbrhbxyonntgh.supabase.co wss://qmvfsgwzbrhbxyonntgh.supabase.co https://*.r2.cloudflarestorage.com https://static.cloudflareinsights.com https://cdnjs.cloudflare.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self'
