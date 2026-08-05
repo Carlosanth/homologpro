@@ -128,6 +128,7 @@ function db() {
     limiteFornecedores: empresaConfigCache.limite_fornecedores, // null = ilimitado
     limiteAdmins: empresaConfigCache.limite_admins, // null = ilimitado
     nomeEmpresa: empresaConfigCache.nome || '',
+    setorEmpresa: empresaConfigCache.setor || '',
     unidades: unidadesCache,
     unidadesDocumentos: unidadesDocumentosCache,
     documentosVersoes: documentosVersoesCache,
@@ -803,7 +804,7 @@ function situacaoDe(av) {
 async function carregarEmpresaConfig() {
   const { data, error } = await supabaseClient
     .from('empresas')
-    .select('nome, campos_fornecedor_custom, colunas_fornecedor_visiveis, tipos_documento, faixas_conceito_produto, desconto_ocorrencia_ativo, valor_desconto_ocorrencia, anos_retencao_avaliacao, config, status, plano, trial_termina_em, limite_fornecedores, limite_admins, cobranca_automatica_ativa, cobranca_automatica_frequencia, tolerancia_documentos_meses, lembrete_avaliador_ativo, lembrete_avaliador_frequencia, notificar_atividade_ativo, valor_mensal_atual, plano_ativo_desde, proxima_cobranca_em, proximo_valor_mensal, proximo_reajuste_em, enterprise_composicao, desconto_doc_vencido_ativo, valor_desconto_doc_vencido, conferencia_cabecalho')
+    .select('nome, setor, campos_fornecedor_custom, colunas_fornecedor_visiveis, tipos_documento, faixas_conceito_produto, desconto_ocorrencia_ativo, valor_desconto_ocorrencia, anos_retencao_avaliacao, config, status, plano, trial_termina_em, limite_fornecedores, limite_admins, cobranca_automatica_ativa, cobranca_automatica_frequencia, tolerancia_documentos_meses, lembrete_avaliador_ativo, lembrete_avaliador_frequencia, notificar_atividade_ativo, valor_mensal_atual, plano_ativo_desde, proxima_cobranca_em, proximo_valor_mensal, proximo_reajuste_em, enterprise_composicao, desconto_doc_vencido_ativo, valor_desconto_doc_vencido, conferencia_cabecalho')
     .eq('id', currentUser.empresaId)
     .single();
 
@@ -813,6 +814,7 @@ async function carregarEmpresaConfig() {
   }
   empresaConfigCache = {
     nome: data.nome || '',
+    setor: data.setor || '',
     campos_fornecedor_custom: data.campos_fornecedor_custom || [],
     colunas_fornecedor_visiveis: data.colunas_fornecedor_visiveis || ['tipo', 'criticidade', 'email', 'cnpj', 'telefone', 'documentos'],
     tipos_documento: data.tipos_documento || ['Alvará de Funcionamento', 'Alvará Sanitário', 'CRT', 'Contrato', 'Certidão Negativa de Débitos', 'AVCB'],
