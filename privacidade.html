@@ -58,11 +58,32 @@
         <a href="index.html#contato">Contato</a>
       </nav>
       <div class="nav-auth">
-        <a href="app/index.html" class="btn-login">Entrar</a>
-        <a href="app/index.html?cadastro=1" class="btn-primary">Cadastrar-se</a>
+        <a href="#" class="btn-login" id="btn-voltar-legal">← Voltar</a>
       </div>
     </div>
   </header>
+
+  <script>
+    // Manda de volta pra página de onde a pessoa veio até aqui — landing
+    // page ou tela de cadastro — em vez de forçar login. O link que trouxe
+    // até aqui (rodapé da landing / checkbox de aceite no cadastro) já
+    // inclui ?origem=landing ou ?origem=cadastro; sem esse parâmetro
+    // (ex: pessoa entrou direto pela URL), cai na landing page por padrão.
+    (function () {
+      const origem = new URLSearchParams(window.location.search).get('origem');
+      const destino = origem === 'cadastro' ? 'app/index.html?cadastro=1' : 'index.html';
+      document.getElementById('btn-voltar-legal').href = destino;
+
+      // Repassa a origem pros links internos que trocam entre Termos e
+      // Privacidade (rodapé e corpo do texto) — senão a pessoa perde o
+      // parâmetro ao ir de um pro outro e o botão Voltar volta pro lugar errado.
+      if (origem) {
+        document.querySelectorAll('a[href="termos.html"], a[href="privacidade.html"]').forEach(a => {
+          a.href = a.getAttribute('href') + '?origem=' + encodeURIComponent(origem);
+        });
+      }
+    })();
+  </script>
 
   <section class="section legal-wrap">
     <div class="container">
