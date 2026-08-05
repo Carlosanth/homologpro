@@ -382,25 +382,25 @@ async function notificarFornecedorNota(avId) {
   const empNome = d.nomeEmpresa || 'Empresa';
   const saudacao = saudacaoPorHorario();
 
+  const DIVISOR = '─'.repeat(42);
+
   const blocosCriterios = [];
-  const melhoriasAuto = [];
   let numero = 1;
   (form ? form.criterios : []).forEach(c => {
     const r = av.respostas[c.id];
     if (!r || r.naoHouve) return;
     const escolhida = c.opcoes[r.opcaoIndex];
     if (!escolhida) return;
-    const regua = c.opcoes.map((o, i) => `   - ${o.label} — ${o.pontos.toFixed(1)}P${i === r.opcaoIndex ? ' (Sua nota)' : ''}`).join('\n');
-    blocosCriterios.push(`${numero}. ${c.nome} (Sua nota: ${escolhida.pontos.toFixed(1)} de ${c.pesoMax.toFixed(1)}P)\nStatus: ${escolhida.label}.\nRégua do critério:\n${regua}`);
+    const regua = c.opcoes.map((o, i) => `  ${i === r.opcaoIndex ? '●' : '○'} ${o.label} — ${o.pontos.toFixed(1)}P${i === r.opcaoIndex ? ' (Sua nota)' : ''}`).join('\n');
     const melhorOpcao = c.opcoes.reduce((best, o) => o.pontos > best.pontos ? o : best, c.opcoes[0]);
-    if (melhorOpcao.pontos > escolhida.pontos) melhoriasAuto.push(`${c.nome}: buscar atingir "${melhorOpcao.label}".`);
+    const melhoria = melhorOpcao.pontos > escolhida.pontos ? `\n\nMelhoria esperada: atingir "${melhorOpcao.label}".` : '';
+    blocosCriterios.push(`${DIVISOR}\n${numero}. ${c.nome} — Sua nota: ${escolhida.pontos.toFixed(1)} de ${c.pesoMax.toFixed(1)}P\n${DIVISOR}\nCritério avaliado: ${escolhida.label}.\n\nCritérios avaliativo:\n${regua}${melhoria}`);
     numero++;
   });
 
   const notaMax = form ? form.criterios.reduce((s, c) => s + c.pesoMax, 0) : null;
   const tipoLabel = form ? (form.tipo === 'produto' ? 'Produto' : 'Serviço') : '';
-  const setorInfo = form ? `- Setor Avaliador: ${form.setor}${av.enviadoPorNome ? ` (${av.enviadoPorNome})` : ''} · ${tipoLabel} (${form.nome})\n` : '';
-  const secaoMelhoriaAuto = melhoriasAuto.length ? `\n📉 Melhoria Esperada para os Próximos Períodos:\n${melhoriasAuto.map(m => `- ${m}`).join('\n')}\n` : '';
+  const setorInfo = form ? `Setor Avaliador: ${form.setor} · ${tipoLabel} (${form.nome})\n${av.enviadoPorNome ? `Avaliador: ${av.enviadoPorNome}\n` : ''}` : '';
 
   const textos = d.textos || {};
   const abertura = textos['notif-abertura'] || 'Informamos que foi concluída a análise referente à avaliação abaixo.';
@@ -415,14 +415,15 @@ async function notificarFornecedorNota(avId) {
   }
 
   const assunto = `Avaliação de Desempenho de Fornecedores - ${periodoLabel} - ${forn.nome}`;
-  let corpo = `${saudacao},\n${abertura}\n\n${setorInfo}- Nota Obtida: ${av.nota.toFixed(1)}${notaMax ? ` de ${notaMax.toFixed(1)}P` : ''} (${getSubtituloDoc(sit)})\n\n`;
-  if (blocosCriterios.length) corpo += `Para sua ciência, detalhamos abaixo os critérios avaliados, a pontuação que sua empresa obteve e a nossa régua completa de avaliação:\n\n${blocosCriterios.join('\n\n')}\n${secaoMelhoriaAuto}`;
-  if (av.justificativa) corpo += `\nOutras melhorias apontadas pelo setor avaliador:\n${av.justificativa}\n`;
-  if (av.obs) corpo += `\nObservações:\n${av.obs}\n`;
+  let corpo = `${saudacao},\n${abertura}\n\n${setorInfo}Nota Obtida: ${av.nota.toFixed(1)}${notaMax ? ` de ${notaMax.toFixed(1)}P` : ''} (${getSubtituloDoc(sit)})\n\n`;
+  if (blocosCriterios.length) corpo += `Para sua ciência, detalhamos abaixo os critérios avaliados, a pontuação que sua empresa obteve e a nossa régua completa de avaliação:\n\n${blocosCriterios.join('\n\n')}\n${DIVISOR}\n\n`;
+  if (av.justificativa) corpo += `Outras melhorias apontadas pelo setor avaliador:\n${av.justificativa}\n\n`;
+  if (av.obs) corpo += `Observações:\n${av.obs}\n\n`;
   if (sit === 'reprovado') {
-    corpo += `\n${planoAcaoTexto}${prazo ? `\nPrazo de entrega: até ${prazo.formatada}.` : ''}${linkPortal ? `\nVocê pode enviar o plano de ação diretamente por aqui, sem precisar responder este e-mail: ${linkPortal}` : ''}\n`;
+    corpo += `${planoAcaoTexto}${prazo ? `\nPrazo de entrega: até ${prazo.formatada}.` : ''}${linkPortal ? `\nVocê pode enviar o plano de ação diretamente por aqui, sem precisar responder este e-mail: ${linkPortal}` : ''}\n\n`;
   }
-  corpo += `\n${fechamento}\n${empNome}`;
+  corpo += `${fechamento}\n${empNome}`;
+  corpo = corpo.replace(/\n{3,}/g, '\n\n');
 
   const link = `mailto:${encodeURIComponent(forn.email)}?cc=${encodeURIComponent(emailAdminMaster(d))}&subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
   addLog('notificacao_nota_enviada', `${currentUser.email} notificou "${forn.nome}" sobre a nota do período ${periodoLabel}`);
