@@ -603,7 +603,7 @@ async function renderAdConfig() {
             </span>
           </div>
           <div class="form-row">
-            <div class="form-group"><label>Nome da empresa</label><input type="text" id="emp-nome" value="${d.nomeEmpresa || d.empresa.nome || ''}"></div>
+            <div class="form-group"><label>Nome da empresa</label><input type="text" id="emp-nome" value="${escapeHtml(d.nomeEmpresa || d.empresa.nome || '')}" disabled title="Definido no cadastro — pra alterar, fale com o suporte."></div>
             <div class="form-group"><label>Cidade/UF</label><input type="text" id="emp-cidade" value="${d.empresa.cidade||''}"></div>
           </div>
           <div class="form-row">
@@ -894,7 +894,7 @@ async function salvarMatriz() {
 
 async function salvarEmpresaAd() {
   const empresa = {};
-  ['nome','cidade','endereco','cep','tel','email'].forEach(k => {
+  ['cidade','endereco','cep','tel','email'].forEach(k => {
     empresa[k] = document.getElementById('emp-' + k).value.trim();
   });
   const { error } = await salvarConfigEmpresa('empresa', empresa);
@@ -902,17 +902,11 @@ async function salvarEmpresaAd() {
 
   const setor = document.getElementById('emp-setor').value.trim();
 
-  // "nome" e "setor" também vivem em colunas próprias — "nome" é o que
-  // aparece no menu lateral, em Meus Documentos e nos e-mails; "setor" é
-  // usado só na assinatura dos e-mails automáticos. Mantém as duas fontes
-  // (config jsonb + colunas) sincronizadas.
-  const patchColunas = {};
-  if (empresa.nome) patchColunas.nome = empresa.nome;
-  patchColunas.setor = setor || null;
-
-  const { error: colunasErr } = await supabaseClient.from('empresas').update(patchColunas).eq('id', currentUser.empresaId);
+  // "nome" NÃO é editável por aqui — é definido uma única vez no cadastro
+  // (onboarding-criar-empresa) e só muda por pedido ao suporte. "setor" é
+  // usado só na assinatura dos e-mails automáticos.
+  const { error: colunasErr } = await supabaseClient.from('empresas').update({ setor: setor || null }).eq('id', currentUser.empresaId);
   if (!colunasErr) {
-    if (empresa.nome) empresaConfigCache.nome = empresa.nome;
     empresaConfigCache.setor = setor;
   }
 
