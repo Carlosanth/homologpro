@@ -1094,6 +1094,20 @@ async function checkSession() {
   // senha sozinho, sem correr o risco de logar a pessoa no dashboard antes.
   if (window.__isPasswordRecovery) return;
 
+  // Se a pessoa chegou aqui explicitamente pra criar uma conta nova
+  // (?cadastro=1 — vindo da landing page ou de qualquer outro link), respeita
+  // essa intenção e mostra a tela de login/cadastro, mesmo que ainda exista
+  // uma sessão válida guardada nesse navegador (ex: de um teste anterior).
+  // Sem isso, quem já tinha uma sessão salva cai direto no dashboard antigo
+  // em vez de ver a tela de cadastro que pediu.
+  const vemDoCadastro = new URLSearchParams(window.location.search).get('cadastro') === '1';
+  if (vemDoCadastro) {
+    document.getElementById('login-screen').style.display = 'flex';
+    const boot = document.getElementById('boot-loading');
+    if (boot) boot.style.display = 'none';
+    return;
+  }
+
   const { data: { session } } = await supabaseClient.auth.getSession();
 
   // Mesmo que o link específico já tenha "expirado" (por exemplo, se o app
