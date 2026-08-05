@@ -394,7 +394,7 @@ async function notificarFornecedorNota(avId) {
     const regua = c.opcoes.map((o, i) => `  ${i === r.opcaoIndex ? '●' : '○'} ${o.label} — ${o.pontos.toFixed(1)}P${i === r.opcaoIndex ? ' (Sua nota)' : ''}`).join('\n');
     const melhorOpcao = c.opcoes.reduce((best, o) => o.pontos > best.pontos ? o : best, c.opcoes[0]);
     const melhoria = melhorOpcao.pontos > escolhida.pontos ? `\n\nMelhoria esperada: atingir "${melhorOpcao.label}".` : '';
-    blocosCriterios.push(`${DIVISOR}\n${numero}. ${c.nome} — Sua nota: ${escolhida.pontos.toFixed(1)} de ${c.pesoMax.toFixed(1)}P\n${DIVISOR}\nCritério avaliado: ${escolhida.label}.\n\nCritérios avaliativo:\n${regua}${melhoria}`);
+    blocosCriterios.push(`${DIVISOR}\n${numero}. ${c.nome} — Sua nota: ${escolhida.pontos.toFixed(1)} de ${c.pesoMax.toFixed(1)}P\n${DIVISOR}\nCritério avaliado: ● ${escolhida.label}.\n\nCritérios avaliativo:\n${regua}${melhoria}`);
     numero++;
   });
 
