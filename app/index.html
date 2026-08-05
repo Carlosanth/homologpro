@@ -139,9 +139,15 @@
               <label>Senha</label>
               <input type="password" id="signup-senha" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
             </div>
+            <div class="form-group form-group-checkbox">
+              <label class="checkbox-label">
+                <input type="checkbox" id="signup-aceite-termos" onchange="atualizarBotaoSignup()">
+                <span>Li e aceito os <a href="../termos.html" target="_blank" rel="noopener">Termos de Uso</a> e a <a href="../privacidade.html" target="_blank" rel="noopener">Política de Privacidade</a> do HomologPro.</span>
+              </label>
+            </div>
             <input type="hidden" id="signup-plano" value="profissional">
             <input type="hidden" id="signup-ciclo" value="mensal">
-            <button class="btn btn-primary btn-block" onclick="doSignupEmpresa()" id="signup-btn">Criar minha conta — 7 dias grátis</button>
+            <button class="btn btn-primary btn-block" onclick="doSignupEmpresa()" id="signup-btn" disabled>Criar minha conta — 7 dias grátis</button>
             <p class="auth-switch">Já tem conta? <a href="#" onclick="event.preventDefault(); mostrarLogin()">Fazer login</a></p>
           </div>
 

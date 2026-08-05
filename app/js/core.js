@@ -375,6 +375,20 @@ async function carregarPrecosPlanoPublico() {
   });
 }
 
+// Versão vigente dos Termos de Uso / Política de Privacidade. Sempre que o
+// conteúdo desses documentos mudar de forma relevante, atualize essa
+// constante — ela é gravada junto com o aceite, então dá pra saber
+// exatamente qual versão cada empresa aceitou no cadastro.
+const VERSAO_TERMOS_ATUAL = '2026-08-04';
+
+// Liga/desliga o botão de criar conta conforme o checkbox de aceite dos
+// termos. Chamada pelo onchange do checkbox no HTML.
+function atualizarBotaoSignup() {
+  const aceite = document.getElementById('signup-aceite-termos');
+  const btn = document.getElementById('signup-btn');
+  if (aceite && btn) btn.disabled = !aceite.checked;
+}
+
 async function doSignupEmpresa() {
   const nomeEmpresa = document.getElementById('signup-empresa').value.trim();
   const nomeAdmin = document.getElementById('signup-nome').value.trim();
@@ -382,11 +396,21 @@ async function doSignupEmpresa() {
   const senha = document.getElementById('signup-senha').value;
   const plano = document.getElementById('signup-plano').value;
   const cicloFaturamento = document.getElementById('signup-ciclo').value;
+  const aceiteTermos = document.getElementById('signup-aceite-termos').checked;
   const errBox = document.getElementById('signup-error');
   const btn = document.getElementById('signup-btn');
 
   if (!nomeEmpresa || !nomeAdmin || !email || senha.length < 6) {
     errBox.textContent = 'Preencha todos os campos. Senha mínima de 6 caracteres.';
+    errBox.style.display = 'block';
+    return;
+  }
+
+  // Checagem no front é só conveniência (botão já nasce desabilitado) — quem
+  // realmente garante isso é a Edge Function, que recusa o cadastro sem o
+  // aceite. Mantemos aqui também pra dar uma mensagem clara sem round-trip.
+  if (!aceiteTermos) {
+    errBox.textContent = 'Você precisa aceitar os Termos de Uso e a Política de Privacidade pra continuar.';
     errBox.style.display = 'block';
     return;
   }
@@ -398,7 +422,7 @@ async function doSignupEmpresa() {
   // plano/cicloFaturamento viajam junto para a function — se a function ainda
   // não usa esses campos, é só ler e gravar em empresas (ela ignora o que não usa).
   const { data, error } = await supabaseClient.functions.invoke('onboarding-criar-empresa', {
-    body: { nomeEmpresa, nomeAdmin, email, senha, plano, cicloFaturamento },
+    body: { nomeEmpresa, nomeAdmin, email, senha, plano, cicloFaturamento, aceiteTermos, termosVersao: VERSAO_TERMOS_ATUAL },
   });
 
   btn.disabled = false;

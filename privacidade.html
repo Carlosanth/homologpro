@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <link rel="icon" href="/favicon.ico">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Política de Privacidade | HomologPro</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    .legal-wrap { padding: 60px 0 100px; }
+    .legal-header { margin-bottom: 40px; }
+    .legal-header h1 { font-size: 34px; color: var(--text-dark); margin-bottom: 8px; }
+    .legal-header p { color: var(--text-muted); font-size: 14px; }
+    .legal-body { max-width: 820px; }
+    .legal-body h2 {
+      font-size: 20px; color: var(--text-dark); margin: 40px 0 12px;
+      padding-top: 8px; border-top: 1px solid var(--border-light);
+    }
+    .legal-body h2:first-of-type { border-top: none; margin-top: 0; }
+    .legal-body h3 { font-size: 16px; color: var(--text-dark); margin: 20px 0 8px; }
+    .legal-body p, .legal-body li { color: var(--text-sec-dark); font-size: 15px; line-height: 1.7; }
+    .legal-body ul, .legal-body ol { margin: 8px 0 16px 22px; }
+    .legal-body li { margin-bottom: 6px; }
+    .legal-body strong { color: var(--text-dark); }
+    .legal-body table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 14px; }
+    .legal-body th, .legal-body td {
+      text-align: left; padding: 10px 12px; border: 1px solid var(--border-light); color: var(--text-sec-dark);
+    }
+    .legal-body th { background: var(--surface-subtle); color: var(--text-dark); }
+    .legal-toc { background: var(--surface-subtle); border: 1px solid var(--border-light); border-radius: var(--radius); padding: 20px 24px; margin-bottom: 40px; }
+    .legal-toc h2 { margin: 0 0 10px; border: none; font-size: 15px; text-transform: uppercase; letter-spacing: .04em; }
+    .legal-toc ol { margin: 0 0 0 20px; }
+    .legal-toc a { color: var(--accent-hover); text-decoration: none; font-size: 14px; }
+    .legal-toc a:hover { text-decoration: underline; }
+    .legal-placeholder { background: #FFF7ED; border: 1px solid #FDBA74; color: #9A3412; padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 30px; }
+  </style>
+</head>
+<body>
+
+  <header class="navbar">
+    <div class="container nav-container">
+      <a href="index.html" style="text-decoration:none;">
+        <div class="logo">
+          <svg class="logo-seal" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="60" cy="60" r="54" stroke="currentColor" stroke-width="2" stroke-dasharray="3 5"/>
+            <circle cx="60" cy="60" r="44" stroke="currentColor" stroke-width="1.2"/>
+            <path d="M40 61 L53 75 L82 45" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span class="logo-bold">Homolog</span><span class="logo-tag">Pro</span>
+        </div>
+      </a>
+      <nav class="nav-links">
+        <a href="index.html#solucao">A Solução</a>
+        <a href="index.html#modulos">Módulos</a>
+        <a href="index.html#planos">Planos</a>
+        <a href="index.html#contato">Contato</a>
+      </nav>
+      <div class="nav-auth">
+        <a href="app/index.html" class="btn-login">Entrar</a>
+        <a href="app/index.html?cadastro=1" class="btn-primary">Cadastrar-se</a>
+      </div>
+    </div>
+  </header>
+
+  <section class="section legal-wrap">
+    <div class="container">
+      <div class="legal-header">
+        <h1>Política de Privacidade</h1>
+        <p>Última atualização: 04/08/2026 — Vigente para todos os usuários da plataforma HomologPro</p>
+      </div>
+
+      <div class="legal-toc">
+        <h2>Sumário</h2>
+        <ol>
+          <li><a href="#introducao">Introdução</a></li>
+          <li><a href="#controlador">Quem somos (Controlador dos Dados)</a></li>
+          <li><a href="#dados-coletados">Quais dados coletamos</a></li>
+          <li><a href="#finalidade">Como e por que usamos seus dados</a></li>
+          <li><a href="#base-legal">Base legal para o tratamento</a></li>
+          <li><a href="#compartilhamento">Com quem compartilhamos seus dados</a></li>
+          <li><a href="#cookies">Cookies e tecnologias de sessão</a></li>
+          <li><a href="#retencao">Retenção e exclusão de dados</a></li>
+          <li><a href="#seguranca">Segurança da informação</a></li>
+          <li><a href="#direitos">Seus direitos como titular de dados</a></li>
+          <li><a href="#internacional">Transferência internacional de dados</a></li>
+          <li><a href="#criancas">Uso por menores de idade</a></li>
+          <li><a href="#alteracoes">Alterações nesta política</a></li>
+          <li><a href="#contato">Contato e encarregado (DPO)</a></li>
+        </ol>
+      </div>
+
+      <div class="legal-body">
+        <h2 id="introducao">1. Introdução</h2>
+        <p>Esta Política de Privacidade descreve como o <strong>HomologPro</strong> ("nós", "nossa plataforma") coleta, utiliza, armazena, compartilha e protege os dados pessoais dos usuários da plataforma — sejam administradores de empresas contratantes, avaliadores internos ou representantes de empresas fornecedoras cadastradas no processo de homologação.</p>
+        <p>Esta política está em conformidade com a <strong>Lei Geral de Proteção de Dados Pessoais (Lei nº 13.709/2018 — LGPD)</strong> e demais legislações brasileiras aplicáveis, como o Marco Civil da Internet (Lei nº 12.965/2014). Ao utilizar o HomologPro, você declara ter lido e compreendido as práticas aqui descritas.</p>
+
+        <h2 id="controlador">2. Quem somos (Controlador dos Dados)</h2>
+        <p>O HomologPro é operado por:</p>
+        <ul>
+          <li><strong>Razão Social:</strong> Anth Serviços (67.963.696 CARLOS ANTONIO DE MOURA OLIVEIRA)</li>
+          <li><strong>CNPJ:</strong> 67.963.696/0001-22</li>
+          <li><strong>Endereço:</strong> Fortaleza/CE, Brasil</li>
+          <li><strong>E-mail de contato:</strong> contato@homologpro.com.br</li>
+          <li><strong>E-mail de suporte:</strong> suporte@homologpro.com.br</li>
+        </ul>
+        <p>Para fins da LGPD, somos o <strong>Controlador</strong> dos dados pessoais tratados diretamente na relação com as empresas contratantes (assinantes do plano) e atuamos como <strong>Operador</strong> em relação aos dados de fornecedores inseridos pelas empresas contratantes, que figuram como controladoras desses dados.</p>
+
+        <h2 id="dados-coletados">3. Quais dados coletamos</h2>
+        <h3>3.1. Dados de cadastro da empresa contratante e usuários (Admin/Admin+/Avaliador)</h3>
+        <ul>
+          <li>Nome completo, e-mail corporativo e senha (armazenada de forma criptografada)</li>
+          <li>Razão social, CNPJ e dados de faturamento da empresa contratante</li>
+          <li>Cargo/função e permissões de acesso dentro da plataforma</li>
+          <li>Registros de login, atividade e histórico de ações (logs de auditoria)</li>
+        </ul>
+        <h3>3.2. Dados de fornecedores e do processo de homologação</h3>
+        <ul>
+          <li>Razão social, CNPJ, dados de contato (e-mail, telefone) e endereço do fornecedor</li>
+          <li>Documentos enviados para fins de homologação (certidões, licenças, comprovantes, formulários preenchidos)</li>
+          <li>Respostas de formulários de avaliação e pareceres de avaliadores</li>
+          <li>Histórico de versões de documentos e status de vencimento/renovação</li>
+        </ul>
+        <h3>3.3. Dados de pagamento</h3>
+        <p>Os pagamentos são processados por <strong>Stripe</strong>, gateway de pagamento terceirizado. O HomologPro não armazena números completos de cartão de crédito; recebemos apenas identificadores de assinatura, status de cobrança e os últimos dígitos do cartão para fins de exibição na fatura.</p>
+        <h3>3.4. Dados de navegação</h3>
+        <ul>
+          <li>Endereço IP, tipo de navegador e dispositivo</li>
+          <li>Cookies de sessão para manter o usuário autenticado</li>
+          <li>Dados de uso da plataforma para fins de suporte e melhoria do serviço</li>
+        </ul>
+
+        <h2 id="finalidade">4. Como e por que usamos seus dados</h2>
+        <ul>
+          <li>Viabilizar o cadastro, login e uso da plataforma;</li>
+          <li>Processar e gerenciar o fluxo de homologação de fornecedores (envio, avaliação e aprovação de documentos);</li>
+          <li>Enviar notificações operacionais por e-mail (vencimento de documentos, lembretes a avaliadores, confirmações de cobrança), via <strong>Resend</strong>;</li>
+          <li>Processar pagamentos e emitir cobranças recorrentes via Stripe;</li>
+          <li>Prestar suporte técnico e atendimento;</li>
+          <li>Cumprir obrigações legais e regulatórias;</li>
+          <li>Prevenir fraudes e garantir a segurança da plataforma.</li>
+        </ul>
+        <p>Não utilizamos os dados pessoais tratados na plataforma para fins de publicidade direcionada ou venda a terceiros.</p>
+
+        <h2 id="base-legal">5. Base legal para o tratamento</h2>
+        <p>O tratamento de dados pessoais no HomologPro se baseia, conforme o caso, nas seguintes hipóteses do art. 7º da LGPD:</p>
+        <ul>
+          <li><strong>Execução de contrato:</strong> para viabilizar o uso da plataforma pelo usuário contratante;</li>
+          <li><strong>Cumprimento de obrigação legal ou regulatória:</strong> guarda de documentos fiscais e comprobatórios exigidos por normas setoriais;</li>
+          <li><strong>Legítimo interesse:</strong> para segurança da plataforma, prevenção a fraudes e melhoria contínua do serviço;</li>
+          <li><strong>Consentimento:</strong> quando aplicável, para envio de comunicações não essenciais.</li>
+        </ul>
+
+        <h2 id="compartilhamento">6. Com quem compartilhamos seus dados</h2>
+        <p>Compartilhamos dados exclusivamente com prestadores de serviço estritamente necessários à operação da plataforma, todos sob obrigações contratuais de confidencialidade e segurança:</p>
+        <table>
+          <tr><th>Fornecedor</th><th>Finalidade</th></tr>
+          <tr><td>Supabase</td><td>Hospedagem de banco de dados, autenticação e armazenamento de arquivos</td></tr>
+          <tr><td>Stripe</td><td>Processamento de pagamentos e gestão de assinaturas</td></tr>
+          <tr><td>Resend</td><td>Envio de e-mails transacionais (notificações, lembretes, cobranças)</td></tr>
+          <tr><td>GitHub Pages / provedor de hospedagem</td><td>Hospedagem da aplicação web</td></tr>
+        </table>
+        <p>Não vendemos, alugamos ou comercializamos dados pessoais. Poderemos compartilhar dados com autoridades públicas caso exigido por lei, ordem judicial ou requisição regulatória.</p>
+
+        <h2 id="cookies">7. Cookies e tecnologias de sessão</h2>
+        <p>Utilizamos cookies e armazenamento local estritamente necessários para manter sua sessão autenticada e lembrar preferências de interface (como tema e layout salvos). Não utilizamos cookies de rastreamento publicitário de terceiros.</p>
+
+        <h2 id="retencao">8. Retenção e exclusão de dados</h2>
+        <p>Mantemos os dados pessoais pelo tempo necessário ao cumprimento das finalidades descritas nesta política ou conforme exigido por lei. Ao excluir um fornecedor, documento ou unidade, os registros são movidos para uma <strong>Lixeira</strong> e mantidos por até <strong>90 (noventa) dias</strong>, período após o qual são permanentemente removidos por rotina automática. A exclusão definitiva da conta da empresa contratante pode ser solicitada a qualquer momento pelo administrador, respeitados prazos legais mínimos de guarda de documentos fiscais e contratuais.</p>
+
+        <h2 id="seguranca">9. Segurança da informação</h2>
+        <ul>
+          <li>Conexões criptografadas via SSL/TLS em toda a plataforma;</li>
+          <li>Controle de acesso por níveis de permissão (Admin, Admin+, Avaliador) com políticas de segurança em nível de linha (Row Level Security) no banco de dados;</li>
+          <li>Senhas armazenadas com criptografia (hash), nunca em texto plano;</li>
+          <li>Links de acesso temporário para fornecedores (portal de autoatendimento) com tokens de expiração.</li>
+        </ul>
+        <p>Apesar dos esforços empregados, nenhum sistema é 100% imune a incidentes de segurança. Em caso de incidente que possa acarretar risco relevante aos titulares, comunicaremos conforme exigido pela LGPD.</p>
+
+        <h2 id="direitos">10. Seus direitos como titular de dados</h2>
+        <p>Nos termos do art. 18 da LGPD, você pode solicitar, mediante contato com nosso e-mail de suporte:</p>
+        <ul>
+          <li>Confirmação da existência de tratamento de dados;</li>
+          <li>Acesso aos dados;</li>
+          <li>Correção de dados incompletos, inexatos ou desatualizados;</li>
+          <li>Anonimização, bloqueio ou eliminação de dados desnecessários ou tratados em desconformidade com a lei;</li>
+          <li>Portabilidade dos dados a outro fornecedor de serviço;</li>
+          <li>Eliminação dos dados tratados com base no consentimento;</li>
+          <li>Informação sobre entidades com as quais compartilhamos dados;</li>
+          <li>Revogação do consentimento, quando aplicável.</li>
+        </ul>
+        <p>Quando os dados forem tratados em nome de uma empresa contratante (ex.: dados de um fornecedor cadastrado), a solicitação poderá ser encaminhada também diretamente à empresa contratante, controladora primária desses dados.</p>
+
+        <h2 id="internacional">11. Transferência internacional de dados</h2>
+        <p>Alguns dos prestadores de serviço utilizados (como Supabase, Stripe e Resend) podem armazenar ou processar dados em servidores localizados fora do Brasil. Nesses casos, exigimos que tais prestadores adotem padrões de proteção de dados compatíveis com a LGPD.</p>
+
+        <h2 id="criancas">12. Uso por menores de idade</h2>
+        <p>O HomologPro é uma plataforma B2B destinada a uso profissional e corporativo, não sendo direcionada a crianças ou adolescentes. Não coletamos intencionalmente dados de menores de 18 anos.</p>
+
+        <h2 id="alteracoes">13. Alterações nesta política</h2>
+        <p>Esta Política de Privacidade pode ser atualizada periodicamente para refletir mudanças legais, operacionais ou tecnológicas. A data da última atualização estará sempre indicada no topo desta página. Alterações relevantes serão comunicadas por e-mail ou aviso na plataforma.</p>
+
+        <h2 id="contato">14. Contato e encarregado (DPO)</h2>
+        <p>Para exercer seus direitos, tirar dúvidas ou reportar incidentes relacionados a dados pessoais, entre em contato:</p>
+        <ul>
+          <li><strong>E-mail:</strong> contato@homologpro.com.br</li>
+          <li><strong>Suporte:</strong> suporte@homologpro.com.br</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container footer-container">
+      <div class="footer-brand">
+        <div class="logo">
+          <svg class="logo-seal" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="60" cy="60" r="54" stroke="currentColor" stroke-width="2" stroke-dasharray="3 5"/>
+            <circle cx="60" cy="60" r="44" stroke="currentColor" stroke-width="1.2"/>
+            <path d="M40 61 L53 75 L82 45" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span class="logo-bold">Homolog</span><span class="logo-tag">Pro</span>
+        </div>
+        <p>Solução inteligente para homologação e qualificação de fornecedores.</p>
+      </div>
+      <div class="footer-links">
+        <h4>Navegação</h4>
+        <a href="index.html#solucao">A Solução</a>
+        <a href="index.html#modulos">Módulos</a>
+        <a href="index.html#planos">Planos</a>
+      </div>
+      <div class="footer-links">
+        <h4>Legal</h4>
+        <a href="privacidade.html">Política de Privacidade</a>
+        <a href="termos.html">Termos de Uso</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2026 HomologPro. Todos os direitos reservados.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

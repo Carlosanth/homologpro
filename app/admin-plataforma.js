@@ -259,6 +259,9 @@ function abrirModalDetalhesEmpresa(empresaId) {
     ${linha('Nesse plano desde', emp.plano_desde ? new Date(emp.plano_desde).toLocaleDateString('pt-BR') : '—')}
     ${linha('Acessos hoje', emp.acessosHoje)}
     ${linha('Média de acessos/dia (30d)', emp.mediaAcessosPorDia)}
+    ${linha('Termos aceitos em', emp.termos_aceitos_em
+      ? `${new Date(emp.termos_aceitos_em).toLocaleString('pt-BR')} <span style="color:var(--text-muted)">(versão ${emp.termos_versao || '—'})</span>`
+      : '<span style="color:var(--warn)">— não registrado (empresa anterior a essa exigência) —</span>')}
     ${linha('Armazenamento', '<span id="de-armazenamento">Calculando...</span>')}
   `;
 
