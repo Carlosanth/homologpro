@@ -98,7 +98,7 @@ function renderLancarConferenciaTab() {
         <div class="form-group">
           <label>CNPJ do fornecedor</label>
           <div style="display:flex; gap:6px">
-            <input type="text" id="cf-cnpj" placeholder="00.000.000/0000-00" oninput="this.value = formatarCNPJ(this.value)" style="flex:1">
+            <input type="text" id="cf-cnpj" placeholder="00.000.000/0000-00" oninput="this.value = formatarCNPJ(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault(); buscarFornecedorPorCnpjConferencia();}" style="flex:1">
             <button type="button" class="btn btn-secondary btn-sm" onclick="buscarFornecedorPorCnpjConferencia()" style="display:inline-flex; align-items:center; gap:6px">${ic('search', 13)} Buscar</button>
           </div>
         </div>
@@ -229,17 +229,17 @@ function renderDetalheResposta(r) {
   } else if (r.tipo === 'nota') {
     valor = `${r.valor}/10`;
   } else if (r.tipo === 'texto') {
-    valor = r.valor;
+    valor = escapeHtml(r.valor);
   } else if (r.tipo === 'faixa') {
     valor = `${r.valor}${r.unidade || ''} <span style="font-weight:400; color:var(--text-muted)">(rec. ${r.min}-${r.max}${r.unidade || ''})</span>`;
     icone = iconeStatusSvg(r.dentroFaixa);
-    if (!r.dentroFaixa) extra = `<div style="font-size:11px; color:var(--danger); margin-top:2px">RPNC: ${r.rpnc}</div>`;
+    if (!r.dentroFaixa) extra = `<div style="font-size:11px; color:var(--danger); margin-top:2px">RPNC: ${escapeHtml(r.rpnc)}</div>`;
   } else {
-    valor = r.valor;
+    valor = escapeHtml(r.valor);
   }
   return `
     <div style="min-width:150px">
-      <div style="font-size:11px; color:var(--text-muted); margin-bottom:2px">${r.nome}</div>
+      <div style="font-size:11px; color:var(--text-muted); margin-bottom:2px">${escapeHtml(r.nome)}</div>
       <div style="font-size:13px; font-weight:600; display:flex; align-items:center; gap:5px">${icone}${valor}</div>
       ${extra}
     </div>
@@ -260,7 +260,7 @@ function renderListaConferenciasHtml() {
         <span class="sup-status-dot" style="background:${c.descontoTotal > 0 ? 'var(--danger)' : 'var(--success)'}"></span>
         <div style="flex:1; min-width:0">
           <div class="sup-name-line">
-            <span class="sup-name">${forn ? forn.nome : '—'}</span>
+            <span class="sup-name">${forn ? escapeHtml(forn.nome) : '—'}</span>
             ${c.descontoTotal > 0
               ? `<span class="sup-badge sup-badge-crit-alta">-${c.descontoTotal} ponto(s)</span>`
               : `<span class="sup-badge sup-badge-crit-baixa">Sem desconto</span>`}

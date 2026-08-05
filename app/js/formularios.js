@@ -62,13 +62,13 @@ function renderAdFormularios() {
         <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px">É essa associação que define quais formulários aparecem quando o avaliador faz login.</p>
         <div class="form-row three">
           <div class="form-group"><label>E-mail do avaliador</label>
-            <select id="assoc-email">${d.usuarios.filter(u=>u.papel==='avaliador').map(u => `<option value="${u.email}">${u.email}</option>`).join('')}</select>
+            <select id="assoc-email">${d.usuarios.filter(u=>u.papel==='avaliador').map(u => `<option value="${escapeHtml(u.email)}">${escapeHtml(u.email)}</option>`).join('')}</select>
           </div>
           <div class="form-group"><label>Formulário</label>
-            <select id="assoc-form">${d.formularios.map(f => `<option value="${f.id}">${f.nome}</option>`).join('')}</select>
+            <select id="assoc-form">${d.formularios.map(f => `<option value="${f.id}">${escapeHtml(f.nome)}</option>`).join('')}</select>
           </div>
           <div class="form-group"><label>Fornecedor vinculado</label>
-            <select id="assoc-fornecedor"><option value="">Selecione um fornecedor...</option>${d.fornecedores.map(fn => `<option value="${fn.id}">${fn.nome}</option>`).join('')}</select>
+            <select id="assoc-fornecedor"><option value="">Selecione um fornecedor...</option>${d.fornecedores.map(fn => `<option value="${fn.id}">${escapeHtml(fn.nome)}</option>`).join('')}</select>
           </div>
         </div>
         <button class="btn btn-primary" onclick="addAssociacao()">Associar</button>
@@ -84,9 +84,9 @@ function renderAdFormularios() {
         <div class="card-title">Campos institucionais globais</div>
         <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px">Esses campos aparecem por padrão em todo formulário novo (ex: Código do documento, Revisões). Você pode sempre editar o valor de um campo específico dentro de cada formulário.</p>
         <div id="campos-globais-lista"></div>
-        <div style="display:flex; gap:8px; margin-top:12px">
-          <input type="text" id="cg-label" placeholder="Nome do campo (ex: Código)" style="flex:1; padding:8px 11px; border:1px solid var(--border); border-radius:8px">
-          <input type="text" id="cg-valor" placeholder="Valor padrão (ex: Numero do documento)" style="flex:1; padding:8px 11px; border:1px solid var(--border); border-radius:8px">
+        <div style="display:flex; gap:8px; margin-top:12px; align-items:flex-end">
+          <div class="form-group" style="flex:1"><input type="text" id="cg-label" placeholder="Nome do campo (ex: Código)"></div>
+          <div class="form-group" style="flex:1"><input type="text" id="cg-valor" placeholder="Valor padrão (ex: Numero do documento)"></div>
           <button class="btn btn-primary btn-sm" onclick="addCampoGlobal()">+ Adicionar</button>
         </div>
       </div>
@@ -157,8 +157,8 @@ function renderCamposExtrasBuilder() {
   } else {
     wrap.innerHTML = window._camposExtrasBuilder.map((c, i) => `
       <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px">
-        <input type="text" value="${c.label}" placeholder="Nome do campo" style="width:160px" oninput="window._camposExtrasBuilder[${i}].label=this.value">
-        <input type="text" value="${c.valor}" placeholder="Valor" style="flex:1" oninput="window._camposExtrasBuilder[${i}].valor=this.value">
+        <div class="form-group" style="width:160px"><input type="text" value="${c.label}" placeholder="Nome do campo" oninput="window._camposExtrasBuilder[${i}].label=this.value"></div>
+        <div class="form-group" style="flex:1"><input type="text" value="${c.valor}" placeholder="Valor" oninput="window._camposExtrasBuilder[${i}].valor=this.value"></div>
         <button class="btn btn-danger btn-sm" onclick="removeCampoExtraBuilder(${i})">${ic('x', 12)}</button>
       </div>
     `).join('');
@@ -253,14 +253,14 @@ function renderCriteriosBuilder() {
   wrap.innerHTML = window._criterioBuilder.map(c => `
     <div class="criterio-block">
       <div class="form-row" style="margin-bottom:10px">
-        <div class="form-group"><label>Nome do critério</label><input type="text" value="${c.nome}" placeholder="Ex: Atendimento" oninput="updateCriterioField('${c.tempId}','nome',this.value)"></div>
+        <div class="form-group"><label>Nome do critério</label><input type="text" value="${escapeHtml(c.nome)}" placeholder="Ex: Atendimento" oninput="updateCriterioField('${c.tempId}','nome',this.value)"></div>
         <div class="form-group"><label>Peso máximo (pontos)</label><input type="number" step="0.1" value="${c.pesoMax || ''}" placeholder="Ex: 3.0" oninput="updateCriterioField('${c.tempId}','pesoMax',this.value); updateTotalPontosPreview()"></div>
       </div>
       <p style="font-size:11px; font-weight:600; color:var(--text-muted); margin-bottom:8px">Opções de resposta e pontuação</p>
       ${c.opcoes.map((op, i) => `
         <div style="display:flex; gap:8px; align-items:center; margin-bottom:6px">
-          <input type="text" value="${op.label}" placeholder="Ex: Dentro da expectativa" style="flex:1" oninput="updateOpcaoField('${c.tempId}',${i},'label',this.value)">
-          <input type="number" step="0.1" value="${op.pontos || ''}" placeholder="Pts" style="width:70px" oninput="updateOpcaoField('${c.tempId}',${i},'pontos',this.value)">
+          <div class="form-group" style="flex:1"><input type="text" value="${op.label}" placeholder="Ex: Dentro da expectativa" oninput="updateOpcaoField('${c.tempId}',${i},'label',this.value)"></div>
+          <div class="form-group" style="width:70px"><input type="number" step="0.1" value="${op.pontos || ''}" placeholder="Pts" oninput="updateOpcaoField('${c.tempId}',${i},'pontos',this.value)"></div>
           <button class="btn btn-danger btn-sm" onclick="removeOpcaoBuilder('${c.tempId}',${i})">${ic('x', 12)}</button>
         </div>
       `).join('')}
@@ -435,7 +435,7 @@ function renderFormulariosCatalogo() {
         <div style="display:flex; align-items:center; gap:10px">
           ${modoLote ? `<input type="checkbox" class="lote-check" value="${f.id}" style="accent-color:var(--accent)">` : ''}
           <div>
-            <span style="font-weight:500; font-size:13px">${f.nome}</span>
+            <span style="font-weight:500; font-size:13px">${escapeHtml(f.nome)}</span>
             <span class="tag-${f.tipo}" style="margin-left:8px">${f.tipo === 'produto' ? 'Produto' : 'Serviço'}</span>
             ${f.prazoEntregaDia ? `<span class="badge badge-accent" style="margin-left:6px">Vence dia ${f.prazoEntregaDia}</span>` : ''}
           </div>
@@ -480,13 +480,13 @@ function verFormularioDetalhe(id) {
   const d = db();
   const f = d.formularios.find(x => x.id === id);
   openModal(`
-    <h3>${f.nome}</h3>
+    <h3>${escapeHtml(f.nome)}</h3>
     <p style="font-size:12px; color:var(--text-muted); margin-bottom:6px">Setor: ${f.setor} · ${f.tipo === 'produto' ? 'Produto' : 'Serviço'} · máx ${f.criterios.reduce((s,c)=>s+c.pesoMax,0).toFixed(1)}P</p>
     ${f.camposExtras && f.camposExtras.length ? `<p style="font-size:12px; color:var(--text-sec); margin-bottom:14px">${f.camposExtras.map(c=>`<b>${c.label}:</b> ${c.valor}`).join(' &nbsp;·&nbsp; ')}</p>` : ''}
     ${f.prazoEntregaDia ? `<p style="font-size:12px; color:var(--accent); margin-bottom:14px">Prazo de entrega: dia ${f.prazoEntregaDia} de cada mês</p>` : ''}
     ${f.criterios.map(c => `
       <div style="margin-bottom:12px">
-        <p style="font-size:12px; font-weight:600">${c.nome} <span style="font-weight:400; color:var(--text-muted)">(até ${c.pesoMax.toFixed(1)}P)</span></p>
+        <p style="font-size:12px; font-weight:600">${escapeHtml(c.nome)} <span style="font-weight:400; color:var(--text-muted)">(até ${c.pesoMax.toFixed(1)}P)</span></p>
         ${c.opcoes.map(o => `<div style="font-size:12px; color:var(--text-sec); padding:2px 0 2px 10px">• ${o.label} — ${o.pontos.toFixed(1)}P</div>`).join('')}
       </div>
     `).join('')}

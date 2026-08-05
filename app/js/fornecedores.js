@@ -76,12 +76,12 @@ function campoCustomInputHTML(campo, prefix, valor) {
   const v = (valor !== undefined && valor !== null) ? valor : '';
   if (campo.tipo === 'select') {
     const opcoes = campo.opcoes || [];
-    return `<div class="form-group"><label>${campo.label}</label><select id="${id}"><option value="">—</option>${opcoes.map(o => `<option value="${o}" ${o === v ? 'selected' : ''}>${o}</option>`).join('')}</select></div>`;
+    return `<div class="form-group"><label>${escapeHtml(campo.label)}</label><select id="${id}"><option value="">—</option>${opcoes.map(o => `<option value="${escapeHtml(o)}" ${o === v ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}</select></div>`;
   }
   if (campo.tipo === 'data') {
-    return `<div class="form-group"><label>${campo.label}</label><input type="date" id="${id}" value="${v}"></div>`;
+    return `<div class="form-group"><label>${escapeHtml(campo.label)}</label><input type="date" id="${id}" value="${escapeHtml(v)}"></div>`;
   }
-  return `<div class="form-group"><label>${campo.label}</label><input type="text" id="${id}" value="${v}"></div>`;
+  return `<div class="form-group"><label>${escapeHtml(campo.label)}</label><input type="text" id="${id}" value="${escapeHtml(v)}"></div>`;
 }
 
 let _abaFornecedoresAtual = 'ativos';
@@ -133,7 +133,7 @@ function renderAdFornecedores() {
         <div class="form-row" style="grid-template-columns:1fr 1fr 1fr 1fr">
           <div class="form-group"><label>CNPJ</label>
             <div style="display:flex; gap:6px">
-              <input type="text" id="nf-cnpj" placeholder="00.000.000/0000-00" style="flex:1" oninput="this.value = formatarCNPJ(this.value)">
+              <input type="text" id="nf-cnpj" placeholder="00.000.000/0000-00" style="flex:1" oninput="this.value = formatarCNPJ(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault(); buscarNomePorCnpjCadastro();}">
               <button type="button" class="btn btn-secondary btn-sm" onclick="buscarNomePorCnpjCadastro()" style="display:inline-flex; align-items:center; gap:6px">${ic('search', 13)} Buscar</button>
             </div>
             <p id="nf-cnpj-status" style="font-size:11px; margin-top:4px"></p>
@@ -292,7 +292,7 @@ function formatarTelefone(valor) {
 }
 
 function metaItemHTML(iconeSvg, texto, mono) {
-  return `<span class="sup-meta-item${mono ? ' mono' : ''}"><span class="ic">${iconeSvg}</span>${texto}</span>`;
+  return `<span class="sup-meta-item${mono ? ' mono' : ''}"><span class="ic">${iconeSvg}</span>${escapeHtml(texto)}</span>`;
 }
 
 function pluralDocs(n) {
@@ -431,7 +431,7 @@ function renderFornecedoresListaAd() {
           <span class="sup-status-dot" style="background:${dotCor}"></span>
           <div style="flex:1; min-width:0">
             <div class="sup-name-line">
-              <span class="sup-name" title="${f.nome}">${truncarNomeForn(f.nome)}</span>
+              <span class="sup-name" title="${escapeHtml(f.nome)}">${escapeHtml(truncarNomeForn(f.nome))}</span>
               ${badges.join('')}
             </div>
             ${meta.length ? `<div class="sup-meta">${meta.join(metaSep)}</div>` : ''}
@@ -724,7 +724,7 @@ let anexosFornecedorTemp = {};
 async function abrirAnexosFornecedor(fornecedorId) {
   const f = db().fornecedores.find(x => x.id === fornecedorId);
   openModal(`
-    <h3>Anexos gerais${f ? ' — ' + f.nome : ''}</h3>
+    <h3>Anexos gerais${f ? ' — ' + escapeHtml(f.nome) : ''}</h3>
     <p style="font-size:11px; color:var(--text-muted); margin-bottom:14px">Arquivos de referência sem data de validade (ex: ficha cadastral, questionário de qualificação assinado). Pra documento com vencimento, use "Novo Documento".</p>
     <div class="form-group" style="margin-bottom:14px">
       <div class="file-drop" onclick="document.getElementById('anexo-file-input').click()" style="padding:10px; cursor:pointer">
@@ -1074,17 +1074,17 @@ function abrirEdicaoFornecedor(id) {
   if (!f) return;
   openModal(`
     <h3>Editar fornecedor</h3>
-    <div class="form-group" style="margin-bottom:10px"><label>Nome</label><input type="text" id="ef-nome" value="${f.nome || ''}"></div>
+    <div class="form-group" style="margin-bottom:10px"><label>Nome</label><input type="text" id="ef-nome" value="${escapeHtml(f.nome)}"></div>
     <div class="form-row" style="margin-bottom:10px">
       <div class="form-group"><label>Tipo</label><select id="ef-tipo">${optionsTipoFornecedorHTML(f.tipo)}</select></div>
-      <div class="form-group"><label>Setor</label><input type="text" id="ef-setor" value="${f.setor || ''}"></div>
+      <div class="form-group"><label>Setor</label><input type="text" id="ef-setor" value="${escapeHtml(f.setor)}"></div>
     </div>
     <div class="form-row" style="margin-bottom:10px; grid-template-columns:1fr 1fr 1fr">
-      <div class="form-group"><label>E-mail</label><input type="email" id="ef-email" value="${f.email || ''}"></div>
-      <div class="form-group"><label>Telefone</label><input type="text" id="ef-telefone" value="${f.telefone || ''}" oninput="this.value = formatarTelefone(this.value)"></div>
-      <div class="form-group"><label>CNPJ</label><input type="text" id="ef-cnpj" value="${f.cnpj || ''}" oninput="this.value = formatarCNPJ(this.value)"></div>
+      <div class="form-group"><label>E-mail</label><input type="email" id="ef-email" value="${escapeHtml(f.email)}"></div>
+      <div class="form-group"><label>Telefone</label><input type="text" id="ef-telefone" value="${escapeHtml(f.telefone)}" oninput="this.value = formatarTelefone(this.value)"></div>
+      <div class="form-group"><label>CNPJ</label><input type="text" id="ef-cnpj" value="${escapeHtml(f.cnpj)}" oninput="this.value = formatarCNPJ(this.value)"></div>
     </div>
-    <div class="form-group" style="margin-bottom:10px"><label>Endereço</label><input type="text" id="ef-endereco" value="${f.endereco || ''}"></div>
+    <div class="form-group" style="margin-bottom:10px"><label>Endereço</label><input type="text" id="ef-endereco" value="${escapeHtml(f.endereco)}"></div>
     <div class="form-group" style="margin-bottom:10px">
       <label>Criticidade</label>
       <select id="ef-criticidade">

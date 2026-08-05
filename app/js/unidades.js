@@ -74,7 +74,7 @@ function renderAdMeusDocumentos() {
         <div class="form-group">
           <label>CNPJ <span style="color:var(--text-muted); font-weight:400">(opcional)</span></label>
           <div style="display:flex; gap:6px">
-            <input type="text" id="un-cnpj" placeholder="00.000.000/0000-00" style="flex:1" oninput="this.value = formatarCNPJ(this.value)">
+            <input type="text" id="un-cnpj" placeholder="00.000.000/0000-00" style="flex:1" oninput="this.value = formatarCNPJ(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault(); buscarDadosPorCnpjUnidade();}">
             <button type="button" class="btn btn-secondary btn-sm" onclick="buscarDadosPorCnpjUnidade()" style="display:inline-flex; align-items:center; gap:6px">${ic('search', 13)} Buscar</button>
           </div>
           <p id="un-cnpj-status" style="font-size:11px; margin-top:4px"></p>
@@ -123,7 +123,7 @@ function renderUnidadesListaAd() {
         <div style="display:flex; gap:10px; flex:1; min-width:0">
           <span class="sup-status-dot" style="background:${dotCor}"></span>
           <div style="flex:1; min-width:0">
-            <div class="sup-name-line"><span class="sup-name" title="${u.nome}">${truncarNomeForn(u.nome)}</span></div>
+            <div class="sup-name-line"><span class="sup-name" title="${escapeHtml(u.nome)}">${escapeHtml(truncarNomeForn(u.nome))}</span></div>
             <div class="sup-meta">
               ${u.endereco ? metaItemHTML(ic('pin', 12.5), u.endereco) : ''}
               ${u.telefone ? metaItemHTML(ic('phone', 12.5), u.telefone) : ''}
@@ -378,10 +378,10 @@ function abrirEdicaoUnidade(id) {
   if (!u) return;
   openModal(`
     <h3>Editar unidade</h3>
-    <div class="form-group" style="margin-bottom:10px"><label>Nome</label><input type="text" id="eu-nome" value="${u.nome || ''}"></div>
-    <div class="form-group" style="margin-bottom:10px"><label>CNPJ</label><input type="text" id="eu-cnpj" value="${u.cnpj || ''}" oninput="this.value = formatarCNPJ(this.value)"></div>
-    <div class="form-group" style="margin-bottom:10px"><label>Telefone</label><input type="text" id="eu-telefone" value="${u.telefone || ''}" oninput="this.value = formatarTelefone(this.value)"></div>
-    <div class="form-group" style="margin-bottom:10px"><label>Endereço</label><input type="text" id="eu-endereco" value="${u.endereco || ''}"></div>
+    <div class="form-group" style="margin-bottom:10px"><label>Nome</label><input type="text" id="eu-nome" value="${escapeHtml(u.nome)}"></div>
+    <div class="form-group" style="margin-bottom:10px"><label>CNPJ</label><input type="text" id="eu-cnpj" value="${escapeHtml(u.cnpj)}" oninput="this.value = formatarCNPJ(this.value)"></div>
+    <div class="form-group" style="margin-bottom:10px"><label>Telefone</label><input type="text" id="eu-telefone" value="${escapeHtml(u.telefone)}" oninput="this.value = formatarTelefone(this.value)"></div>
+    <div class="form-group" style="margin-bottom:10px"><label>Endereço</label><input type="text" id="eu-endereco" value="${escapeHtml(u.endereco)}"></div>
     <div style="display:flex; gap:8px; margin-top:16px">
       <button class="btn btn-primary btn-block" onclick="salvarEdicaoUnidade('${u.id}')">Salvar alterações</button>
       <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>

@@ -282,7 +282,7 @@ function updateNotaPreview() {
     justWrap.innerHTML = `
       <div class="form-group" style="margin-top:14px">
         <label style="color:var(--danger)">Melhoria esperada (obrigatório para reprovados)</label>
-        <textarea id="justificativa-reprovacao" rows="3" placeholder="O que o fornecedor precisa melhorar para atingir uma nota melhor na próxima avaliação..." style="border-color:var(--danger-border)">${window._formAtual.existente && window._formAtual.existente.justificativa ? window._formAtual.existente.justificativa : ''}</textarea>
+        <textarea id="justificativa-reprovacao" rows="3" placeholder="O que o fornecedor precisa melhorar para atingir uma nota melhor na próxima avaliação..." style="border-color:var(--danger-border)">${window._formAtual.existente && window._formAtual.existente.justificativa ? escapeHtml(window._formAtual.existente.justificativa) : ''}</textarea>
       </div>`;
   } else {
     justWrap.innerHTML = '';
@@ -316,7 +316,7 @@ function renderAnexosLista() {
   if (!wrap) return;
   wrap.innerHTML = window._formAtual.anexos.map((a, i) => `
     <div class="anexo-item" style="display:flex; align-items:center; gap:5px">
-      ${ic('paperclip', 12)}<span>${a.caminhoStorage ? `<a href="#" onclick="event.preventDefault(); baixarAnexoAvaliacao('${a.caminhoStorage}', '${a.nome}')">${a.nome}</a>` : a.nome}</span>
+      ${ic('paperclip', 12)}<span>${a.caminhoStorage ? `<a href="#" onclick="event.preventDefault(); baixarAnexoAvaliacao('${escapeForInlineHandler(a.caminhoStorage)}', '${escapeForInlineHandler(a.nome)}')">${escapeHtml(a.nome)}</a>` : escapeHtml(a.nome)}</span>
       <span style="color:var(--text-muted)">${a.tamanho}</span>
       <button onclick="removerAnexo(${i})">remover</button>
     </div>`).join('');
@@ -582,7 +582,7 @@ function renderAvaliarProdutoTab() {
         <div class="form-group">
           <label>CNPJ do fornecedor</label>
           <div style="display:flex; gap:6px">
-            <input type="text" id="lp-cnpj" placeholder="00.000.000/0000-00" oninput="this.value = formatarCNPJ(this.value)" style="flex:1">
+            <input type="text" id="lp-cnpj" placeholder="00.000.000/0000-00" oninput="this.value = formatarCNPJ(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault(); buscarFornecedorPorCnpj();}" style="flex:1">
             <button type="button" class="btn btn-secondary btn-sm" onclick="buscarFornecedorPorCnpj()" style="display:inline-flex; align-items:center; gap:6px">${ic('search', 13)}Buscar</button>
           </div>
         </div>
@@ -834,7 +834,7 @@ function toggleInfoConferenciaCriterio(critId) {
   box.dataset.aberto = '1';
   box.innerHTML = `
     <div style="margin-top:6px; padding:8px 10px; background:var(--surface2); border-radius:8px; font-size:12px">
-      Conferido por <b>${inp.dataset.conferidoPor || '—'}</b>${inp.dataset.motivo ? `<br>Motivo: ${inp.dataset.motivo}` : ''}
+      Conferido por <b>${escapeHtml(inp.dataset.conferidoPor) || '—'}</b>${inp.dataset.motivo ? `<br>Motivo: ${escapeHtml(inp.dataset.motivo)}` : ''}
     </div>`;
 }
 
@@ -918,9 +918,9 @@ function aplicarConferenciaVinculada() {
     }
   });
 
-  const infoTextos = conferencia.respostas.filter(r => r.tipo === 'texto').map(r => `${r.nome}: <b>${r.valor}</b>`);
+  const infoTextos = conferencia.respostas.filter(r => r.tipo === 'texto').map(r => `${escapeHtml(r.nome)}: <b>${escapeHtml(r.valor)}</b>`);
   const infoFaixas = conferencia.respostas.filter(r => r.tipo === 'faixa').map(r =>
-    `${r.nome}: <b>${r.valor}${r.unidade || ''}</b> (${r.min}-${r.max}${r.unidade || ''}) ${r.dentroFaixa ? ic('check', 12) : `${ic('alertTriangle', 12)} fora — RPNC ${r.rpnc}`}`
+    `${escapeHtml(r.nome)}: <b>${r.valor}${r.unidade || ''}</b> (${r.min}-${r.max}${r.unidade || ''}) ${r.dentroFaixa ? ic('check', 12) : `${ic('alertTriangle', 12)} fora — RPNC ${escapeHtml(r.rpnc)}`}`
   );
   const infoPartes = [...infoTextos, ...infoFaixas];
   if (infoBox) {
@@ -1166,7 +1166,7 @@ function verDetalheAvaliacaoProduto(id) {
   const faixa = d.faixasConceitoProduto.find(f => f.nome === av.conceito);
 
   openModal(`
-    <h3>${forn ? forn.nome : 'Fornecedor'}</h3>
+    <h3>${forn ? escapeHtml(forn.nome) : 'Fornecedor'}</h3>
     <p style="font-size:12px; color:var(--text-muted); margin-bottom:4px">NF ${av.numeroNf || '(sem número)'} · ${fmtDataSimples(av.data)}</p>
     <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px">Lançado por ${av.enviadoPorEmail || '—'}</p>
     <div style="margin-bottom:14px">
@@ -1177,24 +1177,24 @@ function verDetalheAvaliacaoProduto(id) {
     ${(av.notas || []).map(n => `
       <div style="padding:6px 0; border-bottom:1px solid var(--border); font-size:13px">
         <div style="display:flex; justify-content:space-between">
-          <span>${n.nome} <span style="color:var(--text-muted); font-size:11px">(peso ${n.peso})</span></span>
+          <span>${escapeHtml(n.nome)} <span style="color:var(--text-muted); font-size:11px">(peso ${n.peso})</span></span>
           <b>${parseFloat(n.nota).toFixed(1)}</b>
         </div>
-        ${n.motivo ? `<div style="font-size:12px; color:var(--danger); margin-top:2px">Motivo: ${n.motivo}</div>` : ''}
+        ${n.motivo ? `<div style="font-size:12px; color:var(--danger); margin-top:2px">Motivo: ${escapeHtml(n.motivo)}</div>` : ''}
       </div>
     `).join('')}
     ${(av.descontoExtraDetalhe && av.descontoExtraDetalhe.length) ? `
       <div style="margin-top:12px; padding:10px 12px; background:var(--danger-bg); border-radius:8px">
         <p style="font-size:12px; font-weight:600; color:var(--danger); margin-bottom:4px">Descontos extras (${av.descontoExtra} pontos)</p>
         ${av.descontoExtraDetalhe.map(det => `
-          <div style="font-size:12px; color:var(--danger)">${det.motivo}: -${det.valor}</div>
+          <div style="font-size:12px; color:var(--danger)">${escapeHtml(det.motivo)}: -${det.valor}</div>
         `).join('')}
       </div>
     ` : ''}
     ${av.justificativa ? `
       <div style="margin-top:12px; padding:10px 12px; background:var(--surface2); border-radius:8px">
-        <p style="font-size:12px; font-weight:600; margin-bottom:4px">Motivo do conceito "${av.conceito}"</p>
-        <p style="font-size:12px">${av.justificativa}</p>
+        <p style="font-size:12px; font-weight:600; margin-bottom:4px">Motivo do conceito "${escapeHtml(av.conceito)}"</p>
+        <p style="font-size:12px">${escapeHtml(av.justificativa)}</p>
       </div>
     ` : ''}
     ${getSituacao(av.notaGeral) === 'reprovado' ? blocoPlanoAcaoHtml('produto', av) : ''}

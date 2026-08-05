@@ -1,4 +1,30 @@
 // ============ CORE: estado global, persistência, sessão/login, shell de navegação ============
+
+// Escapa texto que vem de dados (nome de fornecedor, unidade, log de auditoria etc.)
+// antes de jogar dentro de innerHTML — evita XSS armazenado caso alguém digite
+// algo como <img onerror=...> num campo de texto livre.
+function escapeHtml(texto) {
+  if (texto === null || texto === undefined) return '';
+  return String(texto)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Escapa texto que vai ser embutido como argumento string dentro de um
+// onclick="funcao('${...}')" — escapar só HTML não basta aqui, porque o
+// navegador decodifica entidades HTML antes de rodar o JS do onclick (um
+// '&#39;' viraria ' de novo e quebraria a string). Por isso escapa a barra
+// invertida e a aspas simples pro nível JS primeiro, e só depois escapa pro
+// nível HTML (& < > ") pra não vazar do próprio atributo.
+function escapeForInlineHandler(texto) {
+  if (texto === null || texto === undefined) return '';
+  let s = String(texto).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 // ============ ESTADO E PERSISTÊNCIA ============
 const MESES = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 let currentUser = null;
@@ -1342,7 +1368,7 @@ function renderAdAuditoria() {
   document.getElementById('ad-page-auditoria').innerHTML = `
     <div class="page-header"><div><h2>Log de auditoria</h2><p>Histórico completo de ações no sistema — útil para auditorias ISO/ONA</p></div></div>
     <div class="card" style="margin-bottom:14px">
-      <input type="text" id="ad-auditoria-busca" oninput="renderAdAuditoriaLista()" placeholder="Buscar por responsável, setor, e-mail ou ação...">
+      <div class="form-group"><input type="text" id="ad-auditoria-busca" oninput="renderAdAuditoriaLista()" placeholder="Buscar por responsável, setor, e-mail ou ação..."></div>
     </div>
     <div class="card" id="ad-auditoria-lista"></div>
   `;
@@ -1362,7 +1388,7 @@ function renderAdAuditoriaLista() {
       <div class="log-item">
         <div class="log-dot"></div>
         <div class="log-text">
-          <span><b>${l.usuarioDisplay}</b> — ${l.detalhe}</span>
+          <span><b>${escapeHtml(l.usuarioDisplay)}</b> — ${escapeHtml(l.detalhe)}</span>
           <div class="log-time">${fmtData(l.timestamp)}</div>
         </div>
       </div>

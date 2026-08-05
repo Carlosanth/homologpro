@@ -68,7 +68,6 @@ function renderAdDashboard() {
   let assinaturaHTML = '';
   let lixeiraHTML = '';
   let atividadeHTML = '';
-  let semAvaliadorHTML = '';
   let rankingHistoricoHTML = '';
 
   // ---------- ALERTA: DOCUMENTOS ENVIADOS PELO PORTAL, AGUARDANDO APROVAÇÃO ----------
@@ -135,29 +134,6 @@ function renderAdDashboard() {
           </div>`;
       }
 
-      if (podeFornecedores) {
-        const fornecedoresComAssociacao = new Set(d.associacoes.map(a => a.fornecedorId));
-        const semAvaliador = d.fornecedores.filter(f => f.ativo !== false && !f.diverso && !fornecedoresComAssociacao.has(f.id));
-
-        if (semAvaliador.length) {
-          semAvaliadorHTML = `
-            <div class="card alert-collapse" id="alerta-sem-avaliador" style="margin-bottom:16px">
-              <div class="alert-collapse-header" onclick="toggleAlertaCollapse('alerta-sem-avaliador')">
-                <div class="bar bar-warn"></div>
-                <span style="flex:1; font-size:13px; font-weight:600">Fornecedores sem avaliador designado</span>
-                <span class="alert-count">${semAvaliador.length} fornecedor(es)</span>
-                <span class="alert-collapse-chevron">${ic('chevronDown', 16)}</span>
-              </div>
-              <div class="alert-collapse-body">
-                ${semAvaliador.map(f => `
-                  <div style="display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid var(--border); font-size:12px">
-                    <span style="flex:1"><b>${f.nome}</b></span>
-                    <button class="btn btn-secondary btn-sm" onclick="showAdPage('usuarios')">Designar →</button>
-                  </div>`).join('')}
-              </div>
-            </div>`;
-        }
-      }
     }
 
     // ---------- ALERTA: NOTIFICAR NOTA BAIXA (com "cobrado em") ----------
@@ -580,7 +556,7 @@ function renderAdDashboard() {
             <div class="log-item">
               <div class="log-dot"></div>
               <div class="log-text">
-                <span><b>${l.usuario}</b> — ${l.detalhe}</span>
+                <span><b>${escapeHtml(l.usuario)}</b> — ${escapeHtml(l.detalhe)}</span>
                 <div class="log-time">${fmtData(l.timestamp)}</div>
               </div>
             </div>`).join('')}
@@ -594,13 +570,12 @@ function renderAdDashboard() {
     insightGridHTML = `<div class="admin-grid2"${doisCards2 ? '' : ' style="grid-template-columns:1fr"'}>${rankingHistoricoHTML}${atividadeHTML}</div>`;
   }
 
-  const semNadaParaMostrar = !alertaAprovacao && !alertaAvaliadoresPendentesHTML && !semAvaliadorHTML && !alertaNotificar && !alertaNotificarProduto && !alertaPlanoAcaoAtrasado && !alertasDoc && !alertaDocsEscalonados && !alertasDocUnidades && !dashGrid2HTML && !insightGridHTML && !graficosHTML && !tabelaHTML && !adminGridHTML;
+  const semNadaParaMostrar = !alertaAprovacao && !alertaAvaliadoresPendentesHTML && !alertaNotificar && !alertaNotificarProduto && !alertaPlanoAcaoAtrasado && !alertasDoc && !alertaDocsEscalonados && !alertasDocUnidades && !dashGrid2HTML && !insightGridHTML && !graficosHTML && !tabelaHTML && !adminGridHTML;
   document.getElementById('ad-page-dashboard').innerHTML = `
     <div class="page-header"><div><h2>Dashboard e notificações</h2><p>${MESES[mesAtual]} de ${anoAtual}</p></div></div>
     ${onboardingHTML}
     ${alertaAprovacao}
     ${alertaAvaliadoresPendentesHTML}
-    ${semAvaliadorHTML}
     ${alertaNotificar}
     ${alertaNotificarProduto}
     ${alertaPlanoAcaoAtrasado}
