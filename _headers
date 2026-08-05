@@ -11,13 +11,31 @@
 # o frame-ancestors dessas duas páginas — 'self' quer dizer "só o próprio
 # domínio pode embutir", nenhum site de fora consegue. Todo o resto do site
 # continua com frame-ancestors 'none', sem exceção.
+#
+# Precisa cobrir as DUAS formas da URL: com ".html" (a que o link/iframe
+# pede primeiro) e sem extensão (o Cloudflare Pages redireciona
+# automaticamente /termos.html -> /termos com 307 "clean URLs" — se só a
+# versão .html tivesse a exceção, o redirect caía de volta na regra geral
+# frame-ancestors 'none' e bloqueava mesmo assim).
 /termos.html
   ! X-Frame-Options
   X-Frame-Options: SAMEORIGIN
   ! Content-Security-Policy
   Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.sheetjs.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://qmvfsgwzbrhbxyonntgh.supabase.co wss://qmvfsgwzbrhbxyonntgh.supabase.co https://*.r2.cloudflarestorage.com https://static.cloudflareinsights.com https://cdnjs.cloudflare.com https://api.opencnpj.org https://brasilapi.com.br; frame-ancestors 'self'; base-uri 'self'; form-action 'self'
 
+/termos
+  ! X-Frame-Options
+  X-Frame-Options: SAMEORIGIN
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.sheetjs.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://qmvfsgwzbrhbxyonntgh.supabase.co wss://qmvfsgwzbrhbxyonntgh.supabase.co https://*.r2.cloudflarestorage.com https://static.cloudflareinsights.com https://cdnjs.cloudflare.com https://api.opencnpj.org https://brasilapi.com.br; frame-ancestors 'self'; base-uri 'self'; form-action 'self'
+
 /privacidade.html
+  ! X-Frame-Options
+  X-Frame-Options: SAMEORIGIN
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.sheetjs.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://qmvfsgwzbrhbxyonntgh.supabase.co wss://qmvfsgwzbrhbxyonntgh.supabase.co https://*.r2.cloudflarestorage.com https://static.cloudflareinsights.com https://cdnjs.cloudflare.com https://api.opencnpj.org https://brasilapi.com.br; frame-ancestors 'self'; base-uri 'self'; form-action 'self'
+
+/privacidade
   ! X-Frame-Options
   X-Frame-Options: SAMEORIGIN
   ! Content-Security-Policy
