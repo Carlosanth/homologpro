@@ -368,6 +368,31 @@ function saudacaoPorHorario() {
 // Mostra a régua completa de cada critério (todas as opções, marcando a escolhida) e sugere
 // automaticamente qual seria a melhor opção em cada critério abaixo do máximo — além da
 // "Melhoria esperada" (justificativa) e "Observações" que o setor já preenche no formulário.
+// ---------- NOTIFICAÇÃO AUTOMÁTICA EM HTML (modo "Por aprovação") ----------
+// Diferente do notificarFornecedorNota (mailto, monta tudo no navegador), aqui
+// só mandamos o id — a Edge Function busca os dados de novo no servidor
+// (fonte confiável) e já dispara o e-mail em HTML via Resend. Usado pelo botão
+// "Aprovar e enviar" que só aparece quando cfg-notif-avaliacao-modo = 'aprovacao'.
+async function aprovarEnviarNotificacaoAutomatica(avId) {
+  toast('Enviando notificação...');
+  const { data, error } = await supabaseClient.functions.invoke('enviar-avaliacao-html', {
+    body: { avaliacaoId: avId, tipo: 'servico' },
+  });
+
+  if (error || !data || data.ok === false) {
+    toast((data && data.error) || 'Não foi possível enviar agora. Tenta de novo em instantes.');
+    return;
+  }
+
+  const d = db();
+  const av = d.avaliacoes.find(a => a.id === avId);
+  if (av) { av.notificadoEm = new Date().toISOString(); av.notificadoVia = 'aprovacao'; }
+  addLog('notificacao_html_aprovada', `${currentUser.email} aprovou e enviou a notificação automática em HTML de uma avaliação reprovada`);
+  toast('Notificação enviada!');
+  verDetalheAvaliacao(avId);
+  renderAdDashboard();
+}
+
 async function notificarFornecedorNota(avId) {
   const d = db();
   const av = d.avaliacoes.find(a => a.id === avId);

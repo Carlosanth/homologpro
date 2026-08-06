@@ -138,6 +138,8 @@ function db() {
     toleranciaDocumentosMeses: empresaConfigCache.tolerancia_documentos_meses ?? 6,
     lembreteAvaliadorAtivo: empresaConfigCache.lembrete_avaliador_ativo,
     lembreteAvaliadorFrequencia: empresaConfigCache.lembrete_avaliador_frequencia,
+    notifAvaliacaoModo: empresaConfigCache.notif_avaliacao_modo || 'desligado',
+    notifAvaliacaoIntervaloHoras: empresaConfigCache.notif_avaliacao_intervalo_horas || 24,
     notificarAtividadeAtivo: empresaConfigCache.notificar_atividade_ativo,
     criteriosConferencia: criteriosConferenciaCache,
     conferencias: conferenciasCache,

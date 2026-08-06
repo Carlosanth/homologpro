@@ -526,6 +526,7 @@ async function renderAdConfig() {
           <label>Frequência do aviso</label>
           <select id="cfg-cobranca-frequencia">
             <option value="chave" ${d.cobrancaAutomaticaFrequencia === 'chave' ? 'selected' : ''}>Só 2x — ao entrar na janela de aviso e no dia do vencimento</option>
+            <option value="2dias" ${d.cobrancaAutomaticaFrequencia === '2dias' ? 'selected' : ''}>A cada 2 dias, enquanto estiver pendente</option>
             <option value="semanal" ${d.cobrancaAutomaticaFrequencia === 'semanal' ? 'selected' : ''}>1x por semana, enquanto estiver pendente</option>
             <option value="diaria" ${d.cobrancaAutomaticaFrequencia === 'diaria' ? 'selected' : ''}>Todo dia, enquanto estiver pendente</option>
           </select>
@@ -559,12 +560,37 @@ async function renderAdConfig() {
           <label>Frequência do lembrete</label>
           <select id="cfg-lembrete-frequencia">
             <option value="chave" ${d.lembreteAvaliadorFrequencia === 'chave' ? 'selected' : ''}>Só 2x — ao ficar pendente e ao atrasar</option>
+            <option value="2dias" ${d.lembreteAvaliadorFrequencia === '2dias' ? 'selected' : ''}>A cada 2 dias, enquanto estiver pendente</option>
             <option value="semanal" ${d.lembreteAvaliadorFrequencia === 'semanal' ? 'selected' : ''}>1x por semana, enquanto estiver pendente</option>
             <option value="diaria" ${d.lembreteAvaliadorFrequencia === 'diaria' ? 'selected' : ''}>Todo dia, enquanto estiver pendente</option>
           </select>
         </div>
 
         <button class="btn btn-primary" onclick="salvarConfigLembreteAvaliador()">Salvar</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Notificação automática de avaliação reprovada</div>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px">Controla como o fornecedor é avisado quando uma avaliação de serviço é reprovada. O botão manual (que abre seu cliente de e-mail) continua disponível em qualquer modo — isso aqui só liga o envio automático em HTML por conta do sistema.</p>
+
+        <div class="form-group" style="max-width:420px; margin-bottom:16px">
+          <label>Modo de envio</label>
+          <select id="cfg-notif-avaliacao-modo" onchange="document.getElementById('cfg-notif-avaliacao-intervalo-wrap').style.display = this.value === 'automatico' ? 'block' : 'none'">
+            <option value="desligado" ${d.notifAvaliacaoModo === 'desligado' ? 'selected' : ''}>Desligado — só notificação manual (como é hoje)</option>
+            <option value="automatico" ${d.notifAvaliacaoModo === 'automatico' ? 'selected' : ''}>Automático — o sistema envia sozinho após um intervalo</option>
+            <option value="aprovacao" ${d.notifAvaliacaoModo === 'aprovacao' ? 'selected' : ''}>Por aprovação — fica pendente até você aprovar o envio na tela da avaliação</option>
+          </select>
+        </div>
+
+        <div id="cfg-notif-avaliacao-intervalo-wrap" class="form-group" style="max-width:420px; margin-bottom:16px; display:${d.notifAvaliacaoModo === 'automatico' ? 'block' : 'none'}">
+          <label>Enviar depois de</label>
+          <select id="cfg-notif-avaliacao-intervalo">
+            <option value="24" ${d.notifAvaliacaoIntervaloHoras === 24 ? 'selected' : ''}>24 horas após a avaliação ser reprovada</option>
+            <option value="48" ${d.notifAvaliacaoIntervaloHoras === 48 ? 'selected' : ''}>48 horas após a avaliação ser reprovada</option>
+          </select>
+        </div>
+
+        <button class="btn btn-primary" onclick="salvarConfigNotifAvaliacao()">Salvar</button>
       </div>
 
       <div class="card">
@@ -833,6 +859,23 @@ async function salvarConfigLembreteAvaliador() {
   empresaConfigCache.lembrete_avaliador_ativo = ativo;
   empresaConfigCache.lembrete_avaliador_frequencia = frequencia;
   addLog('config_lembrete_avaliador', `${currentUser.email} ${ativo ? 'ativou' : 'desativou'} o lembrete automático dos avaliadores (frequência: ${frequencia})`);
+  toast('Configuração salva!');
+}
+
+async function salvarConfigNotifAvaliacao() {
+  const modo = document.getElementById('cfg-notif-avaliacao-modo').value;
+  const intervalo = parseInt(document.getElementById('cfg-notif-avaliacao-intervalo').value, 10) || 24;
+
+  const { error } = await supabaseClient.from('empresas').update({
+    notif_avaliacao_modo: modo,
+    notif_avaliacao_intervalo_horas: intervalo,
+  }).eq('id', currentUser.empresaId);
+
+  if (error) { toast('Erro ao salvar: ' + error.message); return; }
+
+  empresaConfigCache.notif_avaliacao_modo = modo;
+  empresaConfigCache.notif_avaliacao_intervalo_horas = intervalo;
+  addLog('config_notif_avaliacao', `${currentUser.email} mudou o modo de notificação automática de avaliação reprovada para "${modo}"${modo === 'automatico' ? ` (${intervalo}h)` : ''}`);
   toast('Configuração salva!');
 }
 
