@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Confirmar exclusão de conta — HomologPro</title>
+<meta name="robots" content="noindex, nofollow">
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:#0d1b2a; color:#e8edf2; margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
+  .card { background:#132a3f; border-radius:12px; padding:32px; max-width:440px; width:100%; box-shadow:0 8px 30px rgba(0,0,0,.3); }
+  h1 { font-size:20px; margin:0 0 12px; }
+  p { font-size:14px; line-height:1.6; color:#b8c4d0; }
+  input { width:100%; box-sizing:border-box; padding:10px 12px; border-radius:8px; border:1px solid #2a4a63; background:#0d1b2a; color:#e8edf2; margin:14px 0; font-size:14px; }
+  button { width:100%; padding:12px; border-radius:8px; border:none; font-size:14px; font-weight:600; cursor:pointer; }
+  .btn-danger { background:#d64545; color:#fff; }
+  .btn-danger:disabled { opacity:.5; cursor:not-allowed; }
+  .msg { margin-top:16px; font-size:13px; }
+  .msg.erro { color:#ff8a8a; }
+  .msg.ok { color:#7ed6a5; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div id="conteudo">
+      <h1>Confirmar exclusão da conta</h1>
+      <p>Essa ação cancela sua assinatura imediatamente. Todos os dados da empresa (fornecedores, documentos, avaliações e usuários) serão apagados definitivamente em <strong>15 dias</strong>. Você pode cancelar essa solicitação a qualquer momento antes disso, acessando sua conta.</p>
+      <p>Pra confirmar, digite <strong>EXCLUIR</strong> abaixo:</p>
+      <input type="text" id="confirmacao-texto" placeholder="Digite EXCLUIR" autocomplete="off">
+      <button id="btn-confirmar" class="btn-danger" onclick="confirmarExclusao()">Confirmar exclusão da conta</button>
+      <div id="msg" class="msg"></div>
+    </div>
+  </div>
+
+<script>
+  const SUPABASE_FUNCTIONS_URL = 'https://qmvfsgwzbrhbxyonntgh.supabase.co/functions/v1';
+
+  function getParam(nome) {
+    return new URLSearchParams(window.location.search).get(nome);
+  }
+
+  async function confirmarExclusao() {
+    const texto = document.getElementById('confirmacao-texto').value.trim().toUpperCase();
+    const msgEl = document.getElementById('msg');
+    const btn = document.getElementById('btn-confirmar');
+
+    if (texto !== 'EXCLUIR') {
+      msgEl.className = 'msg erro';
+      msgEl.textContent = 'Digite EXCLUIR pra confirmar.';
+      return;
+    }
+
+    const empresaId = getParam('empresa');
+    const token = getParam('token');
+    if (!empresaId || !token) {
+      msgEl.className = 'msg erro';
+      msgEl.textContent = 'Link inválido ou incompleto.';
+      return;
+    }
+
+    btn.disabled = true;
+    msgEl.className = 'msg';
+    msgEl.textContent = 'Processando...';
+
+    try {
+      const resp = await fetch(`${SUPABASE_FUNCTIONS_URL}/confirmar-exclusao-conta`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ empresaId, token }),
+      });
+      const data = await resp.json();
+
+      if (!data.ok) {
+        msgEl.className = 'msg erro';
+        msgEl.textContent = data.error || 'Não foi possível confirmar a exclusão.';
+        btn.disabled = false;
+        return;
+      }
+
+      const dataExclusao = new Date(data.excluirEm).toLocaleDateString('pt-BR');
+      document.getElementById('conteudo').innerHTML = `
+        <h1>Exclusão confirmada</h1>
+        <p>Sua assinatura foi cancelada. Os dados da empresa serão apagados definitivamente em <strong>${dataExclusao}</strong>.</p>
+        <p>Mudou de ideia? Acesse sua conta antes dessa data pra cancelar a solicitação.</p>
+      `;
+    } catch (e) {
+      msgEl.className = 'msg erro';
+      msgEl.textContent = 'Erro de conexão. Tenta de novo em instantes.';
+      btn.disabled = false;
+    }
+  }
+</script>
+</body>
+</html>
