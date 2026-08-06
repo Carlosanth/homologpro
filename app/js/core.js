@@ -806,7 +806,7 @@ function situacaoDe(av) {
 async function carregarEmpresaConfig() {
   const { data, error } = await supabaseClient
     .from('empresas')
-    .select('nome, setor, campos_fornecedor_custom, colunas_fornecedor_visiveis, tipos_documento, faixas_conceito_produto, desconto_ocorrencia_ativo, valor_desconto_ocorrencia, anos_retencao_avaliacao, config, status, plano, trial_termina_em, limite_fornecedores, limite_admins, cobranca_automatica_ativa, cobranca_automatica_frequencia, tolerancia_documentos_meses, lembrete_avaliador_ativo, lembrete_avaliador_frequencia, notificar_atividade_ativo, valor_mensal_atual, plano_ativo_desde, proxima_cobranca_em, proximo_valor_mensal, proximo_reajuste_em, enterprise_composicao, desconto_doc_vencido_ativo, valor_desconto_doc_vencido, conferencia_cabecalho')
+    .select('nome, setor, campos_fornecedor_custom, colunas_fornecedor_visiveis, tipos_documento, faixas_conceito_produto, desconto_ocorrencia_ativo, valor_desconto_ocorrencia, anos_retencao_avaliacao, config, status, plano, trial_termina_em, limite_fornecedores, limite_admins, cobranca_automatica_ativa, cobranca_automatica_frequencia, tolerancia_documentos_meses, lembrete_avaliador_ativo, lembrete_avaliador_frequencia, notificar_atividade_ativo, notif_avaliacao_modo, notif_avaliacao_intervalo_horas, valor_mensal_atual, plano_ativo_desde, proxima_cobranca_em, proximo_valor_mensal, proximo_reajuste_em, enterprise_composicao, desconto_doc_vencido_ativo, valor_desconto_doc_vencido, conferencia_cabecalho')
     .eq('id', currentUser.empresaId)
     .single();
 
@@ -836,6 +836,8 @@ async function carregarEmpresaConfig() {
     lembrete_avaliador_ativo: !!data.lembrete_avaliador_ativo,
     lembrete_avaliador_frequencia: data.lembrete_avaliador_frequencia || 'chave',
     notificar_atividade_ativo: !!data.notificar_atividade_ativo,
+    notif_avaliacao_modo: data.notif_avaliacao_modo || 'desligado',
+    notif_avaliacao_intervalo_horas: data.notif_avaliacao_intervalo_horas ?? 24,
     valor_mensal_atual: data.valor_mensal_atual ?? null,
     plano_ativo_desde: data.plano_ativo_desde || null,
     proxima_cobranca_em: data.proxima_cobranca_em || null,
