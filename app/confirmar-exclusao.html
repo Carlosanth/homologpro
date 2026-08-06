@@ -6,33 +6,97 @@
 <title>Confirmar exclusão de conta — HomologPro</title>
 <meta name="robots" content="noindex, nofollow">
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:#0d1b2a; color:#e8edf2; margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
-  .card { background:#132a3f; border-radius:12px; padding:32px; max-width:440px; width:100%; box-shadow:0 8px 30px rgba(0,0,0,.3); }
-  h1 { font-size:20px; margin:0 0 12px; }
-  p { font-size:14px; line-height:1.6; color:#b8c4d0; }
-  input { width:100%; box-sizing:border-box; padding:10px 12px; border-radius:8px; border:1px solid #2a4a63; background:#0d1b2a; color:#e8edf2; margin:14px 0; font-size:14px; }
-  button { width:100%; padding:12px; border-radius:8px; border:none; font-size:14px; font-weight:600; cursor:pointer; }
-  .btn-danger { background:#d64545; color:#fff; }
+  :root {
+    --bg: #FAFAFA;
+    --surface: #ffffff;
+    --border: #E2E8F0;
+    --text: #0F172A;
+    --text-sec: #475569;
+    --text-muted: #94A3B8;
+    --accent: #0066FF;
+    --navy: #0A192F;
+    --tan: #64FFDA;
+    --danger: #dc2626;
+    --danger-bg: #fef2f2;
+    --danger-border: #fecaca;
+    --success: #16a34a;
+    --success-bg: #f0fdf4;
+    --success-border: #bbf7d0;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: radial-gradient(circle at 50% 0%, rgba(0,102,255,0.06), transparent 45%), var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 24px 60px -20px rgba(2,12,27,.15);
+    padding: 36px 32px;
+    max-width: 440px;
+    width: 100%;
+  }
+  .brand { display:flex; align-items:center; gap:8px; margin-bottom:22px; }
+  .brand-mark { width:30px; height:30px; border-radius:8px; background:var(--navy); display:flex; align-items:center; justify-content:center; }
+  .brand-mark svg { width:16px; height:16px; color:var(--tan); }
+  .brand-name { font-weight:700; font-size:15px; color:var(--navy); letter-spacing:-.2px; }
+  h1 { font-size:18px; font-weight:700; margin-bottom:10px; color:var(--text); }
+  p { font-size:13px; line-height:1.65; color:var(--text-sec); }
+  .warn-box { background:var(--danger-bg); border:1px solid var(--danger-border); border-radius:var(--radius); padding:12px 14px; margin:16px 0; }
+  .warn-box p { color:#991b1b; font-size:12.5px; }
+  label { display:block; font-size:12px; font-weight:600; color:var(--text-sec); margin-bottom:6px; }
+  input {
+    width:100%; padding:10px 12px; border-radius:var(--radius); border:1px solid var(--border);
+    background:#fff; color:var(--text); font-size:14px; font-family:inherit;
+  }
+  input:focus { outline:none; border-color:var(--accent); }
+  button {
+    width:100%; padding:11px; border-radius:var(--radius); border:none;
+    font-size:13.5px; font-weight:600; font-family:inherit; cursor:pointer; margin-top:16px;
+  }
+  .btn-danger { background:var(--danger); color:#fff; }
+  .btn-danger:hover { background:#b91c1c; }
   .btn-danger:disabled { opacity:.5; cursor:not-allowed; }
-  .msg { margin-top:16px; font-size:13px; }
-  .msg.erro { color:#ff8a8a; }
-  .msg.ok { color:#7ed6a5; }
+  .msg { margin-top:12px; font-size:12.5px; }
+  .msg.erro { color:var(--danger); }
+  .ok-box { background:var(--success-bg); border:1px solid var(--success-border); border-radius:var(--radius); padding:14px; margin-top:16px; }
+  .ok-box p { color:#166534; }
 </style>
 </head>
 <body>
   <div class="card">
+    <div class="brand">
+      <span class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><path d="M12 3a9 9 0 1 0 9 9"/></svg>
+      </span>
+      <span class="brand-name">HomologPro</span>
+    </div>
+
     <div id="conteudo">
       <h1>Confirmar exclusão da conta</h1>
-      <p>Essa ação cancela sua assinatura imediatamente. Todos os dados da empresa (fornecedores, documentos, avaliações e usuários) serão apagados definitivamente em <strong>15 dias</strong>. Você pode cancelar essa solicitação a qualquer momento antes disso, acessando sua conta.</p>
-      <p>Pra confirmar, digite <strong>EXCLUIR</strong> abaixo:</p>
-      <input type="text" id="confirmacao-texto" placeholder="Digite EXCLUIR" autocomplete="off">
+      <p>Sua assinatura não vai renovar. O acesso continua normal até o fim do período já pago — você não perde os dias pagos.</p>
+      <div class="warn-box">
+        <p>Depois que esse período acabar, todos os dados da empresa (fornecedores, documentos, avaliações e usuários) serão apagados definitivamente em 15 dias. Você pode cancelar essa solicitação a qualquer momento antes disso, acessando sua conta.</p>
+      </div>
+      <label for="confirmacao-texto">Pra confirmar, digite EXCLUIR abaixo</label>
+      <input type="text" id="confirmacao-texto" placeholder="EXCLUIR" autocomplete="off">
       <button id="btn-confirmar" class="btn-danger" onclick="confirmarExclusao()">Confirmar exclusão da conta</button>
       <div id="msg" class="msg"></div>
     </div>
   </div>
 
 <script>
-  const SUPABASE_FUNCTIONS_URL = 'https://qmvfsgwzbrhbxyonntgh.supabase.co/functions/v1';
+  const SUPABASE_FUNCTIONS_URL = 'https://SEU_PROJETO.supabase.co/functions/v1'; // TODO: ajustar pra URL real do projeto
 
   function getParam(nome) {
     return new URLSearchParams(window.location.search).get(nome);
@@ -76,11 +140,11 @@
         return;
       }
 
-      const dataExclusao = new Date(data.excluirEm).toLocaleDateString('pt-BR');
+      const dataFim = data.fimDoPeriodo ? new Date(data.fimDoPeriodo).toLocaleDateString('pt-BR') : 'o fim do período atual';
       document.getElementById('conteudo').innerHTML = `
         <h1>Exclusão confirmada</h1>
-        <p>Sua assinatura foi cancelada. Os dados da empresa serão apagados definitivamente em <strong>${dataExclusao}</strong>.</p>
-        <p>Mudou de ideia? Acesse sua conta antes dessa data pra cancelar a solicitação.</p>
+        <p>Sua assinatura não vai renovar. O acesso continua normal até <strong>${dataFim}</strong>.</p>
+        <div class="ok-box"><p>Depois dessa data, os dados serão apagados definitivamente em 15 dias. Mudou de ideia? Acesse sua conta antes disso pra cancelar a solicitação — se for antes do fim do período, a assinatura é reativada normalmente, sem custo extra.</p></div>
       `;
     } catch (e) {
       msgEl.className = 'msg erro';
