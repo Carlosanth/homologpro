@@ -317,8 +317,6 @@ async function renderAdConfig() {
 
   }
 
-  }
-
   let zonaRiscoHtml;
   if (!isAdminMaster) {
     zonaRiscoHtml = '';
