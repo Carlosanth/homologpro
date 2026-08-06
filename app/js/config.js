@@ -317,6 +317,42 @@ async function renderAdConfig() {
 
   }
 
+  }
+
+  let zonaRiscoHtml;
+  if (!isAdminMaster) {
+    zonaRiscoHtml = '';
+  } else if (empresaConfigCache.status === 'exclusao_agendada') {
+    const dataExclusao = empresaConfigCache.exclusao_agendada_para
+      ? new Date(empresaConfigCache.exclusao_agendada_para).toLocaleDateString('pt-BR') : '—';
+    zonaRiscoHtml = `
+      <div class="card" style="margin-bottom:0; border-color:var(--danger-border)">
+        <div class="card-title"><span style="color:var(--danger)">Zona de risco</span></div>
+        <p style="font-size:12px; color:var(--text-sec); margin-bottom:14px">
+          Exclusão confirmada. Todos os dados serão apagados definitivamente em <strong>${dataExclusao}</strong>. Mudou de ideia? Ainda dá pra cancelar.
+        </p>
+        <button class="btn btn-secondary btn-block" onclick="cancelarSolicitacaoExclusao()">Cancelar exclusão da conta</button>
+      </div>`;
+  } else if (empresaConfigCache.exclusao_confirmada_em) {
+    zonaRiscoHtml = `
+      <div class="card" style="margin-bottom:0; border-color:var(--danger-border)">
+        <div class="card-title"><span style="color:var(--danger)">Zona de risco</span></div>
+        <p style="font-size:12px; color:var(--text-sec); margin-bottom:14px">
+          Exclusão confirmada. Sua assinatura não vai renovar — o acesso continua até o fim do período atual, e depois disso a conta entra na carência de exclusão. Mudou de ideia? Ainda dá pra cancelar e manter a assinatura normalmente, sem cobrança extra.
+        </p>
+        <button class="btn btn-secondary btn-block" onclick="cancelarSolicitacaoExclusao()">Cancelar exclusão da conta</button>
+      </div>`;
+  } else {
+    zonaRiscoHtml = `
+      <div class="card" style="margin-bottom:0; border-color:var(--danger-border)">
+        <div class="card-title"><span style="color:var(--danger)">Zona de risco</span></div>
+        <p style="font-size:12px; color:var(--text-sec); margin-bottom:14px">
+          Excluir a conta cancela a assinatura e apaga definitivamente todos os dados da empresa — fornecedores, documentos, avaliações e usuários. Você recebe um e-mail de confirmação antes de qualquer coisa acontecer, nada é feito sem você confirmar pelo link.
+        </p>
+        <button class="btn btn-secondary btn-block" style="color:var(--danger); border-color:var(--danger-border)" onclick="abrirSolicitarExclusaoConta()">Excluir minha conta</button>
+      </div>`;
+  }
+
   document.getElementById('ad-page-config').innerHTML = `
     <div class="page-header"><div><h2>Configurações</h2><p>Matriz de qualificação, layout dos documentos e dados da empresa</p></div></div>
 
@@ -670,6 +706,8 @@ async function renderAdConfig() {
           <p style="font-size:11px; color:var(--text-muted); margin-top:14px">Enterprise é negociado diretamente — fale com a gente em <a href="mailto:contato@homologpro.com.br" style="color:var(--accent)">contato@homologpro.com.br</a>.</p>
         </div>
 
+        ${zonaRiscoHtml}
+
       </div>
     </div>
 
@@ -790,8 +828,8 @@ function abrirSolicitarExclusaoConta() {
   openModal(`
     <h3>Excluir minha conta</h3>
     <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px">
-      Isso cancela sua assinatura e inicia a exclusão definitiva da conta. Você vai receber um e-mail de confirmação —
-      nada é excluído até você confirmar pelo link. Depois de confirmado, os dados são apagados em 15 dias (dá pra cancelar antes disso).
+      Isso desliga a renovação automática e inicia a exclusão da conta. Seu acesso continua normal até o fim do período já pago — você não perde os dias pagos.
+      Você vai receber um e-mail de confirmação — nada acontece até você confirmar pelo link. Depois que o período atual acabar, os dados são apagados em 15 dias (dá pra cancelar antes disso).
       Pra prosseguir, digite sua senha.
     </p>
     <div class="form-group">
@@ -825,11 +863,12 @@ async function confirmarSolicitarExclusaoConta() {
   toast('E-mail de confirmação enviado! A exclusão só acontece depois que você confirmar pelo link.');
 }
 
-// Chamada se a empresa já estiver com status 'exclusao_agendada' (dentro
-// dos 15 dias de carência) e o admin_master quiser voltar atrás. Mostrar
-// esse botão no lugar do "Excluir minha conta" quando esse status estiver ativo.
+// Chamada tanto durante a espera do fim do período pago quanto durante a
+// carência de 15 dias (status 'exclusao_agendada'). A Edge Function decide
+// qual dos dois cenários é: se ainda não passou o período pago, reativa a
+// assinatura de verdade; se já passou, só impede o apagamento dos dados.
 async function cancelarSolicitacaoExclusao() {
-  if (!confirm('Cancelar a exclusão da conta? Sua assinatura continua cancelada — você vai precisar assinar de novo pra reativar o acesso.')) return;
+  if (!confirm('Cancelar a exclusão da conta?')) return;
 
   toast('Cancelando solicitação...');
   const { data, error } = await supabaseClient.functions.invoke('cancelar-solicitacao-exclusao', { body: {} });
@@ -840,7 +879,9 @@ async function cancelarSolicitacaoExclusao() {
   }
 
   addLog('exclusao_conta_cancelada', `${currentUser.email} cancelou a solicitação de exclusão da conta.`);
-  toast('Solicitação de exclusão cancelada.');
+  toast(data.reativado
+    ? 'Exclusão cancelada — sua assinatura foi reativada normalmente, sem cobrança extra.'
+    : 'Exclusão cancelada. Sua assinatura já tinha encerrado — assine de novo quando quiser reativar o acesso.');
   await carregarEmpresaConfig();
   renderAdConfig();
 }

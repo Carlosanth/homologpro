@@ -806,7 +806,7 @@ function situacaoDe(av) {
 async function carregarEmpresaConfig() {
   const { data, error } = await supabaseClient
     .from('empresas')
-    .select('nome, setor, campos_fornecedor_custom, colunas_fornecedor_visiveis, tipos_documento, faixas_conceito_produto, desconto_ocorrencia_ativo, valor_desconto_ocorrencia, anos_retencao_avaliacao, config, status, plano, trial_termina_em, limite_fornecedores, limite_admins, cobranca_automatica_ativa, cobranca_automatica_frequencia, tolerancia_documentos_meses, lembrete_avaliador_ativo, lembrete_avaliador_frequencia, notificar_atividade_ativo, notif_avaliacao_modo, notif_avaliacao_intervalo_horas, valor_mensal_atual, plano_ativo_desde, proxima_cobranca_em, proximo_valor_mensal, proximo_reajuste_em, enterprise_composicao, desconto_doc_vencido_ativo, valor_desconto_doc_vencido, conferencia_cabecalho')
+    .select('nome, setor, campos_fornecedor_custom, colunas_fornecedor_visiveis, tipos_documento, faixas_conceito_produto, desconto_ocorrencia_ativo, valor_desconto_ocorrencia, anos_retencao_avaliacao, config, status, plano, trial_termina_em, limite_fornecedores, limite_admins, cobranca_automatica_ativa, cobranca_automatica_frequencia, tolerancia_documentos_meses, lembrete_avaliador_ativo, lembrete_avaliador_frequencia, notificar_atividade_ativo, notif_avaliacao_modo, notif_avaliacao_intervalo_horas, valor_mensal_atual, plano_ativo_desde, proxima_cobranca_em, proximo_valor_mensal, proximo_reajuste_em, enterprise_composicao, desconto_doc_vencido_ativo, valor_desconto_doc_vencido, conferencia_cabecalho, exclusao_confirmada_em, exclusao_agendada_para')
     .eq('id', currentUser.empresaId)
     .single();
 
@@ -847,6 +847,8 @@ async function carregarEmpresaConfig() {
     desconto_doc_vencido_ativo: !!data.desconto_doc_vencido_ativo,
     valor_desconto_doc_vencido: data.valor_desconto_doc_vencido ?? 1,
     conferencia_cabecalho: data.conferencia_cabecalho || [],
+    exclusao_confirmada_em: data.exclusao_confirmada_em || null,
+    exclusao_agendada_para: data.exclusao_agendada_para || null,
   };
 }
 
