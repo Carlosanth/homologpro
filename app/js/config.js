@@ -756,6 +756,69 @@ async function confirmarCancelamentoAssinatura() {
   renderAdConfig();
 }
 
+// Reaproveita o mesmo padrão do cancelamento acima: reautentica com senha
+// antes de qualquer ação destrutiva, e o botão só aparece pra admin_master
+// (front confere, e a Edge Function confere de novo no servidor).
+function abrirSolicitarExclusaoConta() {
+  if (currentUser.papel !== 'admin_master') return;
+  openModal(`
+    <h3>Excluir minha conta</h3>
+    <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px">
+      Isso cancela sua assinatura e inicia a exclusão definitiva da conta. Você vai receber um e-mail de confirmação —
+      nada é excluído até você confirmar pelo link. Depois de confirmado, os dados são apagados em 15 dias (dá pra cancelar antes disso).
+      Pra prosseguir, digite sua senha.
+    </p>
+    <div class="form-group">
+      <label>Sua senha</label>
+      <input type="password" id="excluir-conta-senha" placeholder="••••••••">
+    </div>
+    <div style="display:flex; gap:8px; margin-top:10px">
+      <button class="btn btn-danger btn-block" onclick="confirmarSolicitarExclusaoConta()">Enviar e-mail de confirmação</button>
+      <button class="btn btn-secondary" onclick="closeModal()">Voltar</button>
+    </div>
+  `);
+}
+
+async function confirmarSolicitarExclusaoConta() {
+  const senha = document.getElementById('excluir-conta-senha').value;
+  if (!senha) { toast('Digite sua senha pra confirmar.'); return; }
+
+  const { error: erroSenha } = await supabaseClient.auth.signInWithPassword({ email: currentUser.email, password: senha });
+  if (erroSenha) { toast('Senha incorreta.'); return; }
+
+  toast('Enviando e-mail de confirmação...');
+  const { data, error } = await supabaseClient.functions.invoke('solicitar-exclusao-conta', { body: {} });
+
+  if (error || (data && data.ok === false)) {
+    toast((data && data.error) || 'Não foi possível processar agora. Tenta de novo em instantes.');
+    return;
+  }
+
+  closeModal();
+  addLog('exclusao_conta_solicitada', `${currentUser.email} solicitou a exclusão da conta. E-mail de confirmação enviado.`);
+  toast('E-mail de confirmação enviado! A exclusão só acontece depois que você confirmar pelo link.');
+}
+
+// Chamada se a empresa já estiver com status 'exclusao_agendada' (dentro
+// dos 15 dias de carência) e o admin_master quiser voltar atrás. Mostrar
+// esse botão no lugar do "Excluir minha conta" quando esse status estiver ativo.
+async function cancelarSolicitacaoExclusao() {
+  if (!confirm('Cancelar a exclusão da conta? Sua assinatura continua cancelada — você vai precisar assinar de novo pra reativar o acesso.')) return;
+
+  toast('Cancelando solicitação...');
+  const { data, error } = await supabaseClient.functions.invoke('cancelar-solicitacao-exclusao', { body: {} });
+
+  if (error || (data && data.ok === false)) {
+    toast((data && data.error) || 'Não foi possível cancelar agora.');
+    return;
+  }
+
+  addLog('exclusao_conta_cancelada', `${currentUser.email} cancelou a solicitação de exclusão da conta.`);
+  toast('Solicitação de exclusão cancelada.');
+  await carregarEmpresaConfig();
+  renderAdConfig();
+}
+
 async function salvarConfigLembreteAvaliador() {
   const ativo = document.getElementById('cfg-lembrete-ativo').checked;
   const frequencia = document.getElementById('cfg-lembrete-frequencia').value;
