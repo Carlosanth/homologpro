@@ -1411,7 +1411,7 @@ function contextoSimuladoLayout(tipo, statusSim) {
   // Enquanto a pessoa está digitando (ainda não salvou), usa o rascunho em memória
   // no lugar do texto salvo — é isso que faz o preview atualizar instantaneamente.
   const rascunho = layoutTextoRascunho[tipo][tipoDocSim];
-  const corpoTexto = aplicarTexto(rascunho !== undefined ? rascunho : (d.textos[tipoDocSim] || ''), 'Fornecedor Exemplo Ltda', notaSim, '06/2026', empNome);
+  const corpoTexto = aplicarTexto(rascunho !== undefined ? rascunho : (d.textos[tipoDocSim] || ''), 'Fornecedor Exemplo Ltda', notaSim, '06/2026', empNome, 'Manutenção preventiva e corretiva do Alinity');
   return {
     fornecedor: { nome: 'Fornecedor Exemplo Ltda', cnpj: '12.345.678/0001-90', setor: 'Qualidade', criticidade: 'Alta', extras: {} },
     nota: notaSim, periodo: '06/2026', empresaNome: empNome, sit: statusSim, dadosEmpresa: d.empresa, corpoTexto, isCert: tipo === 'cert'
@@ -1693,7 +1693,9 @@ function renderEditorTextoDocumento(tipo) {
         <code style="cursor:pointer" onclick="inserirVariavelTexto('${tipo}','{nota}')">{nota}</code>
         <code style="cursor:pointer" onclick="inserirVariavelTexto('${tipo}','{periodo}')">{periodo}</code>
         <code style="cursor:pointer" onclick="inserirVariavelTexto('${tipo}','{empresa}')">{empresa}</code>
+        <code style="cursor:pointer" onclick="inserirVariavelTexto('${tipo}','{avaliado}')">{avaliado}</code>
       </p>
+      <p style="font-size:10.5px; color:var(--text-muted); margin:0 0 8px">{avaliado} = texto de "O que está sendo avaliado", definido em cada formulário (Formulários › editar). Some do texto se estiver vazio.</p>
       <p style="font-size:10.5px; color:var(--text-muted); margin:0 0 8px">Pra editar o texto de outra situação (ex: Parcial, Reprovado), troque no seletor "Simular" lá em cima.</p>
     </div>`;
 }

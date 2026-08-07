@@ -659,7 +659,7 @@ function temAcessoModulo(modulo) {
 async function carregarUsuarios() {
   const { data, error } = await supabaseClient
     .from('profiles')
-    .select('id, nome, responsavel, email, papel, ativo, permissoes_modulos, ultimo_lembrete_em, ultimo_lembrete_estado, ultimo_erro_lembrete, ultimo_erro_lembrete_em, recebe_notificacao_cobranca')
+    .select('id, nome, responsavel, email, papel, ativo, permissoes_modulos, ultimo_lembrete_em, ultimo_lembrete_estado, ultimo_erro_lembrete, ultimo_erro_lembrete_em, recebe_notificacao_cobranca, recebe_copia_avaliacao')
     .eq('empresa_id', currentUser.empresaId)
     .order('nome');
 
@@ -691,6 +691,7 @@ async function carregarFormularios() {
     setor: f.setor,
     tipo: f.tipo,
     criterios: f.criterios || [],
+    descricaoAvaliado: f.descricao_avaliado || '',
     prazoEntregaDia: f.prazo_entrega_dia,
     camposExtras: f.campos_extras || [],
   }));

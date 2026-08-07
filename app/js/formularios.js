@@ -34,6 +34,7 @@ function renderAdFormularios() {
         <div class="form-row three">
           <div class="form-group"><label>Nome do formulário</label><input type="text" id="nfm-nome" placeholder="Ex: Manutenção predial"></div>
           <div class="form-group"><label>Setor</label><input type="text" id="nfm-setor" placeholder="Ex: Setor Técnico"></div>
+          <div class="form-group"><label>O que está sendo avaliado <span style="font-weight:400; color:var(--text-muted)">(opcional)</span></label><input type="text" id="nfm-descricao-avaliado" placeholder="Ex: Manutenção preventiva e corretiva do Alinity"></div>
           <div class="form-group"><label>Tipo</label><select id="nfm-tipo"><option value="servico">Serviço</option><option value="produto">Produto</option></select></div>
         </div>
         <div class="form-row">
@@ -296,6 +297,7 @@ function editarFormulario(id) {
   document.getElementById('nfm-titulo').textContent = `Editando: ${f.nome}`;
   document.getElementById('nfm-nome').value = f.nome;
   document.getElementById('nfm-setor').value = f.setor;
+  document.getElementById('nfm-descricao-avaliado').value = f.descricaoAvaliado || '';
   document.getElementById('nfm-tipo').value = f.tipo;
   document.getElementById('nfm-prazo-dia').value = f.prazoEntregaDia || '';
   document.getElementById('nfm-cancelar-edicao').style.display = 'inline-flex';
@@ -312,6 +314,7 @@ function cancelarEdicaoFormulario() {
   document.getElementById('nfm-titulo').textContent = 'Novo formulário';
   document.getElementById('nfm-nome').value = '';
   document.getElementById('nfm-setor').value = '';
+  document.getElementById('nfm-descricao-avaliado').value = '';
   document.getElementById('nfm-prazo-dia').value = '';
   document.getElementById('nfm-cancelar-edicao').style.display = 'none';
   document.getElementById('nfm-salvar-btn').textContent = 'Salvar formulário';
@@ -322,6 +325,7 @@ function cancelarEdicaoFormulario() {
 async function salvarNovoFormulario() {
   const nome = document.getElementById('nfm-nome').value.trim();
   const setor = document.getElementById('nfm-setor').value.trim();
+  const descricaoAvaliado = document.getElementById('nfm-descricao-avaliado').value.trim();
   const tipo = document.getElementById('nfm-tipo').value;
   const prazoDia = document.getElementById('nfm-prazo-dia').value;
 
@@ -344,6 +348,7 @@ async function salvarNovoFormulario() {
 
   const payload = {
     nome, setor, tipo,
+    descricao_avaliado: descricaoAvaliado || null,
     prazo_entrega_dia: prazoDia ? parseInt(prazoDia) : null,
     campos_extras: camposExtras,
     criterios,
@@ -463,6 +468,7 @@ async function duplicarFormularioAd(id) {
     nome: f.nome + ' (cópia)',
     setor: f.setor,
     tipo: f.tipo,
+    descricao_avaliado: f.descricaoAvaliado || null,
     prazo_entrega_dia: f.prazoEntregaDia,
     campos_extras: f.camposExtras,
     criterios: f.criterios,

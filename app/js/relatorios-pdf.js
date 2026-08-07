@@ -76,14 +76,22 @@ function gerarRelatorioAd() {
       if (!avsP.length) return null;
       const media = avsP.reduce((s, av) => s + av.notaGeral, 0) / avsP.length;
       const sit = getSituacao(media);
-      return { ...f, media, sit, meses: avsP.length, totalMeses: periodos.length };
+      const avaliadorIds = [...new Set(avsP.map(av => av.usuarioId).filter(Boolean))];
+      return { ...f, media, sit, meses: avsP.length, totalMeses: periodos.length, avaliadorIds };
     }
     // Fornecedor de Serviço: notas vêm da tabela de avaliações normais.
     const avs = d.avaliacoes.filter(av => av.fornecedorId === f.id && periodos.includes(av.periodo) && !av.semServico);
     if (!avs.length) return null;
     const media = avs.reduce((s, av) => s + av.nota, 0) / avs.length;
     const sit = getSituacao(media);
-    return { ...f, media, sit, meses: avs.length, totalMeses: periodos.length };
+    const avaliadorIds = [...new Set(avs.map(av => av.usuarioId).filter(Boolean))];
+    const formularioIdsUsados = [...new Set(avs.map(av => av.formularioId).filter(Boolean))];
+    const descricaoAvaliado = formularioIdsUsados
+      .map(fid => d.formularios.find(fm => fm.id === fid))
+      .map(fm => fm && fm.descricaoAvaliado)
+      .filter(Boolean)
+      .join(', ');
+    return { ...f, media, sit, meses: avs.length, totalMeses: periodos.length, avaliadorIds, descricaoAvaliado };
   }).filter(Boolean);
 
   const periodoLabel = `${MESES[mesIni]}/${anoIni}` + (mesIni === mesFim && anoIni === anoFim ? '' : ` a ${MESES[mesFim]}/${anoFim}`);
@@ -124,8 +132,8 @@ function gerarRelatorioAd() {
   `;
 }
 
-function aplicarTexto(template, fornecedor, nota, periodo, empresa) {
-  return template.replace(/{fornecedor}/g, fornecedor).replace(/{nota}/g, nota).replace(/{periodo}/g, periodo).replace(/{empresa}/g, empresa);
+function aplicarTexto(template, fornecedor, nota, periodo, empresa, avaliado) {
+  return template.replace(/{fornecedor}/g, fornecedor).replace(/{nota}/g, nota).replace(/{periodo}/g, periodo).replace(/{empresa}/g, empresa).replace(/{avaliado}/g, avaliado || '');
 }
 
 function getTipoDoc(sit, tipo) {
@@ -209,7 +217,7 @@ function gerarPDFDoc(fornecedor, periodo, layoutOverride) {
   const d = db();
   const empNome = d.nomeEmpresa || 'Empresa';
   const tipoDoc = getTipoDoc(fornecedor.sit, fornecedor.tipo);
-  const corpoTexto = aplicarTexto(d.textos[tipoDoc] || '', fornecedor.nome, fornecedor.media.toFixed(1), periodo, empNome);
+  const corpoTexto = aplicarTexto(d.textos[tipoDoc] || '', fornecedor.nome, fornecedor.media.toFixed(1), periodo, empNome, fornecedor.descricaoAvaliado);
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
   const L = layoutOverride || getLayout()[isCert ? 'cert' : 'carta'];
@@ -341,6 +349,22 @@ function emailAdminMaster(d) {
   return master ? master.email : '';
 }
 
+// Monta a lista de CC pras notificações de nota ao fornecedor: sempre o
+// admin_master, mais o(s) avaliador(es) que tiverem ligado "Cópia de
+// avaliação" em Usuários (toggle recebe_copia_avaliacao). Aceita um ou
+// vários usuarioIds — a carta/certificado de período pode juntar avaliadores
+// de meses/formulários diferentes. Sem duplicar e-mail.
+function montarCcNotificacao(d, ...usuarioIds) {
+  const emails = new Set();
+  const master = emailAdminMaster(d);
+  if (master) emails.add(master);
+  usuarioIds.flat().filter(Boolean).forEach(id => {
+    const u = d.usuarios.find(x => x.id === id);
+    if (u && u.recebe_copia_avaliacao && u.email) emails.add(u.email);
+  });
+  return Array.from(emails).join(',');
+}
+
 function enviarCertificadoEmail(fornecedorId) {
   const r = _ultimosResultadosAd.find(x => x.id === fornecedorId);
   if (!r) { toast('Gere o relatório novamente antes de enviar.'); return; }
@@ -351,7 +375,7 @@ function enviarCertificadoEmail(fornecedorId) {
   const titulo = getTituloDoc(r.sit);
   const assunto = `${titulo} — ${r.nome} (${_ultimoPeriodoAd})`;
   const corpo = `Olá,\n\nSegue referente à avaliação de fornecedores do período ${_ultimoPeriodoAd}: ${titulo.toLowerCase()}.\n\nO arquivo PDF foi baixado automaticamente nesta página (${nomeArquivoDoc(r)}) — por favor, anexe-o a este e-mail antes de enviar.\n\nAtenciosamente,\n${empNome}`;
-  const link = `mailto:${encodeURIComponent(r.email)}?cc=${encodeURIComponent(emailAdminMaster(d))}&subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
+  const link = `mailto:${encodeURIComponent(r.email)}?cc=${encodeURIComponent(montarCcNotificacao(d, r.avaliadorIds))}&subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
   addLog('email_certificado_enviado', `${currentUser.email} abriu o cliente de e-mail para enviar o documento de "${r.nome}"`);
   setTimeout(() => { window.location.href = link; }, 350);
 }
@@ -450,7 +474,7 @@ async function notificarFornecedorNota(avId) {
   corpo += `${fechamento}\n${empNome}`;
   corpo = corpo.replace(/\n{3,}/g, '\n\n');
 
-  const link = `mailto:${encodeURIComponent(forn.email)}?cc=${encodeURIComponent(emailAdminMaster(d))}&subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
+  const link = `mailto:${encodeURIComponent(forn.email)}?cc=${encodeURIComponent(montarCcNotificacao(d, av.usuarioId))}&subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
   addLog('notificacao_nota_enviada', `${currentUser.email} notificou "${forn.nome}" sobre a nota do período ${periodoLabel}`);
   closeModal();
   window.location.href = link;
@@ -579,7 +603,7 @@ async function notificarFornecedorProduto(avId) {
   }
   corpo += `${fechamento}\n${empNome}`;
 
-  const link = `mailto:${encodeURIComponent(forn.email)}?cc=${encodeURIComponent(emailAdminMaster(d))}&subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
+  const link = `mailto:${encodeURIComponent(forn.email)}?cc=${encodeURIComponent(montarCcNotificacao(d, av.usuarioId))}&subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
   addLog('notificacao_produto_enviada', `${currentUser.email} notificou "${forn.nome}" sobre a NF ${av.numeroNf || ''}`);
   closeModal();
   window.location.href = link;
