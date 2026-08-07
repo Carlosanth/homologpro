@@ -111,6 +111,7 @@ function renderUsuariosLista() {
       }
       const ehAdmin = u.papel === 'admin' || u.papel === 'admin_master';
       const recebeCobranca = !!u.recebe_notificacao_cobranca;
+      const recebeCopiaAvaliacao = !!u.recebe_copia_avaliacao;
       return `<tr>
       <td style="font-weight:500">${u.nome}${statusLembrete}</td>
       <td style="color:var(--text-sec)">${u.responsavel || '—'}</td>
@@ -122,6 +123,7 @@ function renderUsuariosLista() {
         <button class="btn btn-secondary btn-sm" onclick="resetSenha('${u.id}')">Redefinir senha</button>
         ${u.papel === 'admin' ? `<button class="btn btn-secondary btn-sm" onclick="abrirPermissoesUsuario('${u.id}')">Permissões</button>` : ''}
         ${ehAdmin ? `<button class="btn btn-secondary btn-sm" style="display:inline-flex; align-items:center; gap:5px" title="Recebe cópia dos e-mails de cobrança automática e respostas dos fornecedores caem no e-mail dele" onclick="toggleNotificacaoCobranca('${u.id}')">${recebeCobranca ? ic('bell', 13) : ic('bellOff', 13)} Cobrança: ${recebeCobranca ? 'ligada' : 'desligada'}</button>` : ''}
+        ${u.papel === 'avaliador' ? `<button class="btn btn-secondary btn-sm" style="display:inline-flex; align-items:center; gap:5px" title="Recebe cópia por e-mail quando você notifica o fornecedor sobre a nota de uma avaliação feita por ele (mailto, automático/por aprovação e certificado de período)" onclick="toggleNotificacaoCopiaAvaliacao('${u.id}')">${recebeCopiaAvaliacao ? ic('bell', 13) : ic('bellOff', 13)} Cópia de avaliação: ${recebeCopiaAvaliacao ? 'ligada' : 'desligada'}</button>` : ''}
         ${u.papel === 'admin_master' ? `<span style="font-size:11px; color:var(--text-muted); padding:0 6px">Admin+ tem acesso total e não pode ser removido</span>` : `
           <button class="btn btn-secondary btn-sm" onclick="toggleUsuario('${u.id}')">${u.ativo ? 'Desativar' : 'Ativar'}</button>
           <button class="btn btn-danger btn-sm" onclick="excluirUsuarioAd('${u.id}')">Excluir</button>
@@ -357,6 +359,32 @@ async function toggleNotificacaoCobranca(id) {
   addLog('notificacao_cobranca_atualizada', `${currentUser.email} ${novoValor ? 'ativou' : 'desativou'} a notificação de cobrança para ${u.email}`);
   renderUsuariosLista();
   toast(`Notificação de cobrança ${novoValor ? 'ativada' : 'desativada'} para ${u.nome}.`);
+}
+
+// Mesma lógica do toggleNotificacaoCobranca acima, só que pro avaliador
+// receber cópia por e-mail quando VOCÊ notifica o fornecedor sobre a nota
+// de uma avaliação feita por ele (mailto manual, automático/por aprovação
+// em HTML, e o certificado/carta de período). Desligado por padrão.
+async function toggleNotificacaoCopiaAvaliacao(id) {
+  const d = db();
+  const u = d.usuarios.find(x => x.id === id);
+  if (!u) return;
+  const novoValor = !u.recebe_copia_avaliacao;
+
+  const { error } = await supabaseClient
+    .from('profiles')
+    .update({ recebe_copia_avaliacao: novoValor })
+    .eq('id', id);
+
+  if (error) {
+    toast('Erro ao atualizar cópia de avaliação: ' + error.message);
+    return;
+  }
+
+  u.recebe_copia_avaliacao = novoValor;
+  addLog('notificacao_copia_avaliacao_atualizada', `${currentUser.email} ${novoValor ? 'ativou' : 'desativou'} a cópia de e-mail de avaliação para ${u.email}`);
+  renderUsuariosLista();
+  toast(`Cópia de avaliação ${novoValor ? 'ativada' : 'desativada'} para ${u.nome}.`);
 }
 
 async function excluirUsuarioAd(id) {
