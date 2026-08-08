@@ -27,6 +27,21 @@ function escapeForInlineHandler(texto) {
 
 // ============ ESTADO E PERSISTÊNCIA ============
 const MESES = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+// Dado um período "YYYY-M" (o mês calendário real, salvo na avaliação) e a
+// defasagem configurada pela empresa (periodoAvaliadoMesesAntes — quantos
+// meses ANTES o serviço foi prestado), devolve o rótulo do mês de
+// referência, tipo "Julho/2026". Se a defasagem for 0/vazia, devolve null —
+// nesse caso não tem nada a mostrar além do mês calendário normal.
+function mesReferenciaLabel(periodo, mesesAntes) {
+  const n = parseInt(mesesAntes, 10) || 0;
+  if (!n || !periodo) return null;
+  const [anoStr, mesStr] = String(periodo).split('-');
+  let ano = parseInt(anoStr, 10);
+  let mes = parseInt(mesStr, 10) - n;
+  while (mes < 1) { mes += 12; ano -= 1; }
+  return `${MESES[mes]}/${ano}`;
+}
 let currentUser = null;
 let usuariosCache = []; // usuários (profiles) da empresa logada — populado por carregarUsuarios()
 let fornecedoresCache = []; // fornecedores da empresa logada — populado por carregarFornecedores()
@@ -140,6 +155,7 @@ function db() {
     lembreteAvaliadorFrequencia: empresaConfigCache.lembrete_avaliador_frequencia,
     notifAvaliacaoModo: empresaConfigCache.notif_avaliacao_modo || 'desligado',
     notifAvaliacaoIntervaloHoras: empresaConfigCache.notif_avaliacao_intervalo_horas || 24,
+    periodoAvaliadoMesesAntes: empresaConfigCache.periodo_avaliado_meses_antes || 0,
     notificarAtividadeAtivo: empresaConfigCache.notificar_atividade_ativo,
     criteriosConferencia: criteriosConferenciaCache,
     conferencias: conferenciasCache,
@@ -807,7 +823,7 @@ function situacaoDe(av) {
 async function carregarEmpresaConfig() {
   const { data, error } = await supabaseClient
     .from('empresas')
-    .select('nome, setor, campos_fornecedor_custom, colunas_fornecedor_visiveis, tipos_documento, faixas_conceito_produto, desconto_ocorrencia_ativo, valor_desconto_ocorrencia, anos_retencao_avaliacao, config, status, plano, trial_termina_em, limite_fornecedores, limite_admins, cobranca_automatica_ativa, cobranca_automatica_frequencia, tolerancia_documentos_meses, lembrete_avaliador_ativo, lembrete_avaliador_frequencia, notificar_atividade_ativo, notif_avaliacao_modo, notif_avaliacao_intervalo_horas, valor_mensal_atual, plano_ativo_desde, proxima_cobranca_em, proximo_valor_mensal, proximo_reajuste_em, enterprise_composicao, desconto_doc_vencido_ativo, valor_desconto_doc_vencido, conferencia_cabecalho, exclusao_confirmada_em, exclusao_agendada_para')
+    .select('nome, setor, campos_fornecedor_custom, colunas_fornecedor_visiveis, tipos_documento, faixas_conceito_produto, desconto_ocorrencia_ativo, valor_desconto_ocorrencia, anos_retencao_avaliacao, config, status, plano, trial_termina_em, limite_fornecedores, limite_admins, cobranca_automatica_ativa, cobranca_automatica_frequencia, tolerancia_documentos_meses, lembrete_avaliador_ativo, lembrete_avaliador_frequencia, notificar_atividade_ativo, notif_avaliacao_modo, notif_avaliacao_intervalo_horas, periodo_avaliado_meses_antes, valor_mensal_atual, plano_ativo_desde, proxima_cobranca_em, proximo_valor_mensal, proximo_reajuste_em, enterprise_composicao, desconto_doc_vencido_ativo, valor_desconto_doc_vencido, conferencia_cabecalho, exclusao_confirmada_em, exclusao_agendada_para')
     .eq('id', currentUser.empresaId)
     .single();
 
@@ -839,6 +855,7 @@ async function carregarEmpresaConfig() {
     notificar_atividade_ativo: !!data.notificar_atividade_ativo,
     notif_avaliacao_modo: data.notif_avaliacao_modo || 'desligado',
     notif_avaliacao_intervalo_horas: data.notif_avaliacao_intervalo_horas ?? 24,
+    periodo_avaliado_meses_antes: data.periodo_avaliado_meses_antes ?? 0,
     valor_mensal_atual: data.valor_mensal_atual ?? null,
     plano_ativo_desde: data.plano_ativo_desde || null,
     proxima_cobranca_em: data.proxima_cobranca_em || null,

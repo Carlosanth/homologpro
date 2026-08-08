@@ -464,8 +464,12 @@ async function notificarFornecedorNota(avId) {
   }
 
   const assunto = `Avaliação de Desempenho de Fornecedores - ${periodoLabel} - ${forn.nome}`;
+  const refLabel = mesReferenciaLabel(av.periodo, d.periodoAvaliadoMesesAntes);
+  const fraseDetalhamento = refLabel
+    ? `Referente ao serviço prestado em ${refLabel}, detalhamos abaixo os critérios avaliados e a pontuação obtida:`
+    : `Detalhamos abaixo os critérios avaliados e a pontuação obtida:`;
   let corpo = `${saudacao},\n${abertura}\n\n${setorInfo}Nota Obtida: ${av.nota.toFixed(1)}${notaMax ? ` de ${notaMax.toFixed(1)}P` : ''} (${getSubtituloDoc(sit)})\n\n`;
-  if (blocosCriterios.length) corpo += `Para sua ciência, detalhamos abaixo os critérios avaliados, a pontuação que sua empresa obteve e a nossa régua completa de avaliação:\n\n${blocosCriterios.join('\n\n')}\n${DIVISOR}\n\n`;
+  if (blocosCriterios.length) corpo += `${fraseDetalhamento}\n\n${blocosCriterios.join('\n\n')}\n${DIVISOR}\n\n`;
   if (av.justificativa) corpo += `Outras melhorias apontadas pelo setor avaliador:\n${av.justificativa}\n\n`;
   if (av.obs) corpo += `Observações:\n${av.obs}\n\n`;
   if (sit === 'reprovado') {
@@ -593,9 +597,13 @@ async function notificarFornecedorProduto(avId) {
 
   const assunto = `Avaliação de Nota Fiscal ${av.numeroNf || ''} - ${forn.nome}`;
   const responsavelInfo = av.enviadoPorNome ? `- Avaliado por: ${av.enviadoPorNome}\n` : '';
+  const refLabelProduto = av.data ? mesReferenciaLabel(periodoDeData(av.data), d.periodoAvaliadoMesesAntes) : null;
+  const fraseDetalhamentoProduto = refLabelProduto
+    ? `Referente à mercadoria/serviço recebido em ${refLabelProduto}, detalhamos abaixo os critérios avaliados e a pontuação obtida em cada um:`
+    : `Detalhamos abaixo os critérios avaliados e a pontuação obtida em cada um:`;
   let corpo = `${saudacao},\n${abertura}\n\n${responsavelInfo}- Nota Fiscal: ${av.numeroNf || '—'}\n- Data: ${dataLabel}\n- Nota Obtida: ${av.notaGeral != null ? av.notaGeral.toFixed(1) : '—'} (${getSubtituloDoc(sitProduto)})\n\n`;
 
-  if (blocosCriterios.length) corpo += `Para sua ciência, detalhamos abaixo os critérios avaliados e a pontuação obtida em cada um:\n\n${blocosCriterios.join('\n\n')}\n\n`;
+  if (blocosCriterios.length) corpo += `${fraseDetalhamentoProduto}\n\n${blocosCriterios.join('\n\n')}\n\n`;
   if (blocosDescontos.length) corpo += `Descontos aplicados:\n${blocosDescontos.join('\n')}\n\n`;
   if (av.justificativa) corpo += `Outras observações:\n${av.justificativa}\n\n`;
   if (sitProduto === 'reprovado') {

@@ -604,6 +604,21 @@ async function renderAdConfig() {
       </div>
 
       <div class="card">
+        <div class="card-title">Período avaliado</div>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px">Se a avaliação do mês é sempre referente ao serviço prestado no(s) mês(es) anterior(es) — por exemplo, avaliar em Agosto o serviço prestado em Julho — informe aqui quantos meses de defasagem. Isso aparece pro avaliador na hora de preencher e no e-mail que o fornecedor recebe. Deixe 0 (ou em branco) se a avaliação é sempre do mesmo mês corrente — nesse caso nada extra é mostrado.</p>
+
+        <div class="form-group" style="max-width:320px; margin-bottom:16px">
+          <label>Meses antes</label>
+          <div style="display:flex; align-items:center; gap:8px">
+            <input type="number" id="cfg-periodo-avaliado-meses" min="0" max="12" step="1" value="${d.periodoAvaliadoMesesAntes || 0}" style="max-width:100px">
+            <span style="font-size:13px; color:var(--text-muted)">mês(es)</span>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" onclick="salvarConfigPeriodoAvaliado()">Salvar</button>
+      </div>
+
+      <div class="card">
         <div class="card-title">Notificação automática de avaliação reprovada</div>
         <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px">Controla como o fornecedor é avisado quando uma avaliação de serviço é reprovada. O botão manual (que abre seu cliente de e-mail) continua disponível em qualquer modo — isso aqui só liga o envio automático em HTML por conta do sistema.</p>
 
@@ -898,6 +913,20 @@ async function salvarConfigLembreteAvaliador() {
   empresaConfigCache.lembrete_avaliador_ativo = ativo;
   empresaConfigCache.lembrete_avaliador_frequencia = frequencia;
   addLog('config_lembrete_avaliador', `${currentUser.email} ${ativo ? 'ativou' : 'desativou'} o lembrete automático dos avaliadores (frequência: ${frequencia})`);
+  toast('Configuração salva!');
+}
+
+async function salvarConfigPeriodoAvaliado() {
+  const meses = parseInt(document.getElementById('cfg-periodo-avaliado-meses').value, 10) || 0;
+
+  const { error } = await supabaseClient.from('empresas').update({
+    periodo_avaliado_meses_antes: meses,
+  }).eq('id', currentUser.empresaId);
+
+  if (error) { toast('Erro ao salvar: ' + error.message); return; }
+
+  empresaConfigCache.periodo_avaliado_meses_antes = meses;
+  addLog('config_periodo_avaliado', `${currentUser.email} mudou o período avaliado para ${meses} mês(es) antes`);
   toast('Configuração salva!');
 }
 

@@ -82,10 +82,12 @@ function renderAvFormularios() {
   }
 
   const pendentesNotificacao = d.avaliacoes.filter(av => av.usuarioId === currentUser.id && !av.notificadoEm).length;
+  const chaveMesAtual = `${anoAtual}-${mesAtual}`;
+  const refLabel = mesReferenciaLabel(chaveMesAtual, d.periodoAvaliadoMesesAntes);
 
   wrap.innerHTML = `
     <div class="page-header">
-      <div><h2>Meus formulários</h2><p>${MESES[mesAtual]} de ${anoAtual} — clique em um formulário para avaliar</p></div>
+      <div><h2>Meus formulários</h2><p>${MESES[mesAtual]} de ${anoAtual}${refLabel ? ` · referente ao serviço prestado em ${refLabel}` : ''} — clique em um formulário para avaliar</p></div>
       ${pendentesNotificacao ? `<button class="btn btn-primary btn-sm" onclick="notificarAvaliacoesConcluidas()">Enviar notificação (${pendentesNotificacao})</button>` : ''}
     </div>
     <div class="forms-grid" id="av-forms-grid"></div>
@@ -122,7 +124,7 @@ function renderAvFormularios() {
         <div class="form-card-top">
           <div>
             <h4>${fornecedor ? fornecedor.nome : 'Fornecedor a definir'}</h4>
-            <p>${form.nome} · ${MESES[mesAtual]} de ${anoAtual}</p>
+            <p>${form.nome} · ${MESES[mesAtual]} de ${anoAtual}${refLabel ? ` · ref. ${refLabel}` : ''}</p>
             ${camposLinha || prazoLinha ? `<p style="margin-top:4px; font-size:11px; color:var(--text-muted)">${[camposLinha, prazoLinha].filter(Boolean).join(' &nbsp;·&nbsp; ')}</p>` : ''}
           </div>
           <span class="form-card-status ${foiLiberado ? 'pending' : jaPreenchido ? 'ok' : 'pending'}">${foiLiberado ? 'Reenviar' : jaPreenchido ? 'Enviado' : 'Pendente'}</span>
@@ -158,7 +160,7 @@ function abrirFormulario(assocId, forcarNovo) {
     <div class="page-header">
       <div>
         <h2>${form.nome}</h2>
-        <p>${fornecedor ? fornecedor.nome + ' · ' : ''}${MESES[mesAtual]} de ${anoAtual}${forcarNovo ? ' · novo atendimento' : ''}</p>
+        <p>${fornecedor ? fornecedor.nome + ' · ' : ''}${MESES[mesAtual]} de ${anoAtual}${mesReferenciaLabel(chaveMes, d.periodoAvaliadoMesesAntes) ? ` · referente ao serviço prestado em ${mesReferenciaLabel(chaveMes, d.periodoAvaliadoMesesAntes)}` : ''}${forcarNovo ? ' · novo atendimento' : ''}</p>
         ${form.descricaoAvaliado ? `<p style="font-size:12px; color:var(--text-muted); margin-top:2px">${escapeHtml(form.descricaoAvaliado)}</p>` : ''}
       </div>
       <button class="btn btn-secondary btn-sm" onclick="renderAvFormularios()">← Voltar</button>
