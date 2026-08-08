@@ -1006,6 +1006,20 @@ body {
   margin-bottom: 14px;
 }
 
+/* Os cards da aba "Cobrança automática" (Cobrança de documentos, Lembrete
+   avaliadores, Período avaliado, Notificação de avaliação, Atualizações)
+   ficam lado a lado em até 3 colunas — auto-fit encolhe sozinho pra 2 ou 1
+   coluna se a tela for menor, sem precisar de media query separada. */
+#config-tab-cobranca {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+#config-tab-cobranca .card {
+  margin-bottom: 0;
+}
+
 .form-row.three {
   grid-template-columns: 1fr 1fr 1fr 1fr;
 }
