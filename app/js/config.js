@@ -545,7 +545,7 @@ async function renderAdConfig() {
         <div class="card-title">Cobrança automática de documentos</div>
         <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px">Quando ligado, o sistema manda sozinho o e-mail de "documento vencendo/vencido" pro fornecedor, sem você precisar clicar em nada. Só vale pra documentos de <b>Fornecedores</b> com e-mail cadastrado (não se aplica a Meus Documentos, que não tem destinatário).</p>
 
-        <div class="form-row" style="grid-template-columns:1fr 1fr 1fr; gap:16px; align-items:end; margin-bottom:16px">
+        <div class="form-row" style="grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; align-items:end; margin-bottom:16px">
           <div>
             <label style="display:block; font-size:12px; font-weight:600; margin-bottom:8px">Ativar cobrança automática</label>
             <label class="switch">
@@ -619,33 +619,35 @@ async function renderAdConfig() {
         <div class="card-title">Notificação automática de avaliação reprovada</div>
         <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px">Controla como o fornecedor é avisado quando uma avaliação de serviço é reprovada ou aprovada com ressalva. O botão manual (que abre seu cliente de e-mail) continua disponível em qualquer modo.</p>
 
-        <div class="form-group" style="max-width:420px; margin-bottom:16px">
-          <label>Modo de envio</label>
-          <select id="cfg-notif-avaliacao-modo" onchange="document.getElementById('cfg-notif-avaliacao-intervalo-wrap').style.display = this.value === 'automatico' ? 'block' : 'none'">
-            <option value="desligado" ${d.notifAvaliacaoModo === 'desligado' ? 'selected' : ''}>Desligado</option>
-            <option value="automatico" ${d.notifAvaliacaoModo === 'automatico' ? 'selected' : ''}>Automático</option>
-            <option value="aprovacao" ${d.notifAvaliacaoModo === 'aprovacao' ? 'selected' : ''}>Por aprovação</option>
-          </select>
-        </div>
+        <div class="form-row" style="grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px; align-items:start; margin-bottom:16px">
+          <div class="form-group" style="margin-bottom:0">
+            <label>Modo de envio</label>
+            <select id="cfg-notif-avaliacao-modo" onchange="document.getElementById('cfg-notif-avaliacao-intervalo-wrap').style.display = this.value === 'automatico' ? 'block' : 'none'">
+              <option value="desligado" ${d.notifAvaliacaoModo === 'desligado' ? 'selected' : ''}>Desligado</option>
+              <option value="automatico" ${d.notifAvaliacaoModo === 'automatico' ? 'selected' : ''}>Automático</option>
+              <option value="aprovacao" ${d.notifAvaliacaoModo === 'aprovacao' ? 'selected' : ''}>Por aprovação</option>
+            </select>
+          </div>
 
-        <div id="cfg-notif-avaliacao-intervalo-wrap" class="form-group" style="max-width:420px; margin-bottom:16px; display:${d.notifAvaliacaoModo === 'automatico' ? 'block' : 'none'}">
-          <label>Enviar depois de</label>
-          <select id="cfg-notif-avaliacao-intervalo">
-            <option value="0" ${d.notifAvaliacaoIntervaloHoras === 0 ? 'selected' : ''}>No momento (assim que possível)</option>
-            <option value="24" ${d.notifAvaliacaoIntervaloHoras === 24 ? 'selected' : ''}>24 horas após a avaliação</option>
-            <option value="48" ${d.notifAvaliacaoIntervaloHoras === 48 ? 'selected' : ''}>48 horas após a avaliação</option>
-          </select>
-        </div>
+          <div id="cfg-notif-avaliacao-intervalo-wrap" class="form-group" style="margin-bottom:0; display:${d.notifAvaliacaoModo === 'automatico' ? 'block' : 'none'}">
+            <label>Enviar depois de</label>
+            <select id="cfg-notif-avaliacao-intervalo">
+              <option value="0" ${d.notifAvaliacaoIntervaloHoras === 0 ? 'selected' : ''}>No momento</option>
+              <option value="24" ${d.notifAvaliacaoIntervaloHoras === 24 ? 'selected' : ''}>24 horas após a avaliação</option>
+              <option value="48" ${d.notifAvaliacaoIntervaloHoras === 48 ? 'selected' : ''}>48 horas após a avaliação</option>
+            </select>
+          </div>
 
-        <div class="form-group" style="margin-bottom:16px">
-          <label>Notificar quando a avaliação for</label>
-          <div style="display:flex; flex-direction:column; gap:8px; margin-top:6px">
-            <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:400; cursor:pointer">
-              <input type="checkbox" id="cfg-notif-sit-reprovado" ${(d.notifAvaliacaoSituacoes || ['reprovado']).includes('reprovado') ? 'checked' : ''}> Reprovada
-            </label>
-            <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:400; cursor:pointer">
-              <input type="checkbox" id="cfg-notif-sit-parcial" ${(d.notifAvaliacaoSituacoes || []).includes('parcial') ? 'checked' : ''}> Aprovada com ressalva
-            </label>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Notificar quando a avaliação for</label>
+            <div style="display:flex; flex-direction:column; gap:8px; margin-top:6px">
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:400; cursor:pointer">
+                <input type="checkbox" id="cfg-notif-sit-reprovado" ${(d.notifAvaliacaoSituacoes || ['reprovado']).includes('reprovado') ? 'checked' : ''}> Reprovada
+              </label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:400; cursor:pointer">
+                <input type="checkbox" id="cfg-notif-sit-parcial" ${(d.notifAvaliacaoSituacoes || []).includes('parcial') ? 'checked' : ''}> Parcialmente aprovada
+              </label>
+            </div>
           </div>
         </div>
 
