@@ -154,7 +154,8 @@ function db() {
     lembreteAvaliadorAtivo: empresaConfigCache.lembrete_avaliador_ativo,
     lembreteAvaliadorFrequencia: empresaConfigCache.lembrete_avaliador_frequencia,
     notifAvaliacaoModo: empresaConfigCache.notif_avaliacao_modo || 'desligado',
-    notifAvaliacaoIntervaloHoras: empresaConfigCache.notif_avaliacao_intervalo_horas || 24,
+    notifAvaliacaoIntervaloHoras: empresaConfigCache.notif_avaliacao_intervalo_horas ?? 24,
+    notifAvaliacaoSituacoes: empresaConfigCache.notif_avaliacao_situacoes || ['reprovado'],
     periodoAvaliadoMesesAntes: empresaConfigCache.periodo_avaliado_meses_antes || 0,
     notificarAtividadeAtivo: empresaConfigCache.notificar_atividade_ativo,
     criteriosConferencia: criteriosConferenciaCache,
@@ -823,7 +824,7 @@ function situacaoDe(av) {
 async function carregarEmpresaConfig() {
   const { data, error } = await supabaseClient
     .from('empresas')
-    .select('nome, setor, campos_fornecedor_custom, colunas_fornecedor_visiveis, tipos_documento, faixas_conceito_produto, desconto_ocorrencia_ativo, valor_desconto_ocorrencia, anos_retencao_avaliacao, config, status, plano, trial_termina_em, limite_fornecedores, limite_admins, cobranca_automatica_ativa, cobranca_automatica_frequencia, tolerancia_documentos_meses, lembrete_avaliador_ativo, lembrete_avaliador_frequencia, notificar_atividade_ativo, notif_avaliacao_modo, notif_avaliacao_intervalo_horas, periodo_avaliado_meses_antes, valor_mensal_atual, plano_ativo_desde, proxima_cobranca_em, proximo_valor_mensal, proximo_reajuste_em, enterprise_composicao, desconto_doc_vencido_ativo, valor_desconto_doc_vencido, conferencia_cabecalho, exclusao_confirmada_em, exclusao_agendada_para')
+    .select('nome, setor, campos_fornecedor_custom, colunas_fornecedor_visiveis, tipos_documento, faixas_conceito_produto, desconto_ocorrencia_ativo, valor_desconto_ocorrencia, anos_retencao_avaliacao, config, status, plano, trial_termina_em, limite_fornecedores, limite_admins, cobranca_automatica_ativa, cobranca_automatica_frequencia, tolerancia_documentos_meses, lembrete_avaliador_ativo, lembrete_avaliador_frequencia, notificar_atividade_ativo, notif_avaliacao_modo, notif_avaliacao_intervalo_horas, notif_avaliacao_situacoes, periodo_avaliado_meses_antes, valor_mensal_atual, plano_ativo_desde, proxima_cobranca_em, proximo_valor_mensal, proximo_reajuste_em, enterprise_composicao, desconto_doc_vencido_ativo, valor_desconto_doc_vencido, conferencia_cabecalho, exclusao_confirmada_em, exclusao_agendada_para')
     .eq('id', currentUser.empresaId)
     .single();
 
@@ -855,6 +856,7 @@ async function carregarEmpresaConfig() {
     notificar_atividade_ativo: !!data.notificar_atividade_ativo,
     notif_avaliacao_modo: data.notif_avaliacao_modo || 'desligado',
     notif_avaliacao_intervalo_horas: data.notif_avaliacao_intervalo_horas ?? 24,
+    notif_avaliacao_situacoes: data.notif_avaliacao_situacoes || ['reprovado'],
     periodo_avaliado_meses_antes: data.periodo_avaliado_meses_antes ?? 0,
     valor_mensal_atual: data.valor_mensal_atual ?? null,
     plano_ativo_desde: data.plano_ativo_desde || null,

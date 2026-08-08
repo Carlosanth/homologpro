@@ -207,7 +207,7 @@ function verDetalheAvaliacao(id) {
         <div style="margin-right:auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap">
           ${av.notificadoEm ? `<span style="font-size:12px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:4px">${ic('mail', 13)}Cobrado em ${new Date(av.notificadoEm).toLocaleDateString('pt-BR')}</span>` : ''}
           <button class="btn ${av.notificadoEm ? 'btn-secondary' : 'btn-primary'} btn-sm" onclick="notificarFornecedorNota('${av.id}')" style="display:inline-flex; align-items:center; gap:6px">${ic('mail', 13)}${av.notificadoEm ? 'Notificar novamente' : 'Notificar por e-mail'}</button>
-          ${d.notifAvaliacaoModo === 'aprovacao' ? `<button class="btn btn-primary btn-sm" onclick="aprovarEnviarNotificacaoAutomatica('${av.id}')" style="display:inline-flex; align-items:center; gap:6px">${ic('check', 13)}${av.notificadoEm ? 'Reenviar (HTML)' : 'Aprovar e enviar (HTML)'}</button>` : ''}
+          ${d.notifAvaliacaoModo === 'aprovacao' && (d.notifAvaliacaoSituacoes || ['reprovado']).includes(sit) ? `<button class="btn btn-primary btn-sm" onclick="aprovarEnviarNotificacaoAutomatica('${av.id}')" style="display:inline-flex; align-items:center; gap:6px">${ic('check', 13)}${av.notificadoEm ? 'Reenviar (HTML)' : 'Aprovar e enviar (HTML)'}</button>` : ''}
         </div>
       `) : ''}
       <button class="btn btn-secondary" onclick="window.print()">Imprimir</button>
