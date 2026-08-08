@@ -541,6 +541,7 @@ async function renderAdConfig() {
     </div>
 
     <div id="config-tab-cobranca" class="config-tab-ad" style="display:none">
+      <div class="cobranca-cards">
       <div class="card">
         <div class="card-title">Cobrança automática de documentos</div>
         <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px">Quando ligado, o sistema manda sozinho o e-mail de "documento vencendo/vencido" pro fornecedor, sem você precisar clicar em nada. Só vale pra documentos de <b>Fornecedores</b> com e-mail cadastrado (não se aplica a Meus Documentos, que não tem destinatário).</p>
@@ -672,6 +673,7 @@ async function renderAdConfig() {
         <button class="btn btn-primary" onclick="salvarConfigNotificacaoAtividade()">Salvar</button>
       </div>
 
+      </div>
     </div>
 
     <div id="config-tab-empresa" class="config-tab-ad" style="display:none">
