@@ -1006,17 +1006,19 @@ body {
   margin-bottom: 14px;
 }
 
-/* Os cards da aba "Cobrança automática" (Cobrança de documentos, Lembrete
-   avaliadores, Período avaliado, Notificação de avaliação, Atualizações)
-   ficam lado a lado em até 3 colunas — auto-fit encolhe sozinho pra 2 ou 1
-   coluna se a tela for menor, sem precisar de media query separada. */
-#config-tab-cobranca {
+/* Wrapper dedicado (não é o id da aba) porque showConfigTabAd() seta
+   style.display inline no id da aba toda vez que troca de aba — isso
+   sobrescreveria um display:grid puesto ali, então o grid tem que morar
+   num elemento que o JS nunca toca. Mesmo princípio do .account-cards
+   (aba Minha empresa). auto-fit encolhe sozinho pra 2/1 coluna em telas
+   menores. */
+.cobranca-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 20px;
   align-items: start;
 }
-#config-tab-cobranca .card {
+.cobranca-cards .card {
   margin-bottom: 0;
 }
 
