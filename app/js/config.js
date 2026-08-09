@@ -542,112 +542,105 @@ async function renderAdConfig() {
 
     <div id="config-tab-cobranca" class="config-tab-ad" style="display:none">
       <div class="cobranca-cards">
-      <div class="card">
-        <div class="card-title">Cobrança automática de documentos</div>
-        <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px">Quando ligado, o sistema manda sozinho o e-mail de "documento vencendo/vencido" pro fornecedor, sem você precisar clicar em nada. Só vale pra documentos de <b>Fornecedores</b> com e-mail cadastrado (não se aplica a Meus Documentos, que não tem destinatário).</p>
 
-        <div class="form-row" style="grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; align-items:end; margin-bottom:16px">
-          <div>
-            <label style="display:block; font-size:12px; font-weight:600; margin-bottom:8px">Ativar cobrança automática</label>
-            <label class="switch">
-              <input type="checkbox" id="cfg-cobranca-ativa" ${d.cobrancaAutomaticaAtiva ? 'checked' : ''}>
-              <span class="switch-slider"></span>
-            </label>
-          </div>
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">Cobrança de documentos</div>
+        <p class="cobranca-card-sub">Avisa o fornecedor quando um documento tá vencendo.</p>
+
+        <div class="cobranca-toggle-row">
+          <span>Ativar</span>
+          <label class="switch">
+            <input type="checkbox" id="cfg-cobranca-ativa" ${d.cobrancaAutomaticaAtiva ? 'checked' : ''}>
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+
+        <div class="cobranca-field-row" style="grid-template-columns:1fr 90px">
           <div class="form-group" style="margin-bottom:0">
-            <label>Frequência do aviso</label>
+            <label>Frequência</label>
             <select id="cfg-cobranca-frequencia">
-              <option value="chave" ${d.cobrancaAutomaticaFrequencia === 'chave' ? 'selected' : ''}>Só 2x — janela de aviso e vencimento</option>
+              <option value="chave" ${d.cobrancaAutomaticaFrequencia === 'chave' ? 'selected' : ''}>Só 2x</option>
               <option value="2dias" ${d.cobrancaAutomaticaFrequencia === '2dias' ? 'selected' : ''}>A cada 2 dias</option>
-              <option value="semanal" ${d.cobrancaAutomaticaFrequencia === 'semanal' ? 'selected' : ''}>1x por semana</option>
+              <option value="semanal" ${d.cobrancaAutomaticaFrequencia === 'semanal' ? 'selected' : ''}>1x/semana</option>
               <option value="diaria" ${d.cobrancaAutomaticaFrequencia === 'diaria' ? 'selected' : ''}>Todo dia</option>
             </select>
           </div>
           <div class="form-group" style="margin-bottom:0">
-            <label>Tolerância de vencido (meses)</label>
+            <label>Tolerância</label>
             <input type="number" id="cfg-cobranca-tolerancia" min="1" step="1" value="${d.toleranciaDocumentosMeses}">
           </div>
         </div>
-        <p style="font-size:11px; color:var(--text-muted); margin:-8px 0 16px">Se um documento continuar vencido por mais tempo que a tolerância, mesmo já cobrado do fornecedor, você recebe um aviso à parte (e-mail + alerta no dashboard) — não bloqueia nada, é só um alerta de atenção.</p>
 
-        <button class="btn btn-primary" onclick="salvarConfigCobrancaAutomatica()">Salvar</button>
+        <button class="btn btn-primary btn-block" onclick="salvarConfigCobrancaAutomatica()">Salvar</button>
       </div>
 
-      <div class="card">
-        <div class="card-title">Lembrete automático pros avaliadores</div>
-        <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px">Manda e-mail sozinho pro avaliador quando ele tem avaliação pendente/atrasada, com o link de acesso. Independente disso, você sempre pode disparar manualmente em Usuários e acessos → "Enviar lembrete pra todos os pendentes".</p>
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">Lembrete pros avaliadores</div>
+        <p class="cobranca-card-sub">Avisa quando tem avaliação pendente.</p>
 
-        <div class="toggle-row">
-          <div class="toggle-row-body">
-            <div class="toggle-row-title">Ativar lembrete automático pros avaliadores</div>
-            <div class="toggle-row-sub">Manda e-mail ao avaliador com o link de acesso quando ele tem avaliação pendente ou atrasada.</div>
-          </div>
+        <div class="cobranca-toggle-row">
+          <span>Ativar</span>
           <label class="switch">
             <input type="checkbox" id="cfg-lembrete-ativo" ${d.lembreteAvaliadorAtivo ? 'checked' : ''}>
             <span class="switch-slider"></span>
           </label>
         </div>
 
-        <div class="form-group" style="max-width:360px; margin-bottom:16px">
-          <label>Frequência do lembrete</label>
-          <select id="cfg-lembrete-frequencia">
-            <option value="chave" ${d.lembreteAvaliadorFrequencia === 'chave' ? 'selected' : ''}>Só 2x — ao ficar pendente e ao atrasar</option>
-            <option value="2dias" ${d.lembreteAvaliadorFrequencia === '2dias' ? 'selected' : ''}>A cada 2 dias, enquanto estiver pendente</option>
-            <option value="semanal" ${d.lembreteAvaliadorFrequencia === 'semanal' ? 'selected' : ''}>1x por semana, enquanto estiver pendente</option>
-            <option value="diaria" ${d.lembreteAvaliadorFrequencia === 'diaria' ? 'selected' : ''}>Todo dia, enquanto estiver pendente</option>
-          </select>
-        </div>
-
-        <button class="btn btn-primary" onclick="salvarConfigLembreteAvaliador()">Salvar</button>
-      </div>
-
-      <div class="card">
-        <div class="card-title">Período avaliado</div>
-        <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px">Se a avaliação do mês é sempre referente ao serviço prestado no(s) mês(es) anterior(es) — por exemplo, avaliar em Agosto o serviço prestado em Julho — informe aqui quantos meses de defasagem. Isso aparece pro avaliador na hora de preencher e no e-mail que o fornecedor recebe. Deixe 0 (ou em branco) se a avaliação é sempre do mesmo mês corrente — nesse caso nada extra é mostrado.</p>
-
-        <div class="form-group" style="max-width:320px; margin-bottom:16px">
-          <label>Meses antes</label>
-          <div style="display:flex; align-items:center; gap:8px">
-            <input type="number" id="cfg-periodo-avaliado-meses" min="0" max="12" step="1" value="${d.periodoAvaliadoMesesAntes || 0}" style="max-width:100px">
-            <span style="font-size:13px; color:var(--text-muted)">mês(es)</span>
+        <div style="display:flex; gap:8px; align-items:end">
+          <div class="form-group" style="margin-bottom:0; flex:1">
+            <label>Frequência</label>
+            <select id="cfg-lembrete-frequencia">
+              <option value="chave" ${d.lembreteAvaliadorFrequencia === 'chave' ? 'selected' : ''}>Só 2x</option>
+              <option value="2dias" ${d.lembreteAvaliadorFrequencia === '2dias' ? 'selected' : ''}>A cada 2 dias</option>
+              <option value="semanal" ${d.lembreteAvaliadorFrequencia === 'semanal' ? 'selected' : ''}>1x/semana</option>
+              <option value="diaria" ${d.lembreteAvaliadorFrequencia === 'diaria' ? 'selected' : ''}>Todo dia</option>
+            </select>
           </div>
+          <button class="btn btn-primary" onclick="salvarConfigLembreteAvaliador()">Salvar</button>
         </div>
-
-        <button class="btn btn-primary" onclick="salvarConfigPeriodoAvaliado()">Salvar</button>
       </div>
 
-      <div class="card">
-        <div class="card-title">Notificação automática de avaliação reprovada</div>
-        <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px">Controla como o fornecedor é avisado quando uma avaliação de serviço é reprovada ou aprovada com ressalva. O botão manual (que abre seu cliente de e-mail) continua disponível em qualquer modo.</p>
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">Período avaliado</div>
+        <p class="cobranca-card-sub">Meses de defasagem do serviço prestado.</p>
 
-        <div class="form-row" style="grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px; align-items:start; margin-bottom:16px">
+        <div style="display:flex; gap:8px; align-items:end">
+          <div class="form-group" style="margin-bottom:0; flex:1">
+            <label>Meses antes</label>
+            <input type="number" id="cfg-periodo-avaliado-meses" min="0" max="12" step="1" value="${d.periodoAvaliadoMesesAntes || 0}">
+          </div>
+          <button class="btn btn-primary" onclick="salvarConfigPeriodoAvaliado()">Salvar</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:0; grid-column:span 2">
+        <div class="card-title">Notificação de avaliação</div>
+        <p class="cobranca-card-sub">Como o fornecedor é avisado da nota.</p>
+
+        <div class="cobranca-field-row" style="grid-template-columns:1fr 1fr 1fr">
           <div class="form-group" style="margin-bottom:0">
-            <label>Modo de envio</label>
-            <select id="cfg-notif-avaliacao-modo" onchange="document.getElementById('cfg-notif-avaliacao-intervalo-wrap').style.display = this.value === 'automatico' ? 'block' : 'none'">
+            <label>Modo</label>
+            <select id="cfg-notif-avaliacao-modo" onchange="document.getElementById('cfg-notif-avaliacao-intervalo-wrap').style.display = this.value === 'automatico' ? 'flex' : 'none'">
               <option value="desligado" ${d.notifAvaliacaoModo === 'desligado' ? 'selected' : ''}>Desligado</option>
               <option value="automatico" ${d.notifAvaliacaoModo === 'automatico' ? 'selected' : ''}>Automático</option>
               <option value="aprovacao" ${d.notifAvaliacaoModo === 'aprovacao' ? 'selected' : ''}>Por aprovação</option>
             </select>
           </div>
 
-          <div id="cfg-notif-avaliacao-intervalo-wrap" class="form-group" style="margin-bottom:0; display:${d.notifAvaliacaoModo === 'automatico' ? 'block' : 'none'}">
+          <div id="cfg-notif-avaliacao-intervalo-wrap" class="form-group" style="margin-bottom:0; display:${d.notifAvaliacaoModo === 'automatico' ? 'flex' : 'none'}; flex-direction:column">
             <label>Enviar depois de</label>
             <select id="cfg-notif-avaliacao-intervalo">
               <option value="0" ${d.notifAvaliacaoIntervaloHoras === 0 ? 'selected' : ''}>No momento</option>
-              <option value="24" ${d.notifAvaliacaoIntervaloHoras === 24 ? 'selected' : ''}>24 horas após a avaliação</option>
-              <option value="48" ${d.notifAvaliacaoIntervaloHoras === 48 ? 'selected' : ''}>48 horas após a avaliação</option>
+              <option value="24" ${d.notifAvaliacaoIntervaloHoras === 24 ? 'selected' : ''}>24 horas</option>
+              <option value="48" ${d.notifAvaliacaoIntervaloHoras === 48 ? 'selected' : ''}>48 horas</option>
             </select>
           </div>
 
           <div class="form-group" style="margin-bottom:0">
-            <label>Notificar quando a avaliação for</label>
-            <div style="display:flex; flex-direction:column; gap:8px; margin-top:6px">
-              <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:400; cursor:pointer">
-                <input type="checkbox" id="cfg-notif-sit-reprovado" ${(d.notifAvaliacaoSituacoes || ['reprovado']).includes('reprovado') ? 'checked' : ''}> Reprovada
-              </label>
-              <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:400; cursor:pointer">
-                <input type="checkbox" id="cfg-notif-sit-parcial" ${(d.notifAvaliacaoSituacoes || []).includes('parcial') ? 'checked' : ''}> Parcialmente aprovada
-              </label>
+            <label>Notificar quando</label>
+            <div id="cfg-notif-situacoes-chips" style="display:flex; gap:6px; margin-top:2px">
+              <span class="notif-sit-chip ${(d.notifAvaliacaoSituacoes || ['reprovado']).includes('reprovado') ? 'active' : ''}" data-sit="reprovado" onclick="toggleChipSituacao(this)">Reprovada</span>
+              <span class="notif-sit-chip ${(d.notifAvaliacaoSituacoes || []).includes('parcial') ? 'active' : ''}" data-sit="parcial" onclick="toggleChipSituacao(this)">Parcial</span>
             </div>
           </div>
         </div>
@@ -655,22 +648,18 @@ async function renderAdConfig() {
         <button class="btn btn-primary" onclick="salvarConfigNotifAvaliacao()">Salvar</button>
       </div>
 
-      <div class="card">
-        <div class="card-title">Receber notificações de atualizações por e-mail</div>
-        <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px">Quando ligado, os admins marcados como "recebe notificação" (em Usuários e acessos) recebem um e-mail na hora — sem esperar cron — assim que um fornecedor envia um documento pra aprovação, ou assim que um avaliador conclui uma avaliação de serviço.</p>
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">Notificações internas</div>
+        <p class="cobranca-card-sub">Avisa admins na hora.</p>
 
-        <div class="toggle-row">
-          <div class="toggle-row-body">
-            <div class="toggle-row-title">Ativar notificações de atualizações por e-mail</div>
-            <div class="toggle-row-sub">Documento enviado pelo fornecedor ou avaliação concluída avisam os admins marcados na hora.</div>
-          </div>
+        <div class="cobranca-toggle-row" style="margin-bottom:0">
+          <span>Ativar</span>
           <label class="switch">
             <input type="checkbox" id="cfg-notif-atividade-ativo" ${d.notificarAtividadeAtivo ? 'checked' : ''}>
             <span class="switch-slider"></span>
           </label>
         </div>
-
-        <button class="btn btn-primary" onclick="salvarConfigNotificacaoAtividade()">Salvar</button>
+        <button class="btn btn-primary btn-block" style="margin-top:14px" onclick="salvarConfigNotificacaoAtividade()">Salvar</button>
       </div>
 
       </div>
@@ -945,12 +934,14 @@ async function salvarConfigPeriodoAvaliado() {
   toast('Configuração salva!');
 }
 
+function toggleChipSituacao(el) {
+  el.classList.toggle('active');
+}
+
 async function salvarConfigNotifAvaliacao() {
   const modo = document.getElementById('cfg-notif-avaliacao-modo').value;
   const intervalo = parseInt(document.getElementById('cfg-notif-avaliacao-intervalo').value, 10);
-  const situacoes = [];
-  if (document.getElementById('cfg-notif-sit-reprovado').checked) situacoes.push('reprovado');
-  if (document.getElementById('cfg-notif-sit-parcial').checked) situacoes.push('parcial');
+  const situacoes = Array.from(document.querySelectorAll('#cfg-notif-situacoes-chips .notif-sit-chip.active')).map(el => el.dataset.sit);
 
   const { error } = await supabaseClient.from('empresas').update({
     notif_avaliacao_modo: modo,
