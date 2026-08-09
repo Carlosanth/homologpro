@@ -184,13 +184,15 @@ function verDetalheAvaliacao(id) {
   const forn = d.fornecedores.find(f => f.id === av.fornecedorId);
   const sit = av.semServico ? null : getSituacao(av.nota);
   const [ano, mes] = av.periodo.split('-');
+  const refLabel = mesReferenciaLabel(av.periodo, d.periodoAvaliadoMesesAntes);
   const camposLinha = (form && form.camposExtras && form.camposExtras.length)
     ? form.camposExtras.filter(c => c.valor).map(c => `<span><b style="font-weight:600">${c.label}:</b> ${c.valor}</span>`).join(' &nbsp;·&nbsp; ')
     : '';
 
   openModal(`
     <h3>${form ? form.nome : 'Avaliação'}</h3>
-    <p style="font-size:12px; color:var(--text-muted); margin-bottom:4px">${forn ? forn.nome + ' · ' : ''}${MESES[parseInt(mes)]} de ${ano}</p>
+    <p style="font-size:12px; color:var(--text-muted); margin-bottom:4px">${forn ? forn.nome + ' · ' : ''}${MESES[parseInt(mes)]} de ${ano}${refLabel ? ` (referente a ${refLabel})` : ''}</p>
+    ${form && form.descricaoAvaliado ? `<p style="font-size:12px; color:var(--text-muted); margin-bottom:4px">${escapeHtml(form.descricaoAvaliado)}</p>` : ''}
     <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px">Enviado por ${av.enviadoPor} em ${fmtData(av.enviadoEm)}</p>
     ${camposLinha ? `<div style="padding:10px 14px; background:var(--surface2); border-radius:8px; margin-bottom:14px; font-size:12px; color:var(--text-sec); display:flex; flex-wrap:wrap; gap:12px">${camposLinha}</div>` : ''}
     <div style="margin-bottom:14px">${av.semServico ? '<span class="badge badge-neutral">Sem serviço no mês</span>' : badgeSit(sit)} <b style="margin-left:8px; font-size:15px">${av.semServico ? '' : av.nota.toFixed(1)}</b></div>

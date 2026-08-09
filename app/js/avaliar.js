@@ -391,16 +391,29 @@ async function enviarAvaliacao() {
   // (correção de um envio). Qualquer outro caso — inclusive "avaliar outro
   // atendimento" com um envio já travado no mês — cria uma linha NOVA, que
   // entra na média junto com as demais do período.
-  let error;
+  let error, avaliacaoIdSalva;
   if (existente && existente.liberadoEdicao) {
     ({ error } = await supabaseClient.from('avaliacoes').update(payload).eq('id', existente.id));
+    avaliacaoIdSalva = existente.id;
   } else {
-    ({ error } = await supabaseClient.from('avaliacoes').insert({ ...payload, empresa_id: currentUser.empresaId }));
+    const { data: inserida, error: erroInsert } = await supabaseClient.from('avaliacoes').insert({ ...payload, empresa_id: currentUser.empresaId }).select('id').single();
+    error = erroInsert;
+    avaliacaoIdSalva = inserida ? inserida.id : null;
   }
 
   if (error) { toast('Erro ao enviar avaliação: ' + error.message); return; }
 
   addLog('avaliacao_enviada', `${currentUser.email} enviou avaliação do formulário "${form.nome}" (${MESES[parseInt(chaveMes.split('-')[1])]}/${chaveMes.split('-')[0]}) — nota: ${result.semServico ? 'sem serviço' : result.nota.toFixed(1)}`);
+
+  // Se a empresa estiver em "Automático" + "No momento" (0h), tenta disparar
+  // o e-mail pro fornecedor JÁ — sem esperar o cron de hora em hora. Disparo
+  // silencioso: a function confere de novo no servidor se a config bate
+  // (não confia no que o front manda), e se não bater, não faz nada e não
+  // mostra erro nenhum pro avaliador — a maioria das empresas não usa esse
+  // modo, então isso "não bater" é o caso normal, não uma falha.
+  if (avaliacaoIdSalva && (sit === 'reprovado' || sit === 'parcial')) {
+    supabaseClient.functions.invoke('enviar-avaliacao-html', { body: { avaliacaoId: avaliacaoIdSalva, instantaneo: true } }).catch(() => {});
+  }
 
   toast('Avaliação concluída! Clique em "Enviar notificação" quando quiser avisar o admin.');
   await carregarAvaliacoes();
