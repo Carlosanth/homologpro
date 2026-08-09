@@ -544,7 +544,7 @@ async function renderAdConfig() {
       <div class="cobranca-cards">
 
       <div class="card" style="margin-bottom:0">
-        <div class="card-title">Cobrança de documentos</div>
+        <div class="card-title"><span>Cobrança de documentos${infoTip('Quando ligado, o sistema manda sozinho o e-mail de "documento vencendo/vencido" pro fornecedor. Só vale pra documentos de Fornecedores com e-mail cadastrado.')}</span></div>
         <p class="cobranca-card-sub">Avisa o fornecedor quando um documento tá vencendo.</p>
 
         <div class="cobranca-toggle-row">
@@ -566,7 +566,7 @@ async function renderAdConfig() {
             </select>
           </div>
           <div class="form-group" style="margin-bottom:0">
-            <label>Tolerância</label>
+            <label>Tolerância${infoTip('Se um documento continuar vencido por mais tempo que isso (em meses), mesmo já cobrado, você recebe um aviso à parte — e-mail + alerta no dashboard. Não bloqueia nada, é só um alerta de atenção.')}</label>
             <input type="number" id="cfg-cobranca-tolerancia" min="1" step="1" value="${d.toleranciaDocumentosMeses}">
           </div>
         </div>
@@ -575,7 +575,7 @@ async function renderAdConfig() {
       </div>
 
       <div class="card" style="margin-bottom:0">
-        <div class="card-title">Lembrete pros avaliadores</div>
+        <div class="card-title"><span>Lembrete pros avaliadores${infoTip('Manda e-mail sozinho pro avaliador quando ele tem avaliação pendente/atrasada, com o link de acesso. Você também pode disparar manualmente em Usuários → "Enviar lembrete pra todos os pendentes".')}</span></div>
         <p class="cobranca-card-sub">Avisa quando tem avaliação pendente.</p>
 
         <div class="cobranca-toggle-row">
@@ -601,7 +601,7 @@ async function renderAdConfig() {
       </div>
 
       <div class="card" style="margin-bottom:0">
-        <div class="card-title">Período avaliado</div>
+        <div class="card-title"><span>Período avaliado${infoTip('Se a avaliação do mês é sempre referente ao serviço prestado no(s) mês(es) anterior(es) — ex: avaliar em Agosto o serviço de Julho — informe quantos meses de defasagem. Aparece pro avaliador e no e-mail do fornecedor. Deixe 0 se é sempre do mês corrente.')}</span></div>
         <p class="cobranca-card-sub">Meses de defasagem do serviço prestado.</p>
 
         <div style="display:flex; gap:8px; align-items:end">
@@ -614,12 +614,12 @@ async function renderAdConfig() {
       </div>
 
       <div class="card" style="margin-bottom:0; grid-column:span 2">
-        <div class="card-title">Notificação de avaliação</div>
+        <div class="card-title"><span>Notificação de avaliação${infoTip('Controla como o fornecedor é avisado quando uma avaliação de serviço é reprovada ou parcialmente aprovada. O botão manual (que abre seu cliente de e-mail) continua disponível em qualquer modo.')}</span></div>
         <p class="cobranca-card-sub">Como o fornecedor é avisado da nota.</p>
 
         <div class="cobranca-field-row" style="grid-template-columns:1fr 1fr 1fr">
           <div class="form-group" style="margin-bottom:0">
-            <label>Modo</label>
+            <label>Modo${infoTip('Desligado: só o botão manual. Automático: o sistema envia sozinho, sem precisar de aprovação. Por aprovação: fica pendente até você clicar em "Aprovar e enviar" na avaliação.')}</label>
             <select id="cfg-notif-avaliacao-modo" onchange="document.getElementById('cfg-notif-avaliacao-intervalo-wrap').style.display = this.value === 'automatico' ? 'flex' : 'none'">
               <option value="desligado" ${d.notifAvaliacaoModo === 'desligado' ? 'selected' : ''}>Desligado</option>
               <option value="automatico" ${d.notifAvaliacaoModo === 'automatico' ? 'selected' : ''}>Automático</option>
@@ -628,7 +628,7 @@ async function renderAdConfig() {
           </div>
 
           <div id="cfg-notif-avaliacao-intervalo-wrap" class="form-group" style="margin-bottom:0; display:${d.notifAvaliacaoModo === 'automatico' ? 'flex' : 'none'}; flex-direction:column">
-            <label>Enviar depois de</label>
+            <label>Enviar depois de${infoTip('Quanto tempo o sistema espera, depois da avaliação, antes de mandar o e-mail sozinho. "No momento" manda assim que possível.')}</label>
             <select id="cfg-notif-avaliacao-intervalo">
               <option value="0" ${d.notifAvaliacaoIntervaloHoras === 0 ? 'selected' : ''}>No momento</option>
               <option value="24" ${d.notifAvaliacaoIntervaloHoras === 24 ? 'selected' : ''}>24 horas</option>
@@ -637,7 +637,7 @@ async function renderAdConfig() {
           </div>
 
           <div class="form-group" style="margin-bottom:0">
-            <label>Notificar quando</label>
+            <label>Notificar quando${infoTip('Marque as situações que devem disparar a notificação automática/por aprovação. Pode marcar as duas, uma só, ou nenhuma (aí só o botão manual funciona).')}</label>
             <div id="cfg-notif-situacoes-chips" style="display:flex; gap:6px; margin-top:2px">
               <span class="notif-sit-chip ${(d.notifAvaliacaoSituacoes || ['reprovado']).includes('reprovado') ? 'active' : ''}" data-sit="reprovado" onclick="toggleChipSituacao(this)">Reprovada</span>
               <span class="notif-sit-chip ${(d.notifAvaliacaoSituacoes || []).includes('parcial') ? 'active' : ''}" data-sit="parcial" onclick="toggleChipSituacao(this)">Parcial</span>
@@ -649,7 +649,7 @@ async function renderAdConfig() {
       </div>
 
       <div class="card" style="margin-bottom:0">
-        <div class="card-title">Notificações internas</div>
+        <div class="card-title"><span>Notificações internas${infoTip('Quando ligado, os admins marcados como "recebe notificação" (em Usuários) recebem um e-mail na hora — sem esperar cron — assim que um fornecedor envia documento, ou um avaliador conclui uma avaliação.')}</span></div>
         <p class="cobranca-card-sub">Avisa admins na hora.</p>
 
         <div class="cobranca-toggle-row" style="margin-bottom:0">

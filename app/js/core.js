@@ -206,6 +206,19 @@ async function carregarLogs() {
   });
 }
 
+// Bolinha com "!" ao lado de um rótulo/título — passa o mouse (desktop) ou
+// clica (mobile) que mostra a explicação. Usa pra substituir aqueles
+// parágrafos grandes de texto explicativo por algo sob demanda.
+function infoTip(texto) {
+  return `<span class="info-tip" tabindex="0" onclick="event.stopPropagation(); this.classList.toggle('show')">
+    <svg class="ic-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+    <span class="info-tip-bubble">${texto}</span>
+  </span>`;
+}
+document.addEventListener('click', () => {
+  document.querySelectorAll('.info-tip.show').forEach(el => el.classList.remove('show'));
+});
+
 function toast(msg, dur = 2800) {
   const t = document.getElementById('toast');
   t.textContent = msg;
