@@ -1746,4 +1746,3 @@ async function salvarDescontoOcorrencia() {
   addLog('desconto_ocorrencia_atualizado', `${currentUser.email} ${ativo ? 'ligou' : 'desligou'} o desconto por ocorrência`);
   toast('Configuração salva!');
 }
-
