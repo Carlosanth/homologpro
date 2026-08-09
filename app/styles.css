@@ -1016,7 +1016,7 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 20px;
-  align-items: start;
+  align-items: stretch;
 }
 .cobranca-cards .card {
   margin-bottom: 0;
