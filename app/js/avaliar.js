@@ -370,6 +370,16 @@ async function enviarAvaliacao() {
 
   const payload = {
     formulario_id: form.id,
+    // Congela a estrutura do formulário no momento do envio. A partir daqui,
+    // editar ou arquivar o formulário "form" original não muda mais nada
+    // nesta avaliação — ela sempre vai reler estes dados aqui, não a tabela
+    // "formularios" ao vivo.
+    formulario_snapshot: {
+      nome: form.nome,
+      setor: form.setor,
+      criterios: form.criterios,
+      descricaoAvaliado: form.descricaoAvaliado || null,
+    },
     fornecedor_id: assoc.fornecedorId,
     usuario_id: currentUser.id,
     periodo: chaveMes,
