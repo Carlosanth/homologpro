@@ -702,10 +702,23 @@ async function aprovarPendenteAprovacao(pendenteId) {
 
 async function rejeitarPendenteAprovacao(pendenteId) {
   const motivo = prompt('Motivo da rejeição (opcional, o fornecedor não vê isso — é só pra seu controle):') || null;
+
+  const d = db();
+  const p = (d.documentosPendentesAprovacao || []).find(x => x.id === pendenteId);
+
   const { error } = await supabaseClient.from('documentos_pendentes_aprovacao').update({
     status: 'rejeitado', motivo_rejeicao: motivo, revisado_por: currentUser.id, revisado_em: new Date().toISOString(),
   }).eq('id', pendenteId);
   if (error) { toast('Erro ao rejeitar: ' + error.message); return; }
+
+  // O registro em si fica no banco pra histórico/auditoria (quem rejeitou,
+  // quando e por quê) — só o arquivo em si é removido do R2, já que um
+  // documento rejeitado não serve mais pra nada e não vale a pena manter
+  // ocupando espaço de armazenamento.
+  if (p && p.caminhoStorage) {
+    try { await r2Remover(p.caminhoStorage); }
+    catch (e) { console.error('Falha ao remover arquivo rejeitado do R2:', e); }
+  }
 
   addLog('documento_pendente_rejeitado', `${currentUser.email} rejeitou um documento enviado pelo portal`);
   await carregarDocumentosPendentesAprovacao();
