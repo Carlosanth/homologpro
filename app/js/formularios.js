@@ -38,7 +38,7 @@ function renderAdFormularios() {
           <div class="form-group"><label>Tipo</label><select id="nfm-tipo"><option value="servico">Serviço</option><option value="produto">Produto</option></select></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>Prazo de entrega (dia do mês)</label><input type="number" id="nfm-prazo-dia" min="1" max="28" placeholder="Ex: 5 (dia 5 de cada mês)"></div>
+          <div class="form-group"><label>Prazo de entrega (dias úteis a partir do 1º dia útil do mês)</label><input type="number" id="nfm-prazo-dia" min="1" max="22" placeholder="Ex: 10 (10 dias úteis após o 1º dia útil do mês)"></div>
           <div></div>
         </div>
 
@@ -66,7 +66,7 @@ function renderAdFormularios() {
             <select id="assoc-email">${d.usuarios.filter(u=>u.papel==='avaliador').map(u => `<option value="${escapeHtml(u.email)}">${escapeHtml(u.email)}</option>`).join('')}</select>
           </div>
           <div class="form-group"><label>Formulário</label>
-            <select id="assoc-form">${d.formularios.map(f => `<option value="${f.id}">${escapeHtml(f.nome)}</option>`).join('')}</select>
+            <select id="assoc-form">${d.formularios.filter(f => !f.arquivadoEm).map(f => `<option value="${f.id}">${escapeHtml(f.nome)}</option>`).join('')}</select>
           </div>
           <div class="form-group"><label>Fornecedor vinculado</label>
             <select id="assoc-fornecedor"><option value="">Selecione um fornecedor...</option>${d.fornecedores.map(fn => `<option value="${fn.id}">${escapeHtml(fn.nome)}</option>`).join('')}</select>
@@ -278,6 +278,10 @@ function editarFormulario(id) {
   const d = db();
   const f = d.formularios.find(x => x.id === id);
   if (!f) return;
+  if (d.avaliacoes.some(av => av.formularioId === id)) {
+    alert('Este formulário já possui avaliações registradas e não pode mais ser editado. Arquive-o e crie um novo, se precisar mudar algo.');
+    return;
+  }
 
   window._editandoFormularioId = id;
   window._criterioBuilder = f.criterios.map(c => ({
@@ -323,6 +327,12 @@ function cancelarEdicaoFormulario() {
 }
 
 async function salvarNovoFormulario() {
+  const d = db();
+  if (window._editandoFormularioId && d.avaliacoes.some(av => av.formularioId === window._editandoFormularioId)) {
+    toast('Este formulário já possui avaliações registradas e não pode mais ser editado.');
+    return;
+  }
+
   const nome = document.getElementById('nfm-nome').value.trim();
   const setor = document.getElementById('nfm-setor').value.trim();
   const descricaoAvaliado = document.getElementById('nfm-descricao-avaliado').value.trim();
@@ -434,28 +444,59 @@ function renderFormulariosCatalogo() {
   const wrap = document.getElementById('formularios-catalogo');
   if (!d.formularios.length) { wrap.innerHTML = '<div class="empty-state"><p>Nenhum formulário cadastrado.</p></div>'; return; }
   const modoLote = !!window._modoLote;
-  wrap.innerHTML = d.formularios.map(f => `
-    <div style="padding:12px 0; border-bottom:1px solid var(--border)">
+  // Um formulário fica imutável (sem editar/excluir) assim que existe pelo
+  // menos uma avaliação usando ele — mesma trava que existe no banco. Aqui
+  // só reflete isso na tela; quem garante de verdade é o trigger no Supabase.
+  const formIdsAvaliados = new Set(d.avaliacoes.map(av => av.formularioId));
+  wrap.innerHTML = d.formularios.map(f => {
+    const temAvaliacao = formIdsAvaliados.has(f.id);
+    const arquivado = !!f.arquivadoEm;
+    return `
+    <div style="padding:12px 0; border-bottom:1px solid var(--border); ${arquivado ? 'opacity:.6' : ''}">
       <div style="display:flex; justify-content:space-between; align-items:center">
         <div style="display:flex; align-items:center; gap:10px">
           ${modoLote ? `<input type="checkbox" class="lote-check" value="${f.id}" style="accent-color:var(--accent)">` : ''}
           <div>
             <span style="font-weight:500; font-size:13px">${escapeHtml(f.nome)}</span>
             <span class="tag-${f.tipo}" style="margin-left:8px">${f.tipo === 'produto' ? 'Produto' : 'Serviço'}</span>
-            ${f.prazoEntregaDia ? `<span class="badge badge-accent" style="margin-left:6px">Vence dia ${f.prazoEntregaDia}</span>` : ''}
+            ${f.prazoEntregaDia ? `<span class="badge badge-accent" style="margin-left:6px">Vence em ${fmtDataSimples(prazoFinalDiasUteis(new Date().getFullYear(), new Date().getMonth(), f.prazoEntregaDia).toISOString().slice(0,10))} (${f.prazoEntregaDia} dias úteis)</span>` : ''}
+            ${arquivado ? `<span class="badge" style="margin-left:6px; background:var(--text-muted); color:#fff">Arquivado</span>` : temAvaliacao ? `<span class="badge badge-accent" style="margin-left:6px">Já avaliado — travado</span>` : ''}
           </div>
         </div>
         <div style="display:flex; align-items:center; gap:10px">
           <span style="font-size:11px; color:var(--text-muted)">${f.criterios.length} critérios · máx ${f.criterios.reduce((s,c)=>s+c.pesoMax,0).toFixed(1)}P</span>
           <button class="btn btn-secondary btn-sm" onclick="verFormularioDetalhe('${f.id}')">Ver</button>
-          <button class="btn btn-secondary btn-sm" onclick="editarFormulario('${f.id}')">Editar</button>
+          ${!temAvaliacao ? `<button class="btn btn-secondary btn-sm" onclick="editarFormulario('${f.id}')">Editar</button>` : ''}
           <button class="btn btn-secondary btn-sm" onclick="duplicarFormularioAd('${f.id}')">Duplicar</button>
-          <button class="btn btn-danger btn-sm" onclick="removeFormularioAd('${f.id}')">Remover</button>
+          ${arquivado
+            ? `<button class="btn btn-secondary btn-sm" onclick="desarquivarFormularioAd('${f.id}')">Desarquivar</button>`
+            : `<button class="btn btn-secondary btn-sm" onclick="arquivarFormularioAd('${f.id}')">Arquivar</button>`}
+          ${!temAvaliacao ? `<button class="btn btn-danger btn-sm" onclick="removeFormularioAd('${f.id}')">Remover</button>` : ''}
         </div>
       </div>
       <p style="font-size:11px; color:var(--text-muted); margin-top:4px">Setor: ${f.setor} · ${f.criterios.map(c=>c.nome).join(', ')}${f.camposExtras && f.camposExtras.length ? ' · ' + f.camposExtras.map(c=>`${c.label}: ${c.valor}`).join(' · ') : ''}</p>
     </div>
-  `).join('');
+  `;
+  }).join('');
+}
+
+// Arquivar/desarquivar são simples UPDATE em "arquivado_em" — o trigger no
+// banco permite isso mesmo em formulário já avaliado (só bloqueia mudança
+// de conteúdo). Formulário arquivado some do dropdown de novas associações,
+// mas continua existindo pra não quebrar avaliações antigas que apontam pra ele.
+async function arquivarFormularioAd(id) {
+  if (!confirm('Arquivar este formulário? Ele deixa de aparecer para novas associações, mas continua existindo para avaliações já feitas.')) return;
+  const { error } = await supabaseClient.from('formularios').update({ arquivado_em: new Date().toISOString() }).eq('id', id);
+  if (error) { alert('Erro ao arquivar: ' + error.message); return; }
+  await carregarFormularios();
+  renderFormulariosCatalogo();
+}
+
+async function desarquivarFormularioAd(id) {
+  const { error } = await supabaseClient.from('formularios').update({ arquivado_em: null }).eq('id', id);
+  if (error) { alert('Erro ao desarquivar: ' + error.message); return; }
+  await carregarFormularios();
+  renderFormulariosCatalogo();
 }
 
 async function duplicarFormularioAd(id) {
@@ -489,7 +530,7 @@ function verFormularioDetalhe(id) {
     <h3>${escapeHtml(f.nome)}</h3>
     <p style="font-size:12px; color:var(--text-muted); margin-bottom:6px">Setor: ${f.setor} · ${f.tipo === 'produto' ? 'Produto' : 'Serviço'} · máx ${f.criterios.reduce((s,c)=>s+c.pesoMax,0).toFixed(1)}P</p>
     ${f.camposExtras && f.camposExtras.length ? `<p style="font-size:12px; color:var(--text-sec); margin-bottom:14px">${f.camposExtras.map(c=>`<b>${c.label}:</b> ${c.valor}`).join(' &nbsp;·&nbsp; ')}</p>` : ''}
-    ${f.prazoEntregaDia ? `<p style="font-size:12px; color:var(--accent); margin-bottom:14px">Prazo de entrega: dia ${f.prazoEntregaDia} de cada mês</p>` : ''}
+    ${f.prazoEntregaDia ? `<p style="font-size:12px; color:var(--accent); margin-bottom:14px">Prazo de entrega: ${f.prazoEntregaDia} dias úteis a partir do 1º dia útil do mês (este mês vence em ${fmtDataSimples(prazoFinalDiasUteis(new Date().getFullYear(), new Date().getMonth(), f.prazoEntregaDia).toISOString().slice(0,10))})</p>` : ''}
     ${f.criterios.map(c => `
       <div style="margin-bottom:12px">
         <p style="font-size:12px; font-weight:600">${escapeHtml(c.nome)} <span style="font-weight:400; color:var(--text-muted)">(até ${c.pesoMax.toFixed(1)}P)</span></p>
@@ -505,6 +546,10 @@ function verFormularioDetalhe(id) {
 async function removeFormularioAd(id) {
   const d = db();
   const f = d.formularios.find(x => x.id === id);
+  if (d.avaliacoes.some(av => av.formularioId === id)) {
+    alert('Este formulário já possui avaliações registradas e não pode ser excluído. Use "Arquivar" em vez disso.');
+    return;
+  }
   const emUso = d.associacoes.some(a => a.formularioId === id);
   if (emUso) {
     if (!confirm(`"${f.nome}" está associado a um ou mais e-mails. Remover o formulário também removerá essas associações. Continuar?`)) return;

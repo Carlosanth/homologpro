@@ -18,7 +18,10 @@ function contarPendentesAvaliador(d, usuarioId) {
     const jaPreenchido = d.avaliacoes.some(av => av.formularioId === form.id && av.fornecedorId === assoc.fornecedorId && av.usuarioId === usuarioId && av.periodo === chaveMes);
     if (jaPreenchido) return;
     pendentes++;
-    if (form.prazoEntregaDia && hoje.getDate() > form.prazoEntregaDia) atrasados++;
+    if (form.prazoEntregaDia) {
+      const prazoFinal = prazoFinalDiasUteis(hoje.getFullYear(), hoje.getMonth(), form.prazoEntregaDia);
+      if (hoje > prazoFinal) atrasados++;
+    }
   });
 
   return { pendentes, atrasados };
@@ -114,8 +117,9 @@ function renderAvFormularios() {
     let prazoLinha = '';
     if (form.prazoEntregaDia) {
       const hoje = new Date();
-      const venceEsteAno = hoje.getDate() > form.prazoEntregaDia && !jaPreenchido;
-      prazoLinha = `<span style="color:${venceEsteAno ? 'var(--danger)' : 'var(--text-muted)'}">Prazo: dia ${form.prazoEntregaDia}${venceEsteAno ? ' (atrasado)' : ''}</span>`;
+      const prazoFinal = prazoFinalDiasUteis(hoje.getFullYear(), hoje.getMonth(), form.prazoEntregaDia);
+      const atrasado = hoje > prazoFinal && !jaPreenchido;
+      prazoLinha = `<span style="color:${atrasado ? 'var(--danger)' : 'var(--text-muted)'}">Prazo: até ${fmtDataSimples(prazoFinal.toISOString().slice(0,10))} (${form.prazoEntregaDia} dias úteis)${atrasado ? ' — atrasado' : ''}</span>`;
     }
 
     const podeAbrirCard = !jaPreenchido || foiLiberado;

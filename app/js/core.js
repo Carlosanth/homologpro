@@ -42,6 +42,34 @@ function mesReferenciaLabel(periodo, mesesAntes) {
   while (mes < 1) { mes += 12; ano -= 1; }
   return `${MESES[mes]}/${ano}`;
 }
+
+// Prazo de entrega em dias úteis — reaproveita o campo "prazo_entrega_dia",
+// que passou a significar "quantidade de dias úteis a partir do 1º dia útil
+// do mês" em vez de "dia fixo do mês" (decisão registrada com o Carlos).
+// mes é 0-indexed (0 = janeiro), igual ao construtor nativo de Date.
+function primeiroDiaUtilDoMes(ano, mes) {
+  const d = new Date(ano, mes, 1);
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+  return d;
+}
+
+function somarDiasUteis(dataBase, diasUteis) {
+  const d = new Date(dataBase);
+  let contados = 1; // a própria dataBase (1º dia útil) já conta como o dia 1
+  while (contados < diasUteis) {
+    d.setDate(d.getDate() + 1);
+    if (d.getDay() !== 0 && d.getDay() !== 6) contados++;
+  }
+  return d;
+}
+
+// Data final do prazo pro mês informado, já pulando sábado/domingo.
+function prazoFinalDiasUteis(ano, mes, diasUteis) {
+  if (!diasUteis) return null;
+  const base = primeiroDiaUtilDoMes(ano, mes);
+  return somarDiasUteis(base, diasUteis);
+}
+
 let currentUser = null;
 let usuariosCache = []; // usuários (profiles) da empresa logada — populado por carregarUsuarios()
 let fornecedoresCache = []; // fornecedores da empresa logada — populado por carregarFornecedores()
@@ -724,6 +752,7 @@ async function carregarFormularios() {
     descricaoAvaliado: f.descricao_avaliado || '',
     prazoEntregaDia: f.prazo_entrega_dia,
     camposExtras: f.campos_extras || [],
+    arquivadoEm: f.arquivado_em,
   }));
 }
 
