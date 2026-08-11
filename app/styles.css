@@ -1694,7 +1694,7 @@ tr:hover td {
   border-radius: 12px;
   padding: 24px 26px;
   width: 100%;
-  max-width: 440px;
+  max-width: 1000px; /*440px;*/
   max-height: 85vh;
   overflow-y: auto;
 }
