@@ -144,6 +144,36 @@
     .top-brand-text span { display: none; }
     .docs-grid { grid-template-columns: 1fr; }
   }
+  /* ---------- Progresso (carregando / sucesso) ---------- */
+  .progresso-overlay {
+    position: fixed; inset: 0; background: rgba(8,60,81,0.18);
+    display: none; align-items: center; justify-content: center;
+    z-index: 600; opacity: 0; transition: opacity .15s;
+  }
+  .progresso-overlay.active { display: flex; opacity: 1; }
+  .progresso-card {
+    background: var(--surface); border-radius: 14px; padding: 30px 40px;
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    box-shadow: 0 12px 34px rgba(8,60,81,0.28); min-width: 180px;
+  }
+  .progresso-icone-wrap { width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; }
+  .progresso-spinner {
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 3px solid var(--border); border-top-color: var(--accent);
+    animation: progresso-girar .7s linear infinite;
+  }
+  @keyframes progresso-girar { to { transform: rotate(360deg); } }
+  .progresso-check-circle {
+    stroke: var(--border); stroke-dasharray: 138; stroke-dashoffset: 138;
+    transition: stroke-dashoffset .35s ease, stroke .2s;
+  }
+  .progresso-check-mark {
+    stroke: var(--success); stroke-dasharray: 40; stroke-dashoffset: 40;
+    transition: stroke-dashoffset .3s ease .2s;
+  }
+  .progresso-overlay.sucesso .progresso-check-circle { stroke: var(--success); stroke-dashoffset: 0; }
+  .progresso-overlay.sucesso .progresso-check-mark { stroke-dashoffset: 0; }
+  .progresso-texto { font-size: 13px; font-weight: 600; color: var(--text); }
 </style>
 </head>
 <body>
@@ -184,6 +214,19 @@
 
 <div class="toast" id="toast"></div>
 
+<div class="progresso-overlay" id="progresso-overlay">
+  <div class="progresso-card">
+    <div class="progresso-icone-wrap">
+      <div class="progresso-spinner" id="progresso-spinner" style="display:none"></div>
+      <svg id="progresso-check-svg" viewBox="0 0 52 52" width="42" height="42" style="display:none">
+        <circle class="progresso-check-circle" cx="26" cy="26" r="22" fill="none" stroke-width="3"/>
+        <path class="progresso-check-mark" d="M15 27 L22 34 L37 17" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="progresso-texto" id="progresso-texto">Carregando...</div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.0/dist/umd/supabase.js" integrity="sha384-3lSoufGjgosjqp3JDr/NReX3PjMd3SlC8wJ23CWFjB6DSFNf71I0DhcRTUm9MwgO" crossorigin="anonymous"></script>
 <script>
 const SUPABASE_URL = 'https://qmvfsgwzbrhbxyonntgh.supabase.co';
@@ -201,6 +244,36 @@ function toast(msg) {
   t.textContent = msg;
   t.style.display = 'block';
   setTimeout(() => { t.style.display = 'none'; }, 3500);
+}
+
+function mostrarCarregando(texto) {
+  const overlay = document.getElementById('progresso-overlay');
+  if (!overlay) return;
+  overlay.classList.remove('sucesso');
+  const spinner = document.getElementById('progresso-spinner');
+  const check = document.getElementById('progresso-check-svg');
+  if (spinner) spinner.style.display = 'block';
+  if (check) check.style.display = 'none';
+  document.getElementById('progresso-texto').textContent = texto;
+  overlay.classList.add('active');
+}
+
+function mostrarSucesso(texto, duracaoMs) {
+  const overlay = document.getElementById('progresso-overlay');
+  if (!overlay) return;
+  const spinner = document.getElementById('progresso-spinner');
+  const check = document.getElementById('progresso-check-svg');
+  if (spinner) spinner.style.display = 'none';
+  if (check) check.style.display = 'block';
+  document.getElementById('progresso-texto').textContent = texto;
+  void overlay.offsetWidth; // força o navegador a "notar" o estado antes de animar
+  overlay.classList.add('sucesso');
+  setTimeout(() => { overlay.classList.remove('active'); }, duracaoMs || 1300);
+}
+
+function esconderProgresso() {
+  const overlay = document.getElementById('progresso-overlay');
+  if (overlay) overlay.classList.remove('active');
 }
 
 function fileParaBase64(file) {
@@ -444,7 +517,7 @@ async function enviarPlanoAcao(tipo, avaliacaoId) {
       return;
     }
 
-    toast('Plano de ação enviado!');
+    mostrarSucesso('Plano de ação enviado!');
     fecharModalPlanoAcao();
     carregar();
   } catch (e) {
@@ -514,7 +587,7 @@ async function enviarDocumento(docId) {
       return;
     }
 
-    toast('Documento enviado! Aguarde a aprovação.');
+    mostrarSucesso('Documento enviado! Aguarde a aprovação.', 2200);
     carregar();
   } catch (e) {
     toast('Erro ao enviar o arquivo.');
