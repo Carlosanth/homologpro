@@ -582,6 +582,8 @@ async function carregarPerfilELogar() {
     await carregarConferencias();
     await carregarUnidades();
     await carregarUnidadesDocumentos();
+  } else {
+    await carregarEmpresaConfig(); // versão enxuta (nome + periodo_avaliado_meses_antes)
   }
   await carregarAvaliacoes(); // depende de usuariosCache (se admin) pra resolver o e-mail de quem enviou
 
@@ -865,6 +867,26 @@ function situacaoDe(av) {
 
 // e colunas visíveis na listagem).
 async function carregarEmpresaConfig() {
+  const admin = ehAdmin(currentUser.papel);
+
+  // Avaliador não pode ver plano/cobrança/limites — só precisa do
+  // periodo_avaliado_meses_antes pra montar o rótulo "ref. Julho/2026"
+  // nos cards de "Meus formulários"/histórico.
+  if (!admin) {
+    const { data, error } = await supabaseClient
+      .from('empresas')
+      .select('nome, periodo_avaliado_meses_antes')
+      .eq('id', currentUser.empresaId)
+      .single();
+    if (error) { console.error('Erro ao carregar configurações da empresa:', error.message); return; }
+    empresaConfigCache = {
+      ...empresaConfigCache,
+      nome: data.nome || '',
+      periodo_avaliado_meses_antes: data.periodo_avaliado_meses_antes ?? 0,
+    };
+    return;
+  }
+
   const { data, error } = await supabaseClient
     .from('empresas')
     .select('nome, setor, campos_fornecedor_custom, colunas_fornecedor_visiveis, tipos_documento, faixas_conceito_produto, desconto_ocorrencia_ativo, valor_desconto_ocorrencia, anos_retencao_avaliacao, config, status, plano, trial_termina_em, limite_fornecedores, limite_admins, cobranca_automatica_ativa, cobranca_automatica_frequencia, tolerancia_documentos_meses, lembrete_avaliador_ativo, lembrete_avaliador_frequencia, notificar_atividade_ativo, notif_avaliacao_modo, notif_avaliacao_intervalo_horas, notif_avaliacao_situacoes, periodo_avaliado_meses_antes, valor_mensal_atual, plano_ativo_desde, proxima_cobranca_em, proximo_valor_mensal, proximo_reajuste_em, enterprise_composicao, desconto_doc_vencido_ativo, valor_desconto_doc_vencido, conferencia_cabecalho, exclusao_confirmada_em, exclusao_agendada_para')
