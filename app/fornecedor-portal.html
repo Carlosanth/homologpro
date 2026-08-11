@@ -25,9 +25,10 @@
     height: 58px; background: var(--navy); color: #fff; padding: 0 20px;
     display: flex; align-items: center; gap: 10px;
   }
-  .top-brand-seal { width: 26px; height: 26px; flex-shrink: 0; }
-  .top-brand-text b { font-size: 14px; display: block; }
-  .top-brand-text span { font-size: 11px; color: rgba(226,232,240,0.7); }
+  .top-brand-seal { width: 26px; height: 26px; flex-shrink: 0; color: var(--tan); }
+  .top-brand-text b { font-size: 14px; display: block; font-weight: 700; }
+  .top-brand-text b .logo-tag { color: var(--tan); }
+  .top-brand-text .top-brand-sub { font-size: 11px; color: rgba(226,232,240,0.7); display: block; }
 
   .wrap { max-width: 800px; margin: 0 auto; padding: 32px 20px 20px; }
   .docs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; align-items: start; }
@@ -141,7 +142,7 @@
 
   @media (max-width: 420px) {
     .doc-fields { flex-direction: column; gap: 12px; }
-    .top-brand-text span { display: none; }
+    .top-brand-text .top-brand-sub { display: none; }
     .docs-grid { grid-template-columns: 1fr; }
   }
   /* ---------- Progresso (carregando / sucesso) ---------- */
@@ -185,8 +186,8 @@
     <path d="M40 61 L53 75 L82 45" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>
   <div class="top-brand-text">
-    <b>HomologPro</b>
-    <span>Gestão de Qualificação de Fornecedores</span>
+    <b>Homolog<span class="logo-tag">Pro</span></b>
+    <span class="top-brand-sub">Gestão de Qualificação de Fornecedores</span>
   </div>
 </div>
 
@@ -587,7 +588,7 @@ async function enviarDocumento(docId) {
       return;
     }
 
-    mostrarSucesso('Documento enviado! Aguarde a aprovação.', 2200);
+    mostrarSucesso('Documento enviado!');
     carregar();
   } catch (e) {
     toast('Erro ao enviar o arquivo.');
