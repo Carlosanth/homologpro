@@ -235,11 +235,12 @@ function renderAvFormularios() {
           <div>
             <h4>${fornecedor ? fornecedor.nome : 'Fornecedor a definir'}</h4>
             <p>${form.nome} · ${MESES[mesAtual]} de ${anoAtual}${refLabel ? ` · ref. ${refLabel}` : ''}</p>
+            ${form.descricaoAvaliado ? `<p style="margin-top:2px; font-size:12px; color:var(--text-muted)">${escapeHtml(form.descricaoAvaliado)}</p>` : ''}
             ${camposLinha || prazoLinha ? `<p style="margin-top:4px; font-size:11px; color:var(--text-muted)">${[camposLinha, prazoLinha].filter(Boolean).join(' &nbsp;·&nbsp; ')}</p>` : ''}
           </div>
           <span class="form-card-status ${foiLiberado ? 'pending' : jaPreenchido ? 'ok' : 'pending'}">${foiLiberado ? 'Reenviar' : jaPreenchido ? 'Enviado' : 'Pendente'}</span>
         </div>
-        ${jaPreenchido ? `<div style="margin-top:10px; font-size:12px; color:var(--text-muted)">${avaliacoesDoMes.length > 1 ? `${avaliacoesDoMes.length} atendimentos avaliados · ` : ''}Nota mais recente: <b style="color:var(--text)">${jaPreenchido.nota !== null ? jaPreenchido.nota.toFixed(1) : '—'}</b> · enviado em ${fmtData(jaPreenchido.enviadoEm)}</div>` : `<div style="margin-top:10px; font-size:12px; color:var(--text-muted)">Setor: ${form.setor}${form.descricaoAvaliado ? ` · ${escapeHtml(form.descricaoAvaliado)}` : ''}</div>`}
+        ${jaPreenchido ? `<div style="margin-top:10px; font-size:12px; color:var(--text-muted)">${avaliacoesDoMes.length > 1 ? `${avaliacoesDoMes.length} atendimentos avaliados · ` : ''}Nota mais recente: <b style="color:var(--text)">${jaPreenchido.nota !== null ? jaPreenchido.nota.toFixed(1) : '—'}</b> · enviado em ${fmtData(jaPreenchido.enviadoEm)}</div>` : `<div style="margin-top:10px; font-size:12px; color:var(--text-muted)">Setor: ${form.setor}</div>`}
         ${jaPreenchido && !foiLiberado ? `<div style="margin-top:10px"><button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); abrirFormulario('${assoc.id}', true)">+ Avaliar outro atendimento</button></div>` : ''}
       </div>
     `;
