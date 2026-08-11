@@ -739,6 +739,19 @@ body {
   flex-shrink: 0;
 }
 
+.nav-badge {
+  margin-left: auto;
+  background: var(--danger, #e5484d);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 999px;
+  min-width: 16px;
+  text-align: center;
+}
+
 .nav-sep {
   height: 1px;
   background: var(--border);
