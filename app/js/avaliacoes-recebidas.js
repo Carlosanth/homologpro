@@ -177,6 +177,26 @@ function linhaCriterioHTML(c, r) {
   </div>`;
 }
 
+// Para a cobrança diária do plano de ação (cron cobranca-plano-acao-pendente).
+// Fica registrado quem marcou e quando — não é reversível pela UI de propósito
+// (se precisar reabrir, é direto no banco).
+async function marcarPlanoAcaoResolvido(avaliacaoId) {
+  if (!confirm('Marcar o plano de ação como resolvido? Isso para os lembretes diários pro fornecedor.')) return;
+
+  const { error } = await supabaseClient.from('avaliacoes').update({
+    plano_acao_resolvido_em: new Date().toISOString(),
+    plano_acao_resolvido_por: currentUser.id,
+  }).eq('id', avaliacaoId);
+
+  if (error) { toast('Erro ao marcar como resolvido: ' + error.message); return; }
+
+  addLog('plano_acao_resolvido', `${currentUser.email} marcou o plano de ação da avaliação ${avaliacaoId} como resolvido.`);
+  toast('Plano de ação marcado como resolvido.');
+  await carregarAvaliacoes();
+  closeModal();
+  renderConteudoAvaliacoesAd();
+}
+
 function verDetalheAvaliacao(id) {
   const d = db();
   const av = d.avaliacoes.find(a => a.id === id);
@@ -203,13 +223,21 @@ function verDetalheAvaliacao(id) {
     ${!av.semServico && sit === 'reprovado' ? blocoPlanoAcaoHtml('servico', av) : ''}
     <div class="no-print" style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px">
       ${!av.semServico && (sit === 'reprovado' || sit === 'parcial') ? (
-        av.planoAcaoAnexo
-          ? `<span style="margin-right:auto; font-size:12px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:4px">${ic('check', 13)}Plano de ação enviado</span>`
+        av.planoAcaoResolvidoEm
+          ? `<span style="margin-right:auto; font-size:12px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:4px">${ic('check', 13)}Plano de ação resolvido em ${new Date(av.planoAcaoResolvidoEm).toLocaleDateString('pt-BR')}</span>`
+          : av.planoAcaoAnexo
+          ? `
+        <div style="margin-right:auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap">
+          <span style="font-size:12px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:4px">${ic('check', 13)}Plano de ação enviado</span>
+          <button class="btn btn-primary btn-sm" onclick="marcarPlanoAcaoResolvido('${av.id}')">Marcar como resolvido</button>
+        </div>
+      `
           : `
         <div style="margin-right:auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap">
           ${av.notificadoEm ? `<span style="font-size:12px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:4px">${ic('mail', 13)}Cobrado em ${new Date(av.notificadoEm).toLocaleDateString('pt-BR')}</span>` : ''}
           <button class="btn ${av.notificadoEm ? 'btn-secondary' : 'btn-primary'} btn-sm" onclick="notificarFornecedorNota('${av.id}')" style="display:inline-flex; align-items:center; gap:6px">${ic('mail', 13)}${av.notificadoEm ? 'Notificar novamente' : 'Notificar por e-mail'}</button>
           ${d.notifAvaliacaoModo === 'aprovacao' && (d.notifAvaliacaoSituacoes || ['reprovado']).includes(sit) ? `<button class="btn btn-primary btn-sm" onclick="aprovarEnviarNotificacaoAutomatica('${av.id}')" style="display:inline-flex; align-items:center; gap:6px">${ic('check', 13)}${av.notificadoEm ? 'Reenviar (HTML)' : 'Aprovar e enviar (HTML)'}</button>` : ''}
+          <button class="btn btn-secondary btn-sm" onclick="marcarPlanoAcaoResolvido('${av.id}')">Marcar como resolvido</button>
         </div>
       `) : ''}
       <button class="btn btn-secondary" onclick="window.print()">Imprimir</button>

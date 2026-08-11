@@ -850,6 +850,7 @@ async function carregarAvaliacoes() {
       planoAcaoPrazo: av.plano_acao_prazo || null,
       planoAcaoAnexo: av.plano_acao_anexo || null,
       planoAcaoVistoEm: av.plano_acao_visto_em || null,
+      planoAcaoResolvidoEm: av.plano_acao_resolvido_em || null,
       situacao: av.situacao || null,
     };
   });
@@ -986,6 +987,7 @@ async function carregarAvaliacoesProduto() {
     notificadoEm: av.notificado_em || null,
     planoAcaoPrazo: av.plano_acao_prazo || null,
     planoAcaoAnexo: av.plano_acao_anexo || null,
+    planoAcaoResolvidoEm: av.plano_acao_resolvido_em || null,
   }));
 }
 
