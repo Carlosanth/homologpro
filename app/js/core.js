@@ -847,6 +847,7 @@ async function carregarAvaliacoes() {
       notificadoEm: av.notificado_em || null,
       planoAcaoPrazo: av.plano_acao_prazo || null,
       planoAcaoAnexo: av.plano_acao_anexo || null,
+      planoAcaoVistoEm: av.plano_acao_visto_em || null,
       situacao: av.situacao || null,
     };
   });
@@ -1246,6 +1247,12 @@ function openModal(html) {
 }
 function closeModal() {
   document.getElementById('modal-overlay').classList.remove('active');
+  // Preview de anexo (avaliar.js) guarda a blob URL aberta numa variável
+  // global — libera ela aqui pra não vazar memória entre um preview e outro.
+  if (typeof _blobUrlAtualPreview !== 'undefined' && _blobUrlAtualPreview) {
+    URL.revokeObjectURL(_blobUrlAtualPreview);
+    _blobUrlAtualPreview = null;
+  }
 }
 document.getElementById('modal-overlay').addEventListener('click', (e) => {
   if (e.target.id === 'modal-overlay') closeModal();

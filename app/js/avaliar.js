@@ -28,6 +28,7 @@ function contarPendentesAvaliador(d, usuarioId) {
 }
 
 function renderAvaliadorShell() {
+  const totalNotif = contarNotificacoesAvaliador(db(), currentUser.id);
   document.getElementById('sidebar').innerHTML = `
     <div class="sidebar-logo"><h1>HomologPro</h1><p>Área do avaliador</p></div>
     <div class="sidebar-user">
@@ -46,6 +47,11 @@ function renderAvaliadorShell() {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       Histórico de envios
     </button>
+    <button class="nav-item" onclick="showAvPage('notificacoes', this)">
+      ${ic('bell', 16)}
+      Notificações
+      <span class="nav-badge" id="av-nav-notif-badge" style="display:${totalNotif > 0 ? 'inline-flex' : 'none'}">${totalNotif}</span>
+    </button>
     <div class="nav-logout">
       <button class="nav-item" onclick="doLogout()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -56,6 +62,7 @@ function renderAvaliadorShell() {
   document.getElementById('main').innerHTML = `
     <div class="page active" id="av-page-formularios"></div>
     <div class="page" id="av-page-historico"></div>
+    <div class="page" id="av-page-notificacoes"></div>
   `;
   renderAvFormularios();
 }
@@ -67,6 +74,105 @@ function showAvPage(page, btn) {
   document.getElementById('av-page-' + page).classList.add('active');
   if (page === 'formularios') renderAvFormularios();
   if (page === 'historico') renderAvHistorico();
+  if (page === 'notificacoes') renderAvNotificacoes();
+}
+
+// ---------- NOTIFICAÇÕES (plano de ação recebido + liberação de edição) ----------
+// Contador não bate no banco: usa o mesmo avaliacoesCache que já alimenta
+// "Meus formulários"/"Histórico" (carregado inteiro no login), então isso
+// é só um filtro em memória — não pesa nada a mais no portal.
+function contarNotificacoesAvaliador(d, usuarioId) {
+  const minhas = (d.avaliacoes || []).filter(av => av.usuarioId === usuarioId);
+  const planosNaoVistos = minhas.filter(av => av.planoAcaoAnexo && !av.planoAcaoVistoEm).length;
+  // Liberação de edição "se resolve sozinha": liberado_edicao volta pra
+  // false automaticamente quando o avaliador reenvia a avaliação corrigida
+  // (ver enviarAvaliacao) — não precisa de campo "visto" separado pra isso.
+  const liberacoesPendentes = minhas.filter(av => av.liberadoEdicao).length;
+  return planosNaoVistos + liberacoesPendentes;
+}
+
+function atualizarBadgeNotificacoesAvaliador() {
+  const el = document.getElementById('av-nav-notif-badge');
+  if (!el) return;
+  const n = contarNotificacoesAvaliador(db(), currentUser.id);
+  el.textContent = n;
+  el.style.display = n > 0 ? 'inline-flex' : 'none';
+}
+
+function renderAvNotificacoes() {
+  const d = db();
+  const minhas = d.avaliacoes.filter(av => av.usuarioId === currentUser.id);
+  const planos = minhas.filter(av => av.planoAcaoAnexo && !av.planoAcaoVistoEm)
+    .sort((a, b) => new Date(b.planoAcaoAnexo.enviadoEm) - new Date(a.planoAcaoAnexo.enviadoEm));
+  const liberacoes = minhas.filter(av => av.liberadoEdicao)
+    .sort((a, b) => new Date(b.enviadoEm) - new Date(a.enviadoEm));
+
+  const wrap = document.getElementById('av-page-notificacoes');
+
+  if (!planos.length && !liberacoes.length) {
+    wrap.innerHTML = `
+      <div class="page-header"><div><h2>Notificações</h2><p>Avisos sobre suas avaliações</p></div></div>
+      <div class="card"><div class="empty-state"><p>Nada novo por aqui.</p></div></div>`;
+    return;
+  }
+
+  const itemHtml = (av, tipo) => {
+    const form = d.formularios.find(f => f.id === av.formularioId);
+    const fornecedor = d.fornecedores.find(f => f.id === av.fornecedorId);
+    const dataRef = tipo === 'plano' ? av.planoAcaoAnexo.enviadoEm : av.enviadoEm;
+    const onclick = tipo === 'plano' ? `abrirNotificacaoPlanoAcao('${av.id}')` : `verDetalheAvaliacao('${av.id}')`;
+    return `
+      <div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); cursor:pointer" onclick="${onclick}">
+        ${ic(tipo === 'plano' ? 'fileText' : 'bell', 15)}
+        <div style="flex:1">
+          <div style="font-size:12.5px; font-weight:500">${form ? form.nome : '—'}${fornecedor ? ` · ${fornecedor.nome}` : ''}</div>
+          <div style="font-size:11px; color:var(--text-muted)">${tipo === 'plano' ? 'Plano de ação enviado pelo fornecedor' : 'Edição liberada pelo admin — reenvie a avaliação'} · ${fmtData(dataRef)}</div>
+        </div>
+      </div>`;
+  };
+
+  wrap.innerHTML = `
+    <div class="page-header">
+      <div><h2>Notificações</h2><p>Avisos sobre suas avaliações</p></div>
+      ${planos.length ? `<button class="btn btn-secondary btn-sm" onclick="marcarTodasNotificacoesVistas()">Marcar tudo como lido</button>` : ''}
+    </div>
+    ${liberacoes.length ? `
+      <div class="card" style="margin-bottom:14px">
+        <b style="font-size:13px">Edições liberadas (${liberacoes.length})</b>
+        ${liberacoes.map(av => itemHtml(av, 'liberacao')).join('')}
+      </div>` : ''}
+    ${planos.length ? `
+      <div class="card">
+        <b style="font-size:13px">Planos de ação recebidos (${planos.length})</b>
+        ${planos.map(av => itemHtml(av, 'plano')).join('')}
+      </div>` : ''}
+  `;
+}
+
+async function abrirNotificacaoPlanoAcao(avId) {
+  await marcarNotificacaoVista(avId);
+  verDetalheAvaliacao(avId);
+}
+
+async function marcarNotificacaoVista(avId) {
+  const agora = new Date().toISOString();
+  const { error } = await supabaseClient.from('avaliacoes').update({ plano_acao_visto_em: agora }).eq('id', avId);
+  if (error) { console.error('Erro ao marcar notificação como vista:', error.message); return; }
+  const av = db().avaliacoes.find(a => a.id === avId);
+  if (av) av.planoAcaoVistoEm = agora;
+  atualizarBadgeNotificacoesAvaliador();
+}
+
+async function marcarTodasNotificacoesVistas() {
+  const d = db();
+  const pendentes = d.avaliacoes.filter(av => av.usuarioId === currentUser.id && av.planoAcaoAnexo && !av.planoAcaoVistoEm);
+  if (!pendentes.length) return;
+  const agora = new Date().toISOString();
+  const { error } = await supabaseClient.from('avaliacoes').update({ plano_acao_visto_em: agora }).in('id', pendentes.map(av => av.id));
+  if (error) { toast('Erro ao marcar como lido: ' + error.message); return; }
+  pendentes.forEach(av => { av.planoAcaoVistoEm = agora; });
+  atualizarBadgeNotificacoesAvaliador();
+  renderAvNotificacoes();
 }
 
 function renderAvFormularios() {
@@ -429,9 +535,21 @@ async function enviarAvaliacao() {
     supabaseClient.functions.invoke('enviar-avaliacao-html', { body: { avaliacaoId: avaliacaoIdSalva, instantaneo: true } }).catch(() => {});
   }
 
-  toast('Avaliação concluída! Clique em "Enviar notificação" quando quiser avisar o admin.');
   await carregarAvaliacoes();
   renderAvFormularios();
+  atualizarBadgeNotificacoesAvaliador();
+
+  // Só pede pra clicar em "Enviar notificação" quando essa era a ÚLTIMA
+  // avaliação pendente do mês — evita o avaliador ficar clicando o botão
+  // a cada formulário enviado. Se ele não enviar mesmo assim, o cron de
+  // varredura notifica o admin sozinho depois; isso aqui é só um empurrão
+  // de UX, não é a única garantia de que o admin é avisado.
+  const { pendentes } = contarPendentesAvaliador(db(), currentUser.id);
+  if (pendentes === 0) {
+    mostrarSucesso('Última avaliação enviada! Clique em "Enviar notificação" para avisar o admin.', 2600);
+  } else {
+    mostrarSucesso('Avaliação concluída!');
+  }
 }
 
 async function notificarAvaliacoesConcluidas() {
@@ -499,18 +617,20 @@ function renderAvHistorico() {
       ${!minhasAvaliacoes.length ? '<div class="empty-state"><p>Nenhuma avaliação encontrada para esse período.</p></div>' : `
       <div style="overflow-x:auto">
       <table>
-        <thead><tr><th>Formulário</th><th>Período</th><th style="text-align:center">Nota</th><th>Situação</th><th>Enviado em</th></tr></thead>
+        <thead><tr><th>Formulário</th><th>Período</th><th style="text-align:center">Nota</th><th>Situação</th><th>Enviado em</th><th></th></tr></thead>
         <tbody>
           ${minhasAvaliacoes.map(av => {
             const form = d.formularios.find(f => f.id === av.formularioId);
             const [ano, mes] = av.periodo.split('-');
             const sit = situacaoDe(av);
+            const temAnexo = (av.anexos && av.anexos.length) || av.planoAcaoAnexo;
             return `<tr style="cursor:pointer" onclick="verDetalheAvaliacao('${av.id}')">
               <td style="font-weight:500">${form ? form.nome : '—'}</td>
               <td>${MESES[parseInt(mes)]}/${ano}</td>
               <td style="text-align:center; font-weight:600">${av.semServico ? '—' : av.nota.toFixed(1)}</td>
               <td>${av.semServico ? '<span class="badge badge-neutral">Sem serviço</span>' : badgeSit(sit)}</td>
               <td style="color:var(--text-muted)">${fmtData(av.enviadoEm)}</td>
+              <td>${temAnexo ? `<button class="btn btn-secondary btn-sm" title="Ver anexos" onclick="event.stopPropagation(); abrirPopupAnexos('${av.id}')" style="display:inline-flex; align-items:center; padding:5px 7px">${ic('paperclip', 14)}</button>` : ''}</td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -520,8 +640,86 @@ function renderAvHistorico() {
   `;
 }
 
+// ---------- POPUP DE ANEXOS (histórico do avaliador) ----------
+// Fica separado do modal grande de verDetalheAvaliacao (que continua
+// mostrando tudo) — esse aqui é só um atalho rápido pros arquivos, com
+// preview inline pra PDF/imagem (sem forçar download).
+let _blobUrlAtualPreview = null;
 
-// ---------- AVALIAR (produto) ----------
+function extensaoArquivo(nome) {
+  const m = (nome || '').match(/\.([a-zA-Z0-9]+)$/);
+  return m ? m[1].toLowerCase() : '';
+}
+
+function tipoPreviewSuportado(nome) {
+  return ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp'].includes(extensaoArquivo(nome));
+}
+
+function abrirPopupAnexos(avId) {
+  const d = db();
+  const av = d.avaliacoes.find(a => a.id === avId);
+  if (!av) return;
+
+  const anexos = av.anexos || [];
+  const plano = av.planoAcaoAnexo;
+
+  const itemHtml = a => `
+    <div class="anexo-item" style="display:flex; align-items:center; gap:6px; padding:8px 0; border-bottom:1px solid var(--border)">
+      ${ic('paperclip', 13)}
+      <a href="#" onclick="event.preventDefault(); visualizarAnexoPopup('${escapeForInlineHandler(a.caminhoStorage)}', '${escapeForInlineHandler(a.nome)}')" style="flex:1">${escapeHtml(a.nome)}</a>
+      ${a.tamanho ? `<span style="color:var(--text-muted); font-size:11px">${a.tamanho}</span>` : ''}
+    </div>`;
+
+  openModal(`
+    <h3>Anexos</h3>
+    <div style="margin-bottom:${plano ? '18px' : '0'}">
+      <b style="font-size:12px">Anexos da avaliação (${anexos.length})</b>
+      ${anexos.length ? anexos.map(itemHtml).join('') : '<p style="font-size:12px; color:var(--text-muted); margin-top:6px">Nenhum anexo enviado.</p>'}
+    </div>
+    ${plano ? `
+      <div>
+        <b style="font-size:12px">Plano de ação do fornecedor</b>
+        ${itemHtml(plano)}
+        <p style="font-size:11px; color:var(--text-muted); margin-top:2px">Enviado em ${fmtData(plano.enviadoEm)}</p>
+      </div>` : ''}
+    <div style="display:flex; justify-content:flex-end; margin-top:16px">
+      <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
+    </div>
+  `);
+}
+
+async function visualizarAnexoPopup(caminhoStorage, nomeArquivo) {
+  if (!caminhoStorage) return;
+
+  if (!tipoPreviewSuportado(nomeArquivo)) {
+    // Tipo sem preview possível no navegador (ex: docx, xlsx) — baixa direto.
+    try { await r2Baixar(caminhoStorage, nomeArquivo); }
+    catch (error) { toast('Erro ao abrir anexo: ' + error.message); }
+    return;
+  }
+
+  openModal(`<div class="empty-state"><p>Carregando...</p></div>`);
+
+  try {
+    if (_blobUrlAtualPreview) { URL.revokeObjectURL(_blobUrlAtualPreview); _blobUrlAtualPreview = null; }
+    const blobUrl = await r2Visualizar(caminhoStorage);
+    _blobUrlAtualPreview = blobUrl;
+    const ehImagem = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(extensaoArquivo(nomeArquivo));
+
+    openModal(`
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:10px">
+        <h3 style="margin:0; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${escapeHtml(nomeArquivo)}</h3>
+        <button class="btn btn-secondary btn-sm" onclick="closeModal()">Fechar</button>
+      </div>
+      ${ehImagem
+        ? `<img src="${blobUrl}" style="max-width:100%; max-height:70vh; display:block; margin:0 auto; border-radius:8px">`
+        : `<iframe src="${blobUrl}" style="width:100%; height:70vh; border:none; border-radius:8px"></iframe>`}
+    `);
+  } catch (error) {
+    toast('Erro ao abrir anexo: ' + error.message);
+    closeModal();
+  }
+}
 let _abaAvaliarProduto = 'avaliar';
 
 function renderAdAvaliar() {

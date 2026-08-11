@@ -64,6 +64,18 @@ async function r2Baixar(caminho, nomeArquivoParaSalvar) {
   URL.revokeObjectURL(objUrl);
 }
 
+// Igual r2Baixar, mas devolve a blob URL em vez de forçar download — pra
+// exibir o arquivo dentro da própria página (preview inline, ex: PDF/imagem
+// num <iframe>/<img>). Quem chama é responsável por dar URL.revokeObjectURL
+// na URL quando não precisar mais dela (troca de preview ou fecha o popup).
+async function r2Visualizar(caminho) {
+  const url = await pedirUrlR2('download', caminho);
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`Falha ao abrir o arquivo (R2 respondeu ${resp.status}).`);
+  const blob = await resp.blob();
+  return URL.createObjectURL(blob);
+}
+
 async function r2Remover(caminho) {
   const url = await pedirUrlR2('delete', caminho);
   const resp = await fetch(url, { method: 'DELETE' });
