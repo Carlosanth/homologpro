@@ -625,14 +625,21 @@ function renderAvHistorico() {
             const form = d.formularios.find(f => f.id === av.formularioId);
             const [ano, mes] = av.periodo.split('-');
             const sit = situacaoDe(av);
-            const temAnexo = (av.anexos && av.anexos.length) || av.planoAcaoAnexo;
+            // Só um indicador — sem popup próprio. Os anexos de verdade (com
+            // download) já aparecem dentro de verDetalheAvaliacao, então aqui é
+            // só pro avaliador saber de relance que tem arquivo antes de abrir.
+            const listaAnexosTudo = [...(av.anexos || []), ...(av.planoAcaoAnexo ? [av.planoAcaoAnexo] : [])];
+            const qtdAnexos = listaAnexosTudo.length;
+            const indicadorAnexo = qtdAnexos
+              ? `<span style="display:inline-flex; align-items:center; gap:5px; color:var(--text-muted); font-size:12px" title="${listaAnexosTudo.map(a => escapeHtml(a.nome)).join(', ')}">${ic('paperclip', 13)}${qtdAnexos === 1 ? escapeHtml(listaAnexosTudo[0].nome) : qtdAnexos + ' anexos'}</span>`
+              : '';
             return `<tr style="cursor:pointer" onclick="verDetalheAvaliacao('${av.id}')">
               <td style="font-weight:500">${form ? form.nome : '—'}</td>
               <td>${MESES[parseInt(mes)]}/${ano}</td>
               <td style="text-align:center; font-weight:600">${av.semServico ? '—' : av.nota.toFixed(1)}</td>
               <td>${av.semServico ? '<span class="badge badge-neutral">Sem serviço</span>' : badgeSit(sit)}</td>
               <td style="color:var(--text-muted)">${fmtData(av.enviadoEm)}</td>
-              <td>${temAnexo ? `<button class="btn btn-secondary btn-sm" title="Ver anexos" onclick="event.stopPropagation(); abrirPopupAnexos('${av.id}')" style="display:inline-flex; align-items:center; padding:5px 7px">${ic('paperclip', 14)}</button>` : ''}</td>
+              <td>${indicadorAnexo}</td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -642,10 +649,10 @@ function renderAvHistorico() {
   `;
 }
 
-// ---------- POPUP DE ANEXOS (histórico do avaliador) ----------
-// Fica separado do modal grande de verDetalheAvaliacao (que continua
-// mostrando tudo) — esse aqui é só um atalho rápido pros arquivos, com
-// preview inline pra PDF/imagem (sem forçar download).
+// ---------- VISUALIZAÇÃO DE ANEXO (dentro do modal de detalhe da avaliação) ----------
+// Antes existia um popup próprio (fora do modal de detalhe) só pra listar
+// anexos — foi removido por duplicar o que verDetalheAvaliacao já mostra.
+// Isso aqui fica: dá preview inline de PDF/imagem sem forçar download.
 let _blobUrlAtualPreview = null;
 
 function extensaoArquivo(nome) {
@@ -657,40 +664,7 @@ function tipoPreviewSuportado(nome) {
   return ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp'].includes(extensaoArquivo(nome));
 }
 
-function abrirPopupAnexos(avId) {
-  const d = db();
-  const av = d.avaliacoes.find(a => a.id === avId);
-  if (!av) return;
-
-  const anexos = av.anexos || [];
-  const plano = av.planoAcaoAnexo;
-
-  const itemHtml = a => `
-    <div class="anexo-item" style="display:flex; align-items:center; gap:6px; padding:8px 0; border-bottom:1px solid var(--border)">
-      ${ic('paperclip', 13)}
-      <a href="#" onclick="event.preventDefault(); visualizarAnexoPopup('${escapeForInlineHandler(a.caminhoStorage)}', '${escapeForInlineHandler(a.nome)}')" style="flex:1">${escapeHtml(a.nome)}</a>
-      ${a.tamanho ? `<span style="color:var(--text-muted); font-size:11px">${a.tamanho}</span>` : ''}
-    </div>`;
-
-  openModal(`
-    <h3>Anexos</h3>
-    <div style="margin-bottom:${plano ? '18px' : '0'}">
-      <b style="font-size:12px">Anexos da avaliação (${anexos.length})</b>
-      ${anexos.length ? anexos.map(itemHtml).join('') : '<p style="font-size:12px; color:var(--text-muted); margin-top:6px">Nenhum anexo enviado.</p>'}
-    </div>
-    ${plano ? `
-      <div>
-        <b style="font-size:12px">Plano de ação do fornecedor</b>
-        ${itemHtml(plano)}
-        <p style="font-size:11px; color:var(--text-muted); margin-top:2px">Enviado em ${fmtData(plano.enviadoEm)}</p>
-      </div>` : ''}
-    <div style="display:flex; justify-content:flex-end; margin-top:16px">
-      <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
-    </div>
-  `);
-}
-
-async function visualizarAnexoPopup(caminhoStorage, nomeArquivo) {
+async function visualizarAnexo(caminhoStorage, nomeArquivo) {
   if (!caminhoStorage) return;
 
   if (!tipoPreviewSuportado(nomeArquivo)) {

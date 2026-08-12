@@ -815,8 +815,9 @@ async function salvarConfigCobrancaPlanoAcao() {
 }
 
 async function assinarPlano(plano) {
-  toast('Processando...');
+  mostrarCarregando('Processando...');
   const { data, error } = await supabaseClient.functions.invoke('criar-checkout-sessao', { body: { plano } });
+  esconderProgresso();
 
   if (error || !data || data.ok === false) {
     toast((data && data.error) || 'Não foi possível processar agora.');
