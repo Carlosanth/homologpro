@@ -488,6 +488,7 @@ async function enviarAvaliacao() {
     formulario_snapshot: {
       nome: form.nome,
       setor: form.setor,
+      tipo: form.tipo || null,
       criterios: form.criterios,
       descricaoAvaliado: form.descricaoAvaliado || null,
     },
