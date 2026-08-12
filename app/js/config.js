@@ -575,6 +575,32 @@ async function renderAdConfig() {
       </div>
 
       <div class="card" style="margin-bottom:0">
+        <div class="card-title"><span>Cobrança de plano de ação${infoTip('Quando ligado, o sistema manda sozinho um lembrete pro fornecedor que ainda não enviou o plano de ação de uma avaliação reprovada — reenviando os mesmos critérios/nota, com um selo amarelo de "lembrete" no lugar do vermelho. Para de cobrar quando você marcar como resolvido em Avaliações Recebidas.')}</span></div>
+        <p class="cobranca-card-sub">Avisa o fornecedor que ainda não mandou o plano de ação.</p>
+
+        <div class="cobranca-toggle-row">
+          <span>Ativar</span>
+          <label class="switch">
+            <input type="checkbox" id="cfg-plano-acao-cobranca-ativa" ${d.planoAcaoCobrancaAtiva ? 'checked' : ''}>
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+
+        <div style="display:flex; gap:8px; align-items:end">
+          <div class="form-group" style="margin-bottom:0; flex:1">
+            <label>Frequência (após o vencimento do prazo)</label>
+            <select id="cfg-plano-acao-cobranca-frequencia">
+              <option value="diaria" ${d.planoAcaoCobrancaFrequencia === 'diaria' ? 'selected' : ''}>Todo dia</option>
+              <option value="2dias" ${d.planoAcaoCobrancaFrequencia === '2dias' ? 'selected' : ''}>A cada 2 dias</option>
+              <option value="5dias" ${d.planoAcaoCobrancaFrequencia === '5dias' ? 'selected' : ''}>A cada 5 dias</option>
+              <option value="semanal" ${d.planoAcaoCobrancaFrequencia === 'semanal' ? 'selected' : ''}>1x/semana</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="salvarConfigCobrancaPlanoAcao()">Salvar</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:0">
         <div class="card-title"><span>Lembrete pros avaliadores${infoTip('Manda e-mail sozinho pro avaliador quando ele tem avaliação pendente/atrasada, com o link de acesso. Você também pode disparar manualmente em Usuários → "Enviar lembrete pra todos os pendentes".')}</span></div>
         <p class="cobranca-card-sub">Avisa quando tem avaliação pendente.</p>
 
@@ -768,6 +794,23 @@ async function salvarConfigCobrancaAutomatica() {
   empresaConfigCache.cobranca_automatica_frequencia = frequencia;
   empresaConfigCache.tolerancia_documentos_meses = tolerancia;
   addLog('config_cobranca_automatica', `${currentUser.email} ${ativa ? 'ativou' : 'desativou'} a cobrança automática (frequência: ${frequencia}, tolerância: ${tolerancia} meses)`);
+  toast('Configuração salva!');
+}
+
+async function salvarConfigCobrancaPlanoAcao() {
+  const ativa = document.getElementById('cfg-plano-acao-cobranca-ativa').checked;
+  const frequencia = document.getElementById('cfg-plano-acao-cobranca-frequencia').value;
+
+  const { error } = await supabaseClient.from('empresas').update({
+    plano_acao_cobranca_ativa: ativa,
+    plano_acao_cobranca_frequencia: frequencia,
+  }).eq('id', currentUser.empresaId);
+
+  if (error) { toast('Erro ao salvar: ' + error.message); return; }
+
+  empresaConfigCache.plano_acao_cobranca_ativa = ativa;
+  empresaConfigCache.plano_acao_cobranca_frequencia = frequencia;
+  addLog('config_cobranca_plano_acao', `${currentUser.email} ${ativa ? 'ativou' : 'desativou'} a cobrança automática de plano de ação (frequência: ${frequencia})`);
   toast('Configuração salva!');
 }
 

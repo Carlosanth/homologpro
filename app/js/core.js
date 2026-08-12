@@ -185,6 +185,8 @@ function db() {
     notifAvaliacaoIntervaloHoras: empresaConfigCache.notif_avaliacao_intervalo_horas ?? 24,
     notifAvaliacaoSituacoes: empresaConfigCache.notif_avaliacao_situacoes || ['reprovado'],
     periodoAvaliadoMesesAntes: empresaConfigCache.periodo_avaliado_meses_antes || 0,
+    planoAcaoCobrancaAtiva: empresaConfigCache.plano_acao_cobranca_ativa || false,
+    planoAcaoCobrancaFrequencia: empresaConfigCache.plano_acao_cobranca_frequencia || 'diaria',
     notificarAtividadeAtivo: empresaConfigCache.notificar_atividade_ativo,
     criteriosConferencia: criteriosConferenciaCache,
     conferencias: conferenciasCache,
@@ -890,7 +892,7 @@ async function carregarEmpresaConfig() {
 
   const { data, error } = await supabaseClient
     .from('empresas')
-    .select('nome, setor, campos_fornecedor_custom, colunas_fornecedor_visiveis, tipos_documento, faixas_conceito_produto, desconto_ocorrencia_ativo, valor_desconto_ocorrencia, anos_retencao_avaliacao, config, status, plano, trial_termina_em, limite_fornecedores, limite_admins, cobranca_automatica_ativa, cobranca_automatica_frequencia, tolerancia_documentos_meses, lembrete_avaliador_ativo, lembrete_avaliador_frequencia, notificar_atividade_ativo, notif_avaliacao_modo, notif_avaliacao_intervalo_horas, notif_avaliacao_situacoes, periodo_avaliado_meses_antes, valor_mensal_atual, plano_ativo_desde, proxima_cobranca_em, proximo_valor_mensal, proximo_reajuste_em, enterprise_composicao, desconto_doc_vencido_ativo, valor_desconto_doc_vencido, conferencia_cabecalho, exclusao_confirmada_em, exclusao_agendada_para')
+    .select('nome, setor, campos_fornecedor_custom, colunas_fornecedor_visiveis, tipos_documento, faixas_conceito_produto, desconto_ocorrencia_ativo, valor_desconto_ocorrencia, anos_retencao_avaliacao, config, status, plano, trial_termina_em, limite_fornecedores, limite_admins, cobranca_automatica_ativa, cobranca_automatica_frequencia, tolerancia_documentos_meses, lembrete_avaliador_ativo, lembrete_avaliador_frequencia, notificar_atividade_ativo, notif_avaliacao_modo, notif_avaliacao_intervalo_horas, notif_avaliacao_situacoes, periodo_avaliado_meses_antes, plano_acao_cobranca_ativa, plano_acao_cobranca_frequencia, valor_mensal_atual, plano_ativo_desde, proxima_cobranca_em, proximo_valor_mensal, proximo_reajuste_em, enterprise_composicao, desconto_doc_vencido_ativo, valor_desconto_doc_vencido, conferencia_cabecalho, exclusao_confirmada_em, exclusao_agendada_para')
     .eq('id', currentUser.empresaId)
     .single();
 
@@ -987,7 +989,6 @@ async function carregarAvaliacoesProduto() {
     notificadoEm: av.notificado_em || null,
     planoAcaoPrazo: av.plano_acao_prazo || null,
     planoAcaoAnexo: av.plano_acao_anexo || null,
-    planoAcaoResolvidoEm: av.plano_acao_resolvido_em || null,
   }));
 }
 
