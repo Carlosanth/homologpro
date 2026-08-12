@@ -77,6 +77,19 @@
   <div class="modal-box" id="modal-box"></div>
 </div>
 
+<div class="progresso-overlay" id="progresso-overlay">
+  <div class="progresso-card">
+    <div class="progresso-icone-wrap">
+      <div class="progresso-spinner" id="progresso-spinner"></div>
+      <svg id="progresso-check-svg" viewBox="0 0 52 52" width="42" height="42" style="display:none">
+        <circle class="progresso-check-circle" cx="26" cy="26" r="22" fill="none" stroke-width="3"/>
+        <path class="progresso-check-mark" d="M15 27 L22 34 L37 17" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="progresso-texto" id="progresso-texto">Carregando...</div>
+  </div>
+</div>
+
 <script src="supabase-client.js"></script>
 <script src="js/r2-client.js"></script>
 <script src="js/core.js"></script>
