@@ -926,6 +926,8 @@ async function carregarEmpresaConfig() {
     notif_avaliacao_intervalo_horas: data.notif_avaliacao_intervalo_horas ?? 24,
     notif_avaliacao_situacoes: data.notif_avaliacao_situacoes || ['reprovado'],
     periodo_avaliado_meses_antes: data.periodo_avaliado_meses_antes ?? 0,
+    plano_acao_cobranca_ativa: !!data.plano_acao_cobranca_ativa,
+    plano_acao_cobranca_frequencia: data.plano_acao_cobranca_frequencia || 'diaria',
     valor_mensal_atual: data.valor_mensal_atual ?? null,
     plano_ativo_desde: data.plano_ativo_desde || null,
     proxima_cobranca_em: data.proxima_cobranca_em || null,
