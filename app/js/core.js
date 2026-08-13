@@ -295,11 +295,16 @@ async function doLogin() {
   const senha = document.getElementById('login-senha').value;
   const errBox = document.getElementById('login-error');
   errBox.style.display = 'none';
-  mostrarCarregando('Entrando...');
+
+  const btn = document.getElementById('login-btn');
+  const textoOriginal = btn.textContent;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="btn-spinner"></span>';
 
   const { error: erroLogin } = await supabaseClient.auth.signInWithPassword({ email, password: senha });
   if (erroLogin) {
-    esconderProgresso();
+    btn.disabled = false;
+    btn.textContent = textoOriginal;
     errBox.textContent = 'E-mail ou senha inválidos.';
     errBox.style.display = 'block';
     return;
@@ -307,13 +312,14 @@ async function doLogin() {
 
   const ok = await carregarPerfilELogar();
   if (!ok) {
-    esconderProgresso();
+    btn.disabled = false;
+    btn.textContent = textoOriginal;
     errBox.textContent = 'Login ok, mas não encontramos seu perfil (ou está inativo). Fale com o administrador.';
     errBox.style.display = 'block';
     await supabaseClient.auth.signOut();
     return;
   }
-  mostrarSucesso('Bem-vindo!');
+  // Não precisa restaurar o botão: a tela troca pro app em seguida.
 }
 
 function mostrarCadastroEmpresa() {
