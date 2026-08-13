@@ -459,8 +459,9 @@ async function notificarFornecedorNota(avId) {
 
   let linkPortal = null;
   if (sit === 'reprovado') {
-    toast('Gerando link do portal...');
+    mostrarCarregando('Gerando link do portal...');
     linkPortal = await gerarLinkPortalFornecedor(forn.id);
+    esconderProgresso();
   }
 
   const assunto = `Avaliação de Desempenho de Fornecedores - ${periodoLabel} - ${forn.nome}`;
@@ -552,7 +553,7 @@ function blocoPlanoAcaoHtml(tipo, av) {
     <div style="margin-top:14px; padding:10px 12px; background:var(--surface2); border-radius:8px">
       <p style="font-size:12px; font-weight:600; margin-bottom:6px">Plano de ação${prazoLabel ? ` — prazo até ${prazoLabel}` : ''}</p>
       ${av.planoAcaoAnexo
-        ? `<div style="font-size:12px; display:flex; align-items:center; gap:6px; color:var(--success)">${ic('paperclip', 13)}<a href="#" onclick="event.preventDefault(); baixarAnexoAvaliacao('${av.planoAcaoAnexo.caminhoStorage}', '${av.planoAcaoAnexo.nome}')">${av.planoAcaoAnexo.nome}</a> <span style="color:var(--text-muted)">— anexado em ${new Date(av.planoAcaoAnexo.enviadoEm).toLocaleDateString('pt-BR')}</span></div>`
+        ? `<div style="font-size:12px; display:flex; align-items:center; gap:6px; color:var(--success)">${ic('paperclip', 13)}<a href="#" onclick="event.preventDefault(); visualizarAnexo('${av.planoAcaoAnexo.caminhoStorage}', '${av.planoAcaoAnexo.nome}')">${av.planoAcaoAnexo.nome}</a> <span style="color:var(--text-muted)">— anexado em ${new Date(av.planoAcaoAnexo.enviadoEm).toLocaleDateString('pt-BR')}</span></div>`
         : `<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
              <input type="file" id="plano-acao-file-${tipo}-${av.id}" style="font-size:11px; max-width:220px">
              <button class="btn btn-secondary btn-sm" onclick="anexarPlanoAcao('${tipo}', '${av.id}')">Anexar</button>
@@ -591,8 +592,9 @@ async function notificarFornecedorProduto(avId) {
 
   let linkPortal = null;
   if (sitProduto === 'reprovado') {
-    toast('Gerando link do portal...');
+    mostrarCarregando('Gerando link do portal...');
     linkPortal = await gerarLinkPortalFornecedor(forn.id);
+    esconderProgresso();
   }
 
   const assunto = `Avaliação de Nota Fiscal ${av.numeroNf || ''} - ${forn.nome}`;

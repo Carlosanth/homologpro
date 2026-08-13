@@ -295,9 +295,11 @@ async function doLogin() {
   const senha = document.getElementById('login-senha').value;
   const errBox = document.getElementById('login-error');
   errBox.style.display = 'none';
+  mostrarCarregando('Entrando...');
 
   const { error: erroLogin } = await supabaseClient.auth.signInWithPassword({ email, password: senha });
   if (erroLogin) {
+    esconderProgresso();
     errBox.textContent = 'E-mail ou senha inválidos.';
     errBox.style.display = 'block';
     return;
@@ -305,10 +307,13 @@ async function doLogin() {
 
   const ok = await carregarPerfilELogar();
   if (!ok) {
+    esconderProgresso();
     errBox.textContent = 'Login ok, mas não encontramos seu perfil (ou está inativo). Fale com o administrador.';
     errBox.style.display = 'block';
     await supabaseClient.auth.signOut();
+    return;
   }
+  mostrarSucesso('Bem-vindo!');
 }
 
 function mostrarCadastroEmpresa() {
@@ -648,10 +653,11 @@ function mostrarBloqueioEmpresa(motivo, papel) {
 async function assinarPlanoBloqueio(plano) {
   const errBox = document.getElementById('bloqueio-error');
   errBox.style.display = 'none';
-  toast('Processando...');
+  mostrarCarregando('Processando...');
 
   let { data: { session } } = await supabaseClient.auth.getSession();
   if (!session) {
+    esconderProgresso();
     errBox.textContent = 'Sua sessão expirou. Clique em Sair e faça login de novo.';
     errBox.style.display = 'block';
     return;
@@ -680,11 +686,13 @@ async function assinarPlanoBloqueio(plano) {
     });
     data = await resp.json();
   } catch (e) {
+    esconderProgresso();
     errBox.textContent = 'Não foi possível processar agora. Tente novamente em instantes.';
     errBox.style.display = 'block';
     return;
   }
 
+  esconderProgresso();
   if (!data || data.ok === false) {
     errBox.textContent = (data && data.error) || 'Não foi possível processar agora. Tente novamente em instantes.';
     errBox.style.display = 'block';

@@ -831,8 +831,9 @@ async function removerAnexoFornecedor(anexoId, fornecedorId) {
 }
 
 async function gerarLinkPortalFornecedor(fornecedorId) {
-  toast('Gerando link...');
+  mostrarCarregando('Gerando link...');
   const { data, error } = await supabaseClient.functions.invoke('gerar-link-portal-fornecedor', { body: { fornecedorId } });
+  esconderProgresso();
 
   if (error || !data || data.ok === false) { toast((data && data.error) || 'Erro ao gerar o link.'); return; }
 
@@ -1059,19 +1060,20 @@ async function addFornecedorAd() {
     if (el) extras[c.chave] = el.value;
   });
 
+  mostrarCarregando('Cadastrando...');
   const { error } = await supabaseClient.from('fornecedores').insert({
     empresa_id: currentUser.empresaId,
     nome, tipo, setor, email, telefone, endereco, cnpj, criticidade,
     ativo: true, campos_custom: extras,
   });
 
-  if (error) { toast('Erro ao cadastrar fornecedor: ' + error.message); return; }
+  if (error) { esconderProgresso(); toast('Erro ao cadastrar fornecedor: ' + error.message); return; }
 
   addLog('fornecedor_criado', `${currentUser.email} cadastrou o fornecedor "${nome}"`);
   _novoFornecedorAberto = false;
   await carregarFornecedores();
   renderAdFornecedores();
-  toast('Fornecedor adicionado!');
+  mostrarSucesso('Cadastrado!');
 }
 
 function abrirEdicaoFornecedor(id) {
