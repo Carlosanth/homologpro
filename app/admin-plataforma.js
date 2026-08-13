@@ -51,9 +51,11 @@ async function carregarEmpresasPlataforma() {
   }
 
   empresasCachePlataforma = data.empresas || [];
+  seedNotasFiscaisMock();
   document.getElementById('login-view').style.display = 'none';
   document.getElementById('app-view').style.display = 'block';
   document.getElementById('topbar-sub').textContent = `${empresasCachePlataforma.length} empresa(s) cadastrada(s)`;
+  renderKPIsPlataforma();
   renderEmpresasPlataforma();
   carregarPacotesPlataforma();
   carregarValorBasePadrao();
@@ -66,11 +68,12 @@ function badgeStatusHTML(status) {
   return `<span class="badge badge-${status}">${labels[status] || status}</span>`;
 }
 
-function renderEmpresasPlataforma() {
+function renderEmpresasPlataforma(listaFiltrada) {
   const wrap = document.getElementById('empresas-wrap');
+  const lista = listaFiltrada || empresasCachePlataforma;
 
-  if (!empresasCachePlataforma.length) {
-    wrap.innerHTML = '<div class="empty-state">Nenhuma empresa cadastrada ainda.</div>';
+  if (!lista.length) {
+    wrap.innerHTML = `<div class="empty-state">${empresasCachePlataforma.length ? 'Nenhuma empresa encontrada com esse filtro.' : 'Nenhuma empresa cadastrada ainda.'}</div>`;
     return;
   }
 
@@ -93,7 +96,7 @@ function renderEmpresasPlataforma() {
         </tr>
       </thead>
       <tbody>
-        ${empresasCachePlataforma.map(emp => `
+        ${lista.map(emp => `
           <tr>
             <td style="font-weight:600">
               ${emp.nome} ${badgeStatusHTML(emp.status)}
@@ -131,6 +134,9 @@ function renderEmpresasPlataforma() {
             <td>
               <button class="btn btn-primary btn-sm" onclick="salvarEmpresaPlataforma('${emp.id}')">Salvar</button>
               <button class="btn btn-secondary btn-sm" style="margin-top:4px" onclick="abrirModalEnterprise('${emp.id}')">Montar Enterprise</button>
+              <button class="btn btn-secondary btn-sm" style="margin-top:4px" onclick="abrirModalNotasFiscais('${emp.id}')">
+                🧾 Notas Fiscais${contarNotasPendentes(emp.id) > 0 ? ` <span class="badge badge-nf-pendente">${contarNotasPendentes(emp.id)}</span>` : ''}
+              </button>
               ${emp.status === 'cancelada' ? `<button class="btn btn-danger btn-sm" style="margin-top:4px" onclick="abrirModalExcluirEmpresa('${emp.id}')">Excluir definitivamente</button>` : ''}
             </td>
           </tr>
@@ -619,6 +625,237 @@ async function confirmarExcluirEmpresa() {
   toastPlataforma('Empresa excluída definitivamente.');
   fecharModalExcluirEmpresa();
   await carregarEmpresasPlataforma();
+}
+
+// ============ NOTAS FISCAIS EMITIDAS ============
+//
+// Front-end construído primeiro, back-end vem depois (decisão do Carlos).
+// Por isso, TUDO nessa seção que dependeria de Edge Function real está
+// marcado com "TODO(backend)" e usa dado mockado por enquanto. Quando as
+// Edge Functions superadmin-listar-notas-pendentes e
+// superadmin-enviar-nota-fiscal existirem, trocar exatamente essas duas
+// funções (seedNotasFiscaisMock -> chamada real de listagem, e o corpo de
+// enviarNotaFiscal -> supabaseClient.functions.invoke('superadmin-enviar-nota-fiscal', ...))
+// sem precisar mexer no resto (modal, render, badge já ficam prontos).
+
+// empresaId -> array de notas: { id, valor, referenteA, cobradoEm, status: 'pendente'|'enviada', enviadoEm }
+let notasFiscaisCachePlataforma = {};
+
+// TODO(backend): substituir por chamada real (ou por campo já incluso no
+// retorno de superadmin-listar-empresas, se fizer mais sentido resolver
+// tudo numa call só). Por ora, gera pendências fixas de exemplo pra cada
+// empresa que ainda não tem entrada no cache — só pra dar pra montar/testar
+// a UI sem depender do banco ainda.
+function seedNotasFiscaisMock() {
+  empresasCachePlataforma.forEach((emp, i) => {
+    if (notasFiscaisCachePlataforma[emp.id]) return; // não reseta se já existe (ex: depois de "Enviar")
+
+    const hoje = new Date();
+    const mockPorEmpresa = [
+      {
+        id: `mock-${emp.id}-1`,
+        valor: emp.valor_mensal_atual || 297,
+        referenteA: `${new Date(hoje.getFullYear(), hoje.getMonth() - 1, 20).toLocaleDateString('pt-BR')} a ${new Date(hoje.getFullYear(), hoje.getMonth(), 19).toLocaleDateString('pt-BR')}`,
+        cobradoEm: new Date(hoje.getFullYear(), hoje.getMonth(), 20).toISOString(),
+        status: 'pendente',
+      },
+    ];
+    // Uma minoria das empresas (índice par) ganha também uma nota já
+    // enviada no mês anterior, só pra mostrar como fica o estado "enviada".
+    if (i % 2 === 0) {
+      mockPorEmpresa.push({
+        id: `mock-${emp.id}-0`,
+        valor: emp.valor_mensal_atual || 297,
+        referenteA: `${new Date(hoje.getFullYear(), hoje.getMonth() - 2, 20).toLocaleDateString('pt-BR')} a ${new Date(hoje.getFullYear(), hoje.getMonth() - 1, 19).toLocaleDateString('pt-BR')}`,
+        cobradoEm: new Date(hoje.getFullYear(), hoje.getMonth() - 1, 20).toISOString(),
+        status: 'enviada',
+        enviadoEm: new Date(hoje.getFullYear(), hoje.getMonth() - 1, 22).toISOString(),
+      });
+    }
+    notasFiscaisCachePlataforma[emp.id] = mockPorEmpresa;
+  });
+}
+
+function contarNotasPendentes(empresaId) {
+  const notas = notasFiscaisCachePlataforma[empresaId] || [];
+  return notas.filter(n => n.status === 'pendente').length;
+}
+
+function formatarMoedaNF(valor) {
+  return `R$ ${Number(valor).toFixed(2).replace('.', ',')}`;
+}
+
+function abrirModalNotasFiscais(empresaId) {
+  const empresa = empresasCachePlataforma.find(e => e.id === empresaId);
+  document.getElementById('nf-titulo').textContent = `Notas Fiscais — ${empresa ? empresa.nome : ''}`;
+  document.getElementById('nf-lista-wrap').dataset.empresaId = empresaId;
+  renderNotasFiscaisModal(empresaId);
+  document.getElementById('modal-notas-fiscais-overlay').classList.add('active');
+}
+
+function fecharModalNotasFiscais() {
+  document.getElementById('modal-notas-fiscais-overlay').classList.remove('active');
+}
+
+function sealSvg(tipo) {
+  // Mesmo selo tracejado da marca (login/topbar), reaproveitado em miniatura
+  // pro status de cada nota fiscal — "enviada" com o check, "pendente" sem.
+  const check = tipo === 'enviada' ? '<path d="M40 61 L53 75 L82 45" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>' : '';
+  return `
+    <svg class="nf-seal ${tipo}" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="60" cy="60" r="54" stroke="currentColor" stroke-width="3" stroke-dasharray="4 7"/>
+      <circle cx="60" cy="60" r="44" stroke="currentColor" stroke-width="1.4"/>
+      ${check}
+    </svg>`;
+}
+
+function renderNotasFiscaisModal(empresaId) {
+  const wrap = document.getElementById('nf-lista-wrap');
+  const notas = [...(notasFiscaisCachePlataforma[empresaId] || [])]
+    .sort((a, b) => new Date(b.cobradoEm) - new Date(a.cobradoEm));
+
+  if (!notas.length) {
+    wrap.innerHTML = '<div class="empty-state">Nenhuma cobrança registrada pra essa empresa ainda.</div>';
+    return;
+  }
+
+  wrap.innerHTML = notas.map(nota => {
+    if (nota.status === 'enviada') {
+      return `
+        <div class="nf-row enviada">
+          ${sealSvg('enviada')}
+          <div class="nf-info">
+            <div class="nf-valor">${formatarMoedaNF(nota.valor)}</div>
+            <div class="nf-periodo">Referente a ${nota.referenteA}</div>
+            <div class="nf-status enviada">✓ Enviada em ${new Date(nota.enviadoEm).toLocaleDateString('pt-BR')}</div>
+          </div>
+        </div>
+      `;
+    }
+    return `
+      <div class="nf-row" id="nf-row-${nota.id}">
+        ${sealSvg('pendente')}
+        <div class="nf-info">
+          <div class="nf-valor">${formatarMoedaNF(nota.valor)}</div>
+          <div class="nf-periodo">Referente a ${nota.referenteA}</div>
+          <div class="nf-status">Cobrado em ${new Date(nota.cobradoEm).toLocaleDateString('pt-BR')} — pendente de nota</div>
+        </div>
+        <div class="nf-acoes">
+          <input type="file" accept="application/pdf" id="nf-arquivo-${nota.id}" onchange="atualizarBotaoEnviarNota('${nota.id}')">
+          <button class="btn btn-primary btn-sm" id="nf-btn-enviar-${nota.id}" disabled onclick="enviarNotaFiscal('${nota.id}', '${empresaId}')">Enviar</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function atualizarBotaoEnviarNota(notaId) {
+  const input = document.getElementById(`nf-arquivo-${notaId}`);
+  const btn = document.getElementById(`nf-btn-enviar-${notaId}`);
+  const arquivo = input.files[0];
+  if (arquivo && arquivo.type !== 'application/pdf') {
+    toastPlataforma('Só é possível anexar arquivo em PDF.');
+    input.value = '';
+    btn.disabled = true;
+    return;
+  }
+  btn.disabled = !arquivo;
+}
+
+async function enviarNotaFiscal(notaId, empresaId) {
+  const input = document.getElementById(`nf-arquivo-${notaId}`);
+  const arquivo = input.files[0];
+  if (!arquivo) return;
+
+  const btn = document.getElementById(`nf-btn-enviar-${notaId}`);
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  // TODO(backend): trocar esse bloco pela chamada real:
+  //
+  //   const formData = new FormData();
+  //   formData.append('notaFiscalId', notaId);
+  //   formData.append('arquivo', arquivo);
+  //   const { data, error } = await supabaseClient.functions.invoke(
+  //     'superadmin-enviar-nota-fiscal', { body: formData }
+  //   );
+  //   if (error || (data && data.ok === false)) {
+  //     toastPlataforma('Erro: ' + ((data && data.error) || error?.message));
+  //     btn.disabled = false;
+  //     btn.textContent = 'Enviar';
+  //     return;
+  //   }
+  //
+  // Por enquanto, só simula o sucesso pra validar o fluxo de UI.
+  await new Promise(resolve => setTimeout(resolve, 700));
+
+  const notas = notasFiscaisCachePlataforma[empresaId] || [];
+  const nota = notas.find(n => n.id === notaId);
+  if (nota) {
+    nota.status = 'enviada';
+    nota.enviadoEm = new Date().toISOString();
+  }
+
+  toastPlataforma('Nota enviada! (simulado — ainda sem back-end)');
+  renderNotasFiscaisModal(empresaId);
+  renderEmpresasPlataforma(); // atualiza o badge de pendências na tabela
+}
+
+// ============ KPIs (calculados a partir do cache já carregado — sem chamada extra) ============
+function renderKPIsPlataforma() {
+  const ativas = empresasCachePlataforma.filter(e => e.status === 'ativa');
+  const mrr = ativas.reduce((soma, e) => soma + (Number(e.valor_mensal_atual) || 0), 0);
+
+  let totalPendentesNF = 0, empresasComPendencia = 0;
+  Object.values(notasFiscaisCachePlataforma).forEach(notas => {
+    const pend = notas.filter(n => n.status === 'pendente').length;
+    if (pend > 0) { totalPendentesNF += pend; empresasComPendencia++; }
+  });
+
+  const em7dias = new Date(); em7dias.setDate(em7dias.getDate() + 7);
+  const agora = new Date();
+  const trialsTerminando = empresasCachePlataforma.filter(e =>
+    e.status === 'trial' && e.trial_termina_em &&
+    new Date(e.trial_termina_em) >= agora && new Date(e.trial_termina_em) <= em7dias
+  ).length;
+
+  document.getElementById('kpi-ativas').textContent = ativas.length;
+  document.getElementById('kpi-ativas-sub').textContent = `de ${empresasCachePlataforma.length} empresa(s) no total`;
+  document.getElementById('kpi-mrr').textContent = `R$ ${mrr.toFixed(2).replace('.', ',')}`;
+  document.getElementById('kpi-mrr-sub').textContent = ativas.length ? `média R$ ${(mrr / ativas.length).toFixed(2).replace('.', ',')} / empresa` : '\u00A0';
+  document.getElementById('kpi-nf').textContent = totalPendentesNF;
+  document.getElementById('kpi-nf-sub').textContent = totalPendentesNF ? `em ${empresasComPendencia} empresa(s)` : 'tudo em dia';
+  document.getElementById('kpi-trials').textContent = trialsTerminando;
+}
+
+// ============ Busca + filtro por status (aba Empresas) ============
+let filtroStatusAtualPlataforma = '';
+
+function filtrarEmpresasPlataforma() {
+  const termo = document.getElementById('empresa-busca').value.trim().toLowerCase();
+  let lista = empresasCachePlataforma;
+  if (filtroStatusAtualPlataforma) lista = lista.filter(e => e.status === filtroStatusAtualPlataforma);
+  if (termo) lista = lista.filter(e => e.nome.toLowerCase().includes(termo));
+  renderEmpresasPlataforma(lista);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const chipsWrap = document.getElementById('empresa-chips');
+  if (!chipsWrap) return;
+  chipsWrap.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      chipsWrap.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      filtroStatusAtualPlataforma = chip.dataset.status;
+      filtrarEmpresasPlataforma();
+    });
+  });
+});
+
+// ============ Abas (Empresas / Catálogo Enterprise / Reajuste geral) ============
+function trocarAbaPlataforma(aba) {
+  document.querySelectorAll('.tab-bar .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === aba));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-panel-${aba}`));
 }
 
 // Se já tiver sessão ativa (voltou pra página logado), tenta carregar direto.
