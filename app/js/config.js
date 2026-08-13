@@ -464,7 +464,7 @@ async function renderAdConfig() {
         <div id="layout-editor-cert" class="layout-editor-wrap"></div>
         <div id="layout-editor-carta" class="layout-editor-wrap" style="display:none"></div>
       </div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px">
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px">
         <div class="card" style="margin-bottom:0">
           <div class="card-title">Imagem de fundo — Certificado (paisagem A4)</div>
           <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px">Faça upload de uma imagem (PNG ou JPG) para usar como fundo do certificado de aprovação. O sistema sobrepõe o texto automaticamente. Tamanho ideal: 3508 × 2480 px.</p>
@@ -485,17 +485,17 @@ async function renderAdConfig() {
           </div>
           <input type="file" id="upload-fundo-carta" accept="image/*" style="display:none" onchange="uploadFundo('ap_fundo_carta', this, 'fundo-carta-preview')">
         </div>
-      </div>
-      <div class="card">
-        <div class="card-title">Fontes personalizadas</div>
-        <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px">Além das 3 fontes padrão (Helvetica, Times, Courier), você pode importar qualquer fonte no formato <b>.ttf</b>. Pra ter negrito/itálico de verdade nos PDFs, importe um <b>.zip</b> com os pesos da família (ex: <code>Regular.ttf</code>, <code>Bold.ttf</code>, <code>Italic.ttf</code>, <code>BoldItalic.ttf</code>) — o sistema detecta sozinho qual arquivo é qual pelo nome. Se importar só um <code>.ttf</code>, negrito/itálico usam o mesmo desenho da fonte regular.</p>
-        <p id="fontes-custom-contador" style="font-size:11.5px; font-weight:600; color:var(--text-sec); margin-bottom:10px">0/8 fontes importadas</p>
-        <div style="display:flex; gap:10px; align-items:end; flex-wrap:wrap; margin-bottom:14px">
-          <div class="form-group" style="margin:0"><label>Nome da fonte</label><input type="text" id="fonte-custom-nome" placeholder="Ex: Montserrat" style="width:220px"></div>
-          <input type="file" id="fonte-custom-arquivo" accept=".ttf,.zip" style="max-width:260px">
-          <button id="fonte-custom-btn-add" class="btn btn-primary" onclick="adicionarFontePersonalizada()">+ Importar fonte</button>
+        <div class="card">
+          <div class="card-title">Fontes personalizadas</div>
+          <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px">Além das 3 fontes padrão (Helvetica, Times, Courier), você pode importar qualquer fonte no formato <b>.ttf</b>. Pra ter negrito/itálico de verdade nos PDFs, importe um <b>.zip</b> com os pesos da família (ex: <code>Regular.ttf</code>, <code>Bold.ttf</code>, <code>Italic.ttf</code>, <code>BoldItalic.ttf</code>) — o sistema detecta sozinho qual arquivo é qual pelo nome. Se importar só um <code>.ttf</code>, negrito/itálico usam o mesmo desenho da fonte regular.</p>
+          <p id="fontes-custom-contador" style="font-size:11.5px; font-weight:600; color:var(--text-sec); margin-bottom:10px">0/8 fontes importadas</p>
+          <div style="display:flex; gap:10px; align-items:end; flex-wrap:wrap; margin-bottom:14px">
+            <div class="form-group" style="margin:0"><label>Nome da fonte</label><input type="text" id="fonte-custom-nome" placeholder="Ex: Montserrat" style="width:220px"></div>
+            <input type="file" id="fonte-custom-arquivo" accept=".ttf,.zip" style="max-width:260px">
+            <button id="fonte-custom-btn-add" class="btn btn-primary" onclick="adicionarFontePersonalizada()">+ Importar fonte</button>
+          </div>
+          <div id="fontes-custom-lista"></div>
         </div>
-        <div id="fontes-custom-lista"></div>
       </div>
     </div>
 
