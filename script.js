@@ -20,13 +20,21 @@ async function landingLogin() {
   errBox.style.display = 'none';
   okBox.style.display = 'none';
 
+  const btn = document.getElementById('ld-login-btn');
+  const textoOriginal = btn.textContent;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="btn-spinner"></span>';
+
   const { error } = await landingSupabase.auth.signInWithPassword({ email, password: senha });
   if (error) {
+    btn.disabled = false;
+    btn.textContent = textoOriginal;
     errBox.textContent = 'E-mail ou senha inválidos.';
     errBox.style.display = 'block';
     return;
   }
   // Sessão já fica salva pro app também (mesmo domínio) — só leva pra lá.
+  // Não precisa restaurar o botão: a página muda em seguida.
   window.location.href = 'app/index.html';
 }
 
