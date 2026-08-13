@@ -70,7 +70,7 @@
             <input type="password" id="login-senha" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
             <p class="auth-forgot"><a href="#" onclick="event.preventDefault(); mostrarEsqueciSenha()">Esqueci minha senha</a></p>
           </div>
-          <button class="btn btn-primary btn-block" onclick="doLogin()">Entrar</button>
+          <button class="btn btn-primary btn-block" id="login-btn" onclick="doLogin()">Entrar</button>
         </div>
         <p class="auth-switch">Ainda não tem conta? <a href="#" onclick="event.preventDefault(); mostrarCadastroEmpresa()">Cadastre sua empresa</a></p>
       </div>

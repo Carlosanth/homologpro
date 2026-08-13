@@ -59,7 +59,7 @@ body {
 }
 .boot-loading-mark {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 26px;
+  font-size: 32px;
   font-weight: 700;
   color: #fff;
   letter-spacing: -.2px;
@@ -3220,4 +3220,19 @@ tr:hover td {
 
 @media (max-width: 860px) {
   .admin-grid2 { grid-template-columns: 1fr; }
+}
+
+/* ---- Spinner dentro do botão "Entrar" (login) — substitui o texto ---- */
+.btn-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.45);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: btn-spinner-girar .6s linear infinite;
+}
+
+@keyframes btn-spinner-girar {
+  to { transform: rotate(360deg); }
 }
