@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <link rel="icon" href="/favicon.ico">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Termos de Uso | HomologPro</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    .legal-wrap { padding: 60px 0 100px; }
+    .legal-header { margin-bottom: 40px; }
+    .legal-header h1 { font-size: 34px; color: var(--text-dark); margin-bottom: 8px; }
+    .legal-header p { color: var(--text-muted); font-size: 14px; }
+    .legal-body { max-width: 820px; }
+    .legal-body h2 {
+      font-size: 20px; color: var(--text-dark); margin: 40px 0 12px;
+      padding-top: 8px; border-top: 1px solid var(--border-light);
+    }
+    .legal-body h2:first-of-type { border-top: none; margin-top: 0; }
+    .legal-body h3 { font-size: 16px; color: var(--text-dark); margin: 20px 0 8px; }
+    .legal-body p, .legal-body li { color: var(--text-sec-dark); font-size: 15px; line-height: 1.7; }
+    .legal-body ul, .legal-body ol { margin: 8px 0 16px 22px; }
+    .legal-body li { margin-bottom: 6px; }
+    .legal-body strong { color: var(--text-dark); }
+    .legal-toc { background: var(--surface-subtle); border: 1px solid var(--border-light); border-radius: var(--radius); padding: 20px 24px; margin-bottom: 40px; }
+    .legal-toc h2 { margin: 0 0 10px; border: none; font-size: 15px; text-transform: uppercase; letter-spacing: .04em; }
+    .legal-toc ol { margin: 0 0 0 20px; }
+    .legal-toc a { color: var(--accent-hover); text-decoration: none; font-size: 14px; }
+    .legal-toc a:hover { text-decoration: underline; }
+    .legal-placeholder { background: #FFF7ED; border: 1px solid #FDBA74; color: #9A3412; padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 30px; }
+    /* Modo embutido (aberto dentro do modal do cadastro, via iframe) — some
+       com a navbar/rodapé próprios da página (o fechar é o X do modal) e
+       aperta o espaçamento, que aqui não tem mais o resto do site em volta. */
+    body.embed .navbar, body.embed .footer { display: none; }
+    body.embed .legal-wrap { padding: 8px 4px 24px; }
+  </style>
+</head>
+<body>
+
+  <script>
+    if (new URLSearchParams(window.location.search).get('embed') === '1') {
+      document.documentElement.classList.add('embed-mode');
+      document.body.classList.add('embed');
+    }
+  </script>
+
+  <header class="navbar">
+    <div class="container nav-container">
+      <a href="index.html" style="text-decoration:none;">
+        <div class="logo">
+          <svg class="logo-seal" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="60" cy="60" r="54" stroke="currentColor" stroke-width="2" stroke-dasharray="3 5"/>
+            <circle cx="60" cy="60" r="44" stroke="currentColor" stroke-width="1.2"/>
+            <path d="M40 61 L53 75 L82 45" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span class="logo-bold">Homolog</span><span class="logo-tag">Pro</span>
+        </div>
+      </a>
+      <nav class="nav-links">
+        <a href="index.html#solucao">A Solução</a>
+        <a href="index.html#modulos">Módulos</a>
+        <a href="index.html#planos">Planos</a>
+        <a href="index.html#contato">Contato</a>
+      </nav>
+      <div class="nav-auth">
+        <a href="#" class="btn-login" id="btn-voltar-legal">← Voltar</a>
+      </div>
+    </div>
+  </header>
+
+  <script>
+    // Manda de volta pra página de onde a pessoa veio até aqui — landing
+    // page ou tela de cadastro — em vez de forçar login. O link que trouxe
+    // até aqui (rodapé da landing / checkbox de aceite no cadastro) já
+    // inclui ?origem=landing ou ?origem=cadastro; sem esse parâmetro
+    // (ex: pessoa entrou direto pela URL), cai na landing page por padrão.
+    (function () {
+      const origem = new URLSearchParams(window.location.search).get('origem');
+      const destino = origem === 'cadastro' ? 'app/index.html?cadastro=1' : 'index.html';
+      document.getElementById('btn-voltar-legal').href = destino;
+
+      // Repassa a origem pros links internos que trocam entre Termos e
+      // Privacidade (rodapé e corpo do texto) — senão a pessoa perde o
+      // parâmetro ao ir de um pro outro e o botão Voltar volta pro lugar errado.
+      if (origem) {
+        document.querySelectorAll('a[href="termos.html"], a[href="privacidade.html"]').forEach(a => {
+          a.href = a.getAttribute('href') + '?origem=' + encodeURIComponent(origem);
+        });
+      }
+    })();
+  </script>
+
+  <section class="section legal-wrap">
+    <div class="container">
+      <div class="legal-header">
+        <h1>Termos de Uso</h1>
+        <p>Última atualização: 04/08/2026 — Vigente para todos os usuários da plataforma HomologPro</p>
+      </div>
+
+      <div class="legal-toc">
+        <h2>Sumário</h2>
+        <ol>
+          <li><a href="#aceitacao">Aceitação dos termos</a></li>
+          <li><a href="#definicoes">Definições</a></li>
+          <li><a href="#descricao">Descrição do serviço</a></li>
+          <li><a href="#cadastro">Cadastro e conta de usuário</a></li>
+          <li><a href="#planos">Planos, pagamento e cobrança</a></li>
+          <li><a href="#obrigacoes">Obrigações e uso adequado</a></li>
+          <li><a href="#conteudo">Conteúdo e documentos enviados</a></li>
+          <li><a href="#propriedade">Propriedade intelectual</a></li>
+          <li><a href="#disponibilidade">Disponibilidade do serviço</a></li>
+          <li><a href="#responsabilidade">Limitação de responsabilidade</a></li>
+          <li><a href="#rescisao">Cancelamento e rescisão</a></li>
+          <li><a href="#privacidade">Privacidade e proteção de dados</a></li>
+          <li><a href="#alteracoes">Alterações nestes termos</a></li>
+          <li><a href="#foro">Legislação aplicável e foro</a></li>
+          <li><a href="#contato">Contato</a></li>
+        </ol>
+      </div>
+
+      <div class="legal-body">
+        <h2 id="aceitacao">1. Aceitação dos termos</h2>
+        <p>Estes Termos de Uso regulam o acesso e a utilização da plataforma <strong>HomologPro</strong>, de titularidade de <strong>Anth Serviços (67.963.696 CARLOS ANTONIO DE MOURA OLIVEIRA)</strong>, inscrita no CNPJ sob o nº <strong>67.963.696/0001-22</strong>, com sede em <strong>Fortaleza/CE, Brasil</strong> ("HomologPro", "nós"). Ao acessar ou utilizar a plataforma, você ("usuário", "empresa contratante") declara ter lido, compreendido e aceitado integralmente estes Termos, bem como a nossa <a href="privacidade.html">Política de Privacidade</a>. Caso não concorde, não utilize a plataforma.</p>
+
+        <h2 id="definicoes">2. Definições</h2>
+        <ul>
+          <li><strong>Plataforma:</strong> o sistema web HomologPro, incluindo painel administrativo, portal do avaliador e portal do fornecedor;</li>
+          <li><strong>Empresa contratante:</strong> pessoa jurídica que assina um plano pago para utilizar a plataforma na gestão da homologação de seus fornecedores;</li>
+          <li><strong>Usuário Admin/Admin+:</strong> pessoa autorizada pela empresa contratante a administrar a conta e configurações da plataforma;</li>
+          <li><strong>Avaliador:</strong> usuário responsável por analisar e avaliar documentos de fornecedores;</li>
+          <li><strong>Fornecedor:</strong> empresa cadastrada pela empresa contratante para passar pelo processo de homologação, com acesso a um portal próprio de autoatendimento.</li>
+        </ul>
+
+        <h2 id="descricao">3. Descrição do serviço</h2>
+        <p>O HomologPro é uma plataforma SaaS (Software as a Service) para gestão do processo de homologação e qualificação de fornecedores, permitindo o envio, análise, aprovação e controle de vencimento de documentos, avaliações estruturadas, notificações automáticas e relatórios. O serviço é fornecido "como está" (as is), podendo passar por atualizações, melhorias e ajustes de funcionalidades ao longo do tempo.</p>
+
+        <h2 id="cadastro">4. Cadastro e conta de usuário</h2>
+        <ul>
+          <li>O cadastro exige informações verdadeiras, completas e atualizadas sobre a empresa contratante e seus usuários;</li>
+          <li>Cada usuário é responsável por manter a confidencialidade de sua senha e por todas as atividades realizadas em sua conta;</li>
+          <li>A empresa contratante é responsável por gerenciar os níveis de permissão (Admin, Admin+, Avaliador) atribuídos aos seus usuários internos;</li>
+          <li>É proibido o compartilhamento de credenciais de acesso entre usuários não autorizados;</li>
+          <li>O HomologPro pode suspender contas com indícios de uso fraudulento, acesso não autorizado ou violação destes Termos.</li>
+        </ul>
+
+        <h2 id="planos">5. Planos, pagamento e cobrança</h2>
+        <ul>
+          <li>O acesso à plataforma é condicionado à contratação de um plano pago (Essencial, Profissional, Enterprise ou plano personalizado), com valores e limites de uso (fornecedores, usuários) descritos na página de planos;</li>
+          <li>Os pagamentos são processados via <strong>Stripe</strong>, por cartão de crédito ou outros meios disponibilizados, com cobrança recorrente (mensal ou conforme ciclo contratado);</li>
+          <li>Os planos são renovados automaticamente ao final de cada ciclo, salvo cancelamento prévio pelo usuário;</li>
+          <li>Reajustes de valores poderão ser aplicados mediante aviso prévio, respeitando a periodicidade mínima definida em contrato ou legislação aplicável;</li>
+          <li>Em caso de inadimplência, a plataforma poderá suspender o acesso da empresa contratante até a regularização do pagamento;</li>
+          <li>Planos Enterprise, com condições personalizadas de fornecedores e administradores adicionais, são negociados diretamente com nossa equipe comercial.</li>
+        </ul>
+
+        <h2 id="obrigacoes">6. Obrigações e uso adequado</h2>
+        <p>Ao utilizar o HomologPro, o usuário se compromete a:</p>
+        <ul>
+          <li>Utilizar a plataforma apenas para finalidades lícitas relacionadas à gestão de homologação de fornecedores;</li>
+          <li>Não tentar acessar áreas, dados ou funcionalidades não autorizadas para seu nível de permissão;</li>
+          <li>Não realizar engenharia reversa, cópia, descompilação ou tentativa de extração do código-fonte da plataforma;</li>
+          <li>Não utilizar a plataforma para envio de conteúdo ilegal, ofensivo, fraudulento ou que viole direitos de terceiros;</li>
+          <li>Não sobrecarregar, atacar ou comprometer a infraestrutura da plataforma (incluindo tentativas de acesso não autorizado, scraping automatizado ou ataques de negação de serviço).</li>
+        </ul>
+
+        <h2 id="conteudo">7. Conteúdo e documentos enviados</h2>
+        <p>A empresa contratante e os fornecedores são os únicos responsáveis pela veracidade, legalidade e atualidade dos documentos e informações inseridos na plataforma. O HomologPro atua como ferramenta de gestão e organização do processo de homologação, <strong>não se responsabilizando pela validade jurídica, autenticidade ou conteúdo dos documentos enviados por terceiros</strong>, nem pelas decisões de aprovação ou reprovação tomadas pelos avaliadores da empresa contratante.</p>
+
+        <h2 id="propriedade">8. Propriedade intelectual</h2>
+        <p>Todo o código-fonte, design, marca, layout, funcionalidades e demais elementos da plataforma HomologPro são de propriedade exclusiva de Anth Serviços (67.963.696 CARLOS ANTONIO DE MOURA OLIVEIRA) ou de seus licenciadores, protegidos pela legislação de propriedade intelectual e direitos autorais. É vedada a reprodução, distribuição ou uso não autorizado de qualquer elemento da plataforma sem autorização prévia por escrito.</p>
+        <p>Os documentos e dados inseridos pela empresa contratante e seus fornecedores permanecem de propriedade destes, sendo tratados pelo HomologPro apenas para viabilizar a prestação do serviço contratado.</p>
+
+        <h2 id="disponibilidade">9. Disponibilidade do serviço</h2>
+        <p>Empregamos esforços razoáveis para manter a plataforma disponível e funcionando corretamente, mas não garantimos disponibilidade ininterrupta. A plataforma pode passar por indisponibilidades temporárias decorrentes de manutenções programadas, falhas de infraestrutura de terceiros (hospedagem, banco de dados, provedores de e-mail e pagamento) ou motivos de força maior.</p>
+
+        <h2 id="responsabilidade">10. Limitação de responsabilidade</h2>
+        <p>Na máxima extensão permitida pela legislação aplicável, o HomologPro não se responsabiliza por:</p>
+        <ul>
+          <li>Danos indiretos, lucros cessantes ou perda de dados decorrentes do uso ou impossibilidade de uso da plataforma;</li>
+          <li>Decisões de negócio tomadas com base em avaliações, aprovações ou reprovações registradas por usuários da empresa contratante;</li>
+          <li>Indisponibilidade ou falhas causadas por serviços de terceiros integrados à plataforma (Stripe, Supabase, Resend, provedores de hospedagem e conectividade);</li>
+          <li>Uso indevido das credenciais de acesso por parte de usuários da própria empresa contratante.</li>
+        </ul>
+
+        <h2 id="rescisao">11. Cancelamento e rescisão</h2>
+        <ul>
+          <li>A empresa contratante pode cancelar sua assinatura a qualquer momento, através do painel administrativo ou mediante solicitação por e-mail;</li>
+          <li>O cancelamento interrompe a renovação automática, mas não gera reembolso de valores já pagos referentes ao ciclo vigente, salvo disposição contratual em contrário;</li>
+          <li>Dados excluídos são movidos para uma Lixeira e mantidos por até 90 dias antes da exclusão definitiva, conforme detalhado na Política de Privacidade;</li>
+          <li>O HomologPro reserva-se o direito de suspender ou encerrar contas que violem estes Termos, mediante notificação prévia, exceto em casos de violação grave que exijam ação imediata.</li>
+        </ul>
+
+        <h2 id="privacidade">12. Privacidade e proteção de dados</h2>
+        <p>O tratamento de dados pessoais na plataforma é regido pela nossa <a href="privacidade.html">Política de Privacidade</a>, elaborada em conformidade com a LGPD (Lei nº 13.709/2018), parte integrante destes Termos de Uso.</p>
+
+        <h2 id="alteracoes">13. Alterações nestes termos</h2>
+        <p>Estes Termos podem ser atualizados periodicamente para refletir mudanças legais, operacionais ou nas funcionalidades da plataforma. A data da última atualização estará sempre indicada no topo desta página. O uso continuado da plataforma após a publicação de alterações constitui aceitação dos novos termos.</p>
+
+        <h2 id="foro">14. Legislação aplicável e foro</h2>
+        <p>Estes Termos são regidos pelas leis da República Federativa do Brasil. Fica eleito o foro da comarca de <strong>Fortaleza/CE</strong> para dirimir quaisquer controvérsias decorrentes destes Termos, com renúncia expressa a qualquer outro, por mais privilegiado que seja, ressalvadas as hipóteses de foro obrigatório previstas em lei.</p>
+
+        <h2 id="contato">15. Contato</h2>
+        <ul>
+          <li><strong>E-mail:</strong> contato@homologpro.com.br</li>
+          <li><strong>Suporte:</strong> suporte@homologpro.com.br</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container footer-container">
+      <div class="footer-brand">
+        <div class="logo">
+          <svg class="logo-seal" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="60" cy="60" r="54" stroke="currentColor" stroke-width="2" stroke-dasharray="3 5"/>
+            <circle cx="60" cy="60" r="44" stroke="currentColor" stroke-width="1.2"/>
+            <path d="M40 61 L53 75 L82 45" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span class="logo-bold">Homolog</span><span class="logo-tag">Pro</span>
+        </div>
+        <p>Solução inteligente para homologação e qualificação de fornecedores.</p>
+      </div>
+      <div class="footer-links">
+        <h4>Navegação</h4>
+        <a href="index.html#solucao">A Solução</a>
+        <a href="index.html#modulos">Módulos</a>
+        <a href="index.html#planos">Planos</a>
+      </div>
+      <div class="footer-links">
+        <h4>Legal</h4>
+        <a href="privacidade.html">Política de Privacidade</a>
+        <a href="termos.html">Termos de Uso</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2026 HomologPro. Todos os direitos reservados.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

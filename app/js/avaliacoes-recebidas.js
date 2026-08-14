@@ -93,9 +93,16 @@ async function removerAnexosAvaliacaoRetencao(id) {
       catch (storageErr) { toast('Erro ao remover anexo: ' + storageErr.message); return; }
     }
   }
+  if (av.planoAcaoAnexo && av.planoAcaoAnexo.caminhoStorage) {
+    try { await r2Remover(av.planoAcaoAnexo.caminhoStorage); }
+    catch (storageErr) { toast('Erro ao remover anexo do plano de ação: ' + storageErr.message); return; }
+  }
 
   const anexosSemArquivo = av.anexos.map(a => ({ nome: a.nome, tamanho: a.tamanho, caminhoStorage: null }));
-  const { error } = await supabaseClient.from('avaliacoes').update({ anexos: anexosSemArquivo }).eq('id', id);
+  const planoSemArquivo = av.planoAcaoAnexo ? { ...av.planoAcaoAnexo, caminhoStorage: null } : null;
+  const update = { anexos: anexosSemArquivo };
+  if (av.planoAcaoAnexo) update.plano_acao_anexo = planoSemArquivo;
+  const { error } = await supabaseClient.from('avaliacoes').update(update).eq('id', id);
   if (error) { toast('Erro ao atualizar avaliação: ' + error.message); return; }
 
   addLog('anexo_avaliacao_removido_retencao', `${currentUser.email} removeu o(s) anexo(s) da avaliação de "${av.enviadoPor}" por retenção de dados`);
@@ -114,6 +121,9 @@ async function excluirAvaliacaoRetencao(id) {
     if (a.caminhoStorage) {
       try { await r2Remover(a.caminhoStorage); } catch (e) { console.error('Falha ao remover anexo do R2:', e); }
     }
+  }
+  if (av.planoAcaoAnexo && av.planoAcaoAnexo.caminhoStorage) {
+    try { await r2Remover(av.planoAcaoAnexo.caminhoStorage); } catch (e) { console.error('Falha ao remover anexo do plano de ação do R2:', e); }
   }
 
   const { error } = await supabaseClient.from('avaliacoes').delete().eq('id', id);
@@ -143,6 +153,7 @@ function renderAvaliacoesTableComAcoes(lista, d) {
           <td>${av.liberadoEdicao ? '<span class="badge badge-warn">Liberada</span>' : '<span class="badge badge-neutral">Travada</span>'}</td>
           <td><div class="actions">
             <button class="btn btn-secondary btn-sm" onclick="verDetalheAvaliacao('${av.id}')">Ver</button>
+            ${(av.anexos && av.anexos.some(a => a.caminhoStorage)) || (av.planoAcaoAnexo && av.planoAcaoAnexo.caminhoStorage) ? `<button class="btn btn-secondary btn-sm" onclick="verAnexosAvaliacao('${av.id}')" title="Ver anexos">${ic('paperclip', 13)}</button>` : ''}
             ${!av.semServico && (sit === 'reprovado' || sit === 'parcial') ? `<button class="btn btn-secondary btn-sm" onclick="verDetalheAvaliacao('${av.id}')" title="Ver e notificar por e-mail">${ic('bell', 13)}</button>` : ''}
             ${!av.liberadoEdicao ? `<button class="btn btn-secondary btn-sm" onclick="liberarEdicao('${av.id}')">Liberar edição</button>` : ''}
           </div></td>
@@ -180,6 +191,70 @@ function linhaCriterioHTML(c, r) {
 // Para a cobrança diária do plano de ação (cron cobranca-plano-acao-pendente).
 // Fica registrado quem marcou e quando — não é reversível pela UI de propósito
 // (se precisar reabrir, é direto no banco).
+// Aprova o plano de ação que o fornecedor enviou pelo portal: fecha a
+// pendência (mesmo efeito de "marcar como resolvido" — para a cobrança
+// diária) e SÓ a partir daqui o avaliador passa a ver o plano em
+// Notificações (ver contarNotificacoesAvaliador/renderAvNotificacoes em
+// avaliar.js, que agora exigem planoAcaoResolvidoEm). O arquivo em si nunca
+// é apagado aqui — só some se a avaliação entrar no fluxo de retenção.
+async function aprovarPlanoAcao(avaliacaoId) {
+  if (!confirm('Aprovar esse plano de ação? O avaliador passa a vê-lo e a cobrança diária pro fornecedor para.')) return;
+
+  const { error } = await supabaseClient.from('avaliacoes').update({
+    plano_acao_status: null,
+    plano_acao_revisado_por: currentUser.id,
+    plano_acao_revisado_em: new Date().toISOString(),
+    plano_acao_resolvido_em: new Date().toISOString(),
+    plano_acao_resolvido_por: currentUser.id,
+  }).eq('id', avaliacaoId);
+
+  if (error) { toast('Erro ao aprovar: ' + error.message); return; }
+
+  addLog('plano_acao_aprovado', `${currentUser.email} aprovou o plano de ação da avaliação ${avaliacaoId}.`);
+  toast('Plano de ação aprovado.');
+  await carregarAvaliacoes();
+  closeModal();
+  renderConteudoAvaliacoesAd();
+  if (typeof renderAdDashboard === 'function') renderAdDashboard();
+}
+
+// Rejeita o plano de ação: remove o arquivo do R2 (rejeitado não é
+// "arquivado" — só o aprovado fica retido; ver ajuste combinado sobre
+// retenção) e limpa plano_acao_anexo/plano_acao_status, voltando a
+// avaliação pro estado "nunca enviado". A cobrança diária retoma sozinha no
+// próximo dia (o cron filtra plano_acao_anexo IS NULL). O fornecedor
+// reenvia pelo mesmo link do portal.
+async function rejeitarPlanoAcao(avaliacaoId) {
+  const d = db();
+  const av = d.avaliacoes.find(a => a.id === avaliacaoId);
+  if (!av || !av.planoAcaoAnexo) return;
+
+  const motivo = prompt('Motivo da rejeição (opcional — vai ficar registrado no histórico):') || '';
+  if (motivo === null) return;
+  if (!confirm('Rejeitar esse plano de ação? O arquivo enviado é removido e o fornecedor precisa enviar um novo pelo mesmo link.')) return;
+
+  if (av.planoAcaoAnexo.caminhoStorage) {
+    try { await r2Remover(av.planoAcaoAnexo.caminhoStorage); }
+    catch (e) { toast('Erro ao remover o arquivo: ' + e.message); return; }
+  }
+
+  const { error } = await supabaseClient.from('avaliacoes').update({
+    plano_acao_anexo: null,
+    plano_acao_status: null,
+    plano_acao_revisado_por: currentUser.id,
+    plano_acao_revisado_em: new Date().toISOString(),
+  }).eq('id', avaliacaoId);
+
+  if (error) { toast('Erro ao rejeitar: ' + error.message); return; }
+
+  addLog('plano_acao_rejeitado', `${currentUser.email} rejeitou o plano de ação da avaliação ${avaliacaoId} de "${av.enviadoPor}"${motivo ? ` — motivo: ${motivo}` : ''}.`);
+  toast('Plano de ação rejeitado. O fornecedor pode enviar de novo.');
+  await carregarAvaliacoes();
+  closeModal();
+  renderConteudoAvaliacoesAd();
+  if (typeof renderAdDashboard === 'function') renderAdDashboard();
+}
+
 async function marcarPlanoAcaoResolvido(avaliacaoId) {
   if (!confirm('Marcar o plano de ação como resolvido? Isso para os lembretes diários pro fornecedor.')) return;
 
@@ -195,6 +270,39 @@ async function marcarPlanoAcaoResolvido(avaliacaoId) {
   await carregarAvaliacoes();
   closeModal();
   renderConteudoAvaliacoesAd();
+}
+
+// Modal enxuta só com os anexos (do avaliador + plano de ação), sem o
+// resto do detalhe da avaliação — pra dar uma olhada rápida sem abrir o
+// modal grande de "Ver".
+function verAnexosAvaliacao(id) {
+  const d = db();
+  const av = d.avaliacoes.find(a => a.id === id);
+  if (!av) return;
+
+  const anexosAvaliador = (av.anexos || []).filter(a => a.caminhoStorage);
+  const temPlano = av.planoAcaoAnexo && av.planoAcaoAnexo.caminhoStorage;
+
+  const linhaAnexo = a => `<div class="anexo-item" style="display:flex; align-items:center; gap:6px; padding:6px 0; border-bottom:1px solid var(--border)">
+    ${ic('paperclip', 13)}<a href="#" onclick="event.preventDefault(); visualizarAnexo('${a.caminhoStorage}', '${a.nome}')">${a.nome}</a>
+    <span style="color:var(--text-muted); font-size:11px">${a.tamanho || ''}</span>
+  </div>`;
+
+  openModal(`
+    <h3>Anexos</h3>
+    ${anexosAvaliador.length ? `
+      <p style="font-size:12px; font-weight:600; margin:12px 0 4px">Anexados pelo avaliador</p>
+      ${anexosAvaliador.map(linhaAnexo).join('')}
+    ` : ''}
+    ${temPlano ? `
+      <p style="font-size:12px; font-weight:600; margin:12px 0 4px">Plano de ação${av.planoAcaoStatus === 'aguardando_aprovacao' ? ' <span class="badge badge-warn">Aguardando aprovação</span>' : ''}</p>
+      ${linhaAnexo(av.planoAcaoAnexo)}
+    ` : ''}
+    ${!anexosAvaliador.length && !temPlano ? '<p style="font-size:12px; color:var(--text-muted)">Nenhum anexo.</p>' : ''}
+    <div class="no-print" style="display:flex; justify-content:flex-end; margin-top:16px">
+      <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
+    </div>
+  `);
 }
 
 function verDetalheAvaliacao(id) {
@@ -225,6 +333,14 @@ function verDetalheAvaliacao(id) {
       ${!av.semServico && (sit === 'reprovado' || sit === 'parcial') ? (
         av.planoAcaoResolvidoEm
           ? `<span style="margin-right:auto; font-size:12px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:4px">${ic('check', 13)}Plano de ação resolvido em ${new Date(av.planoAcaoResolvidoEm).toLocaleDateString('pt-BR')}</span>`
+          : (av.planoAcaoAnexo && av.planoAcaoStatus === 'aguardando_aprovacao')
+          ? `
+        <div style="margin-right:auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap">
+          <span style="font-size:12px; color:var(--warning, #b45309); font-weight:600; display:flex; align-items:center; gap:4px">${ic('fileText', 13)}Plano de ação aguardando aprovação</span>
+          <button class="btn btn-primary btn-sm" onclick="aprovarPlanoAcao('${av.id}')">Aprovar</button>
+          <button class="btn btn-secondary btn-sm" onclick="rejeitarPlanoAcao('${av.id}')">Rejeitar</button>
+        </div>
+      `
           : av.planoAcaoAnexo
           ? `
         <div style="margin-right:auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap">

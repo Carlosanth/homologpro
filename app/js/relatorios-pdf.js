@@ -535,12 +535,25 @@ async function anexarPlanoAcao(tipo, avId) {
     await r2Upload(caminho, file);
   } catch (err) { toast('Erro ao enviar o arquivo: ' + err.message); return; }
 
-  const anexo = { nome: file.name, tamanho: (file.size / 1024).toFixed(0) + ' KB', caminhoStorage: caminho, enviadoEm: new Date().toISOString() };
-  const { error } = await supabaseClient.from(tabela).update({ plano_acao_anexo: anexo }).eq('id', avId);
+  // Nome de exibição sempre "Plano de Ação - DD-MM-AAAA.ext" (data do envio),
+  // não importa se veio do fornecedor pelo portal ou anexado aqui manualmente
+  // pelo admin — mesmo padrão nos dois casos.
+  const agora = new Date();
+  const extensao = file.name.includes('.') ? file.name.split('.').pop() : '';
+  const dd = String(agora.getDate()).padStart(2, '0');
+  const mm = String(agora.getMonth() + 1).padStart(2, '0');
+  const nomeExibicao = `Plano de Ação - ${dd}-${mm}-${agora.getFullYear()}${extensao ? `.${extensao}` : ''}`;
+
+  const anexo = { nome: nomeExibicao, tamanho: (file.size / 1024).toFixed(0) + ' KB', caminhoStorage: caminho, enviadoEm: agora.toISOString() };
+  // Anexo manual do admin já entra aprovado (é o próprio admin anexando) —
+  // não passa por plano_acao_status, só o envio pelo portal do fornecedor
+  // fica aguardando_aprovacao.
+  const { error } = await supabaseClient.from(tabela).update({ plano_acao_anexo: anexo, plano_acao_status: null }).eq('id', avId);
   if (error) { toast('Erro ao salvar o plano de ação: ' + error.message); return; }
 
   addLog('plano_acao_anexado', `${currentUser.email} anexou o plano de ação de ${tipo === 'produto' ? 'uma NF' : 'uma avaliação de serviço'}`);
   av.planoAcaoAnexo = anexo;
+  av.planoAcaoStatus = null;
   toast('Plano de ação anexado!');
   if (tipo === 'produto') verDetalheAvaliacaoProduto(avId); else verDetalheAvaliacao(avId);
 }
@@ -553,7 +566,7 @@ function blocoPlanoAcaoHtml(tipo, av) {
     <div style="margin-top:14px; padding:10px 12px; background:var(--surface2); border-radius:8px">
       <p style="font-size:12px; font-weight:600; margin-bottom:6px">Plano de ação${prazoLabel ? ` — prazo até ${prazoLabel}` : ''}</p>
       ${av.planoAcaoAnexo
-        ? `<div style="font-size:12px; display:flex; align-items:center; gap:6px; color:var(--success)">${ic('paperclip', 13)}<a href="#" onclick="event.preventDefault(); visualizarAnexo('${av.planoAcaoAnexo.caminhoStorage}', '${av.planoAcaoAnexo.nome}')">${av.planoAcaoAnexo.nome}</a> <span style="color:var(--text-muted)">— anexado em ${new Date(av.planoAcaoAnexo.enviadoEm).toLocaleDateString('pt-BR')}</span></div>`
+        ? `<div style="font-size:12px; display:flex; align-items:center; gap:6px; color:${av.planoAcaoStatus === 'aguardando_aprovacao' ? 'var(--warning, #b45309)' : 'var(--success)'}">${ic('paperclip', 13)}<a href="#" onclick="event.preventDefault(); visualizarAnexo('${av.planoAcaoAnexo.caminhoStorage}', '${av.planoAcaoAnexo.nome}')">${av.planoAcaoAnexo.nome}</a> <span style="color:var(--text-muted)">— anexado em ${new Date(av.planoAcaoAnexo.enviadoEm).toLocaleDateString('pt-BR')}</span>${av.planoAcaoStatus === 'aguardando_aprovacao' ? ' <span class="badge badge-warn">Aguardando aprovação</span>' : ''}</div>`
         : `<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
              <input type="file" id="plano-acao-file-${tipo}-${av.id}" style="font-size:11px; max-width:220px">
              <button class="btn btn-secondary btn-sm" onclick="anexarPlanoAcao('${tipo}', '${av.id}')">Anexar</button>

@@ -703,9 +703,10 @@ async function renderAdConfig() {
           </div>
           <div class="form-row">
             <div class="form-group"><label>Nome da empresa</label><input type="text" id="emp-nome" value="${escapeHtml(d.nomeEmpresa || d.empresa.nome || '')}" disabled title="Definido no cadastro — pra alterar, fale com o suporte."></div>
-            <div class="form-group"><label>Cidade/UF</label><input type="text" id="emp-cidade" value="${d.empresa.cidade||''}"></div>
+            <div class="form-group"><label>CNPJ</label><input type="text" id="emp-cnpj" placeholder="00.000.000/0000-00" value="${escapeHtml(d.empresa.cnpj||'')}" oninput="this.value = formatarCNPJ(this.value)"></div>
           </div>
           <div class="form-row">
+            <div class="form-group"><label>Cidade/UF</label><input type="text" id="emp-cidade" value="${d.empresa.cidade||''}"></div>
             <div class="form-group">
               <label>Setor <span style="color:var(--text-muted); font-weight:400">(assina os e-mails automáticos no lugar de um nome de pessoa)</span></label>
               <input type="text" id="emp-setor" placeholder="Ex: Compras e Almoxarifado" value="${d.setorEmpresa || ''}">
@@ -1123,7 +1124,7 @@ async function salvarMatriz() {
 
 async function salvarEmpresaAd() {
   const empresa = {};
-  ['cidade','endereco','cep','tel','email'].forEach(k => {
+  ['cidade','endereco','cep','tel','email','cnpj'].forEach(k => {
     empresa[k] = document.getElementById('emp-' + k).value.trim();
   });
   const { error } = await salvarConfigEmpresa('empresa', empresa);

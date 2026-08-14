@@ -80,6 +80,7 @@ let documentosCache = []; // documentos de fornecedores — populado por carrega
 let criteriosProdutoCache = []; // critérios de avaliação de produto — populado por carregarCriteriosProduto()
 let avaliacoesProdutoCache = []; // lançamentos de nota fiscal (produto) — populado por carregarAvaliacoesProduto()
 let criteriosConferenciaCache = []; // critérios do módulo Conferência — populado por carregarCriteriosConferencia()
+let rncModelosCache = []; // modelos de RNC configurados pela empresa — populado por carregarRncModelos()
 let conferenciasCache = []; // lançamentos de conferência (NF + fornecedor) — populado por carregarConferencias()
 let logsCache = []; // log de auditoria — populado por carregarLogs() (antes ficava só no localStorage)
 const MATRIZ_PADRAO = { cert: 10, aprov: 8, parcial: 6, usarCert: true, usarAprov: true, usarParcial: true };
@@ -189,6 +190,7 @@ function db() {
     planoAcaoCobrancaFrequencia: empresaConfigCache.plano_acao_cobranca_frequencia || 'diaria',
     notificarAtividadeAtivo: empresaConfigCache.notificar_atividade_ativo,
     criteriosConferencia: criteriosConferenciaCache,
+    rncModelos: rncModelosCache,
     conferencias: conferenciasCache,
     descontoDocVencidoAtivo: empresaConfigCache.desconto_doc_vencido_ativo,
     valorDescontoDocVencido: empresaConfigCache.valor_desconto_doc_vencido ?? 1,
@@ -592,6 +594,7 @@ async function carregarPerfilELogar() {
     await carregarLogs();
     await carregarAvaliacoesProduto();
     await carregarCriteriosConferencia();
+    await carregarRncModelos();
     await carregarConferencias();
     await carregarUnidades();
     await carregarUnidadesDocumentos();
@@ -865,6 +868,7 @@ async function carregarAvaliacoes() {
       notificadoEm: av.notificado_em || null,
       planoAcaoPrazo: av.plano_acao_prazo || null,
       planoAcaoAnexo: av.plano_acao_anexo || null,
+      planoAcaoStatus: av.plano_acao_status || null,
       planoAcaoVistoEm: av.plano_acao_visto_em || null,
       planoAcaoResolvidoEm: av.plano_acao_resolvido_em || null,
       situacao: av.situacao || null,
@@ -1005,6 +1009,7 @@ async function carregarAvaliacoesProduto() {
     notificadoEm: av.notificado_em || null,
     planoAcaoPrazo: av.plano_acao_prazo || null,
     planoAcaoAnexo: av.plano_acao_anexo || null,
+    planoAcaoStatus: av.plano_acao_status || null,
   }));
 }
 
@@ -1022,6 +1027,22 @@ async function carregarCriteriosConferencia() {
     return;
   }
   criteriosConferenciaCache = data || [];
+}
+
+// Busca os modelos de RNC configurados pela empresa (nasce vazio — sem seed padrão).
+async function carregarRncModelos() {
+  const { data, error } = await supabaseClient
+    .from('rnc_modelos')
+    .select('*')
+    .eq('empresa_id', currentUser.empresaId)
+    .order('criado_em');
+
+  if (error) {
+    console.error('Erro ao carregar modelos de RNC:', error.message);
+    rncModelosCache = [];
+    return;
+  }
+  rncModelosCache = data || [];
 }
 
 // Busca os lançamentos de conferência (NF + fornecedor) da empresa.
@@ -1341,6 +1362,10 @@ function montarNotificacoes() {
     d.avaliacoes.filter(av => av.periodo === chaveMes && !av.semServico && !av.notificadoEm && (situacaoDe(av) === 'reprovado' || situacaoDe(av) === 'parcial')).forEach(av => {
       const forn = d.fornecedores.find(f => f.id === av.fornecedorId);
       itens.push({ urgente: situacaoDe(av) === 'reprovado', texto: `Nota baixa (${av.nota.toFixed(1)}) — ${forn ? forn.nome : '—'}`, modulo: 'avaliacoes' });
+    });
+    d.avaliacoes.filter(av => av.planoAcaoAnexo && av.planoAcaoStatus === 'aguardando_aprovacao').forEach(av => {
+      const forn = d.fornecedores.find(f => f.id === av.fornecedorId);
+      itens.push({ urgente: false, texto: `${ic('fileText', 12)}${forn ? forn.nome : '—'} enviou o plano de ação — aguardando aprovação`, modulo: 'avaliacoes' });
     });
   }
 

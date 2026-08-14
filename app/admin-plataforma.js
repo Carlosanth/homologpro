@@ -13,16 +13,41 @@ function toastPlataforma(msg) {
   setTimeout(() => { t.style.display = 'none'; }, 3000);
 }
 
+// supabaseClient.functions.invoke() não coloca a mensagem de erro real
+// (o "error" que a Edge Function devolve no corpo JSON) em error.message —
+// ele só devolve um texto genérico tipo "Edge Function returned a non-2xx
+// status code". A mensagem de verdade fica em error.context, que é a
+// Response bruta; essa função lê o corpo dela pra mostrar o motivo real.
+async function mensagemErroFuncao(error) {
+  if (!error) return 'Erro desconhecido.';
+  try {
+    if (error.context && typeof error.context.json === 'function') {
+      const corpo = await error.context.clone().json();
+      if (corpo && corpo.error) return corpo.error;
+    }
+  } catch (_e) {
+    // corpo não veio em JSON — segue pro fallback abaixo
+  }
+  return error.message || 'Erro desconhecido.';
+}
+
 async function doLoginPlataforma() {
   const email = document.getElementById('login-email').value.trim().toLowerCase();
   const senha = document.getElementById('login-senha').value;
   const errBox = document.getElementById('login-error');
   errBox.style.display = 'none';
 
+  const btn = document.getElementById('login-btn');
+  const textoOriginalBtn = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="btn-spinner"></span>';
+
   const { error: erroLogin } = await supabaseClient.auth.signInWithPassword({ email, password: senha });
   if (erroLogin) {
     errBox.textContent = 'E-mail ou senha inválidos.';
     errBox.style.display = 'block';
+    btn.disabled = false;
+    btn.innerHTML = textoOriginalBtn;
     return;
   }
 
@@ -31,7 +56,11 @@ async function doLoginPlataforma() {
     errBox.textContent = 'Acesso negado. Essa conta não tem permissão de administrador da plataforma.';
     errBox.style.display = 'block';
     await supabaseClient.auth.signOut();
+    btn.disabled = false;
+    btn.innerHTML = textoOriginalBtn;
   }
+  // Em caso de sucesso não precisa restaurar o botão — a tela de login
+  // já vai ser escondida por carregarEmpresasPlataforma().
 }
 
 async function sairPlataforma() {
@@ -40,6 +69,9 @@ async function sairPlataforma() {
   document.getElementById('login-view').style.display = 'flex';
   document.getElementById('login-email').value = '';
   document.getElementById('login-senha').value = '';
+  const btn = document.getElementById('login-btn');
+  btn.disabled = false;
+  btn.innerHTML = 'Entrar';
 }
 
 // Retorna true/false — usado tanto no login quanto pra recarregar a lista depois de editar.
@@ -51,7 +83,7 @@ async function carregarEmpresasPlataforma() {
   }
 
   empresasCachePlataforma = data.empresas || [];
-  seedNotasFiscaisMock();
+  await carregarNotasFiscaisPlataforma();
   document.getElementById('login-view').style.display = 'none';
   document.getElementById('app-view').style.display = 'block';
   document.getElementById('topbar-sub').textContent = `${empresasCachePlataforma.length} empresa(s) cadastrada(s)`;
@@ -78,73 +110,103 @@ function renderEmpresasPlataforma(listaFiltrada) {
   }
 
   wrap.innerHTML = `
-    <table>
-      <thead>
-        <tr>
-          <th>Empresa</th>
-          <th>Status</th>
-          <th>Trial até</th>
-          <th>Plano</th>
-          <th style="text-align:right">Valor atual</th>
-          <th style="text-align:center">Usuários</th>
-          <th style="text-align:center">Fornecedores</th>
-          <th style="text-align:center">Avaliações</th>
-          <th style="text-align:center">Limite forn.</th>
-          <th style="text-align:center">Limite admins</th>
-          <th>Criada em</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        ${lista.map(emp => `
-          <tr>
-            <td style="font-weight:600">
-              ${emp.nome} ${badgeStatusHTML(emp.status)}
-              <span onclick="abrirModalDetalhesEmpresa('${emp.id}')" title="Ver detalhes completos" style="cursor:pointer; display:inline-flex; vertical-align:middle; margin-left:4px; color:var(--text-muted)">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-              </span>
-            </td>
-            <td>
-              <select id="pf-status-${emp.id}">
-                <option value="trial" ${emp.status === 'trial' ? 'selected' : ''}>Trial</option>
-                <option value="ativa" ${emp.status === 'ativa' ? 'selected' : ''}>Ativa</option>
-                <option value="expirada" ${emp.status === 'expirada' ? 'selected' : ''}>Expirada</option>
-                <option value="cancelada" ${emp.status === 'cancelada' ? 'selected' : ''}>Cancelada</option>
-              </select>
-            </td>
-            <td><input type="date" id="pf-trial-${emp.id}" value="${emp.trial_termina_em ? emp.trial_termina_em.slice(0, 10) : ''}"></td>
-            <td>
-              <select id="pf-plano-${emp.id}">
-                <option value="" ${!emp.plano ? 'selected' : ''}>—</option>
-                <option value="essencial" ${emp.plano === 'essencial' ? 'selected' : ''}>Essencial</option>
-                <option value="profissional" ${emp.plano === 'profissional' ? 'selected' : ''}>Profissional</option>
-                <option value="enterprise" ${emp.plano === 'enterprise' ? 'selected' : ''}>Enterprise</option>
-              </select>
-            </td>
-            <td style="text-align:right">
-              ${emp.valor_mensal_atual != null ? `R$ ${Number(emp.valor_mensal_atual).toFixed(2).replace('.', ',')}` : '<span style="color:var(--text-muted)">—</span>'}
-              ${emp.proximo_valor_mensal != null ? `<div style="font-size:10px; color:var(--warn)">→ R$ ${Number(emp.proximo_valor_mensal).toFixed(2).replace('.', ',')} em ${new Date(emp.proximo_reajuste_em).toLocaleDateString('pt-BR')}</div>` : ''}
-            </td>
-            <td style="text-align:center">${emp.totalUsuarios}</td>
-            <td style="text-align:center">${emp.totalFornecedores}</td>
-            <td style="text-align:center">${emp.totalAvaliacoes}</td>
-            <td><input type="number" min="0" placeholder="ilimitado" id="pf-limite-forn-${emp.id}" style="width:90px; text-align:center" value="${emp.limite_fornecedores ?? ''}"></td>
-            <td><input type="number" min="0" placeholder="ilimitado" id="pf-limite-admins-${emp.id}" style="width:80px; text-align:center" value="${emp.limite_admins ?? ''}"></td>
-            <td style="color:var(--text-muted); font-size:12px">${new Date(emp.criado_em).toLocaleDateString('pt-BR')}</td>
-            <td>
-              <button class="btn btn-primary btn-sm" onclick="salvarEmpresaPlataforma('${emp.id}')">Salvar</button>
-              <button class="btn btn-secondary btn-sm" style="margin-top:4px" onclick="abrirModalEnterprise('${emp.id}')">Montar Enterprise</button>
-              <button class="btn btn-secondary btn-sm" style="margin-top:4px" onclick="abrirModalNotasFiscais('${emp.id}')">
-                🧾 Notas Fiscais${contarNotasPendentes(emp.id) > 0 ? ` <span class="badge badge-nf-pendente">${contarNotasPendentes(emp.id)}</span>` : ''}
+    <div class="emp-list">
+      ${lista.map(emp => `
+        <div class="emp-card">
+          <div class="emp-row">
+            <div class="emp-id">
+              <div class="nome">
+                ${emp.nome} ${badgeStatusHTML(emp.status)}
+                <span onclick="abrirModalDetalhesEmpresa('${emp.id}')" title="Ver detalhes completos" class="info-ico">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                </span>
+              </div>
+              <div class="meta">
+                <span>Criada em ${new Date(emp.criado_em).toLocaleDateString('pt-BR')}</span>
+                ${emp.adminMasterEmail ? `<span>✉️ ${emp.adminMasterEmail}</span>` : ''}
+                ${emp.cnpj ? `<span>CNPJ ${emp.cnpj}</span>` : ''}
+              </div>
+            </div>
+
+            <div class="emp-stats">
+              <div class="stat plano"><div class="n">${emp.plano ? emp.plano[0].toUpperCase() + emp.plano.slice(1) : '—'}</div><div class="l">Plano</div></div>
+              <div class="stat valor"><div class="n${emp.valor_mensal_atual == null ? ' vazio' : ''}">${emp.valor_mensal_atual != null ? `R$ ${Number(emp.valor_mensal_atual).toFixed(2).replace('.', ',')}` : '—'}</div><div class="l">Valor</div></div>
+              <div class="stat"><div class="n">${emp.totalUsuarios}</div><div class="l">Usuários</div></div>
+              <div class="stat"><div class="n">${emp.totalFornecedores}</div><div class="l">Fornec.</div></div>
+            </div>
+
+            <div class="emp-actions">
+              <button class="btn btn-secondary btn-sm" onclick="toggleEditEmpresa('${emp.id}')">Editar</button>
+              <button class="btn btn-secondary btn-sm" onclick="abrirModalEnterprise('${emp.id}')">Montar Enterprise</button>
+              <button class="btn btn-secondary btn-sm warn" onclick="abrirModalNotasFiscais('${emp.id}')">
+                🧾 NF${contarNotasPendentes(emp.id) > 0 ? ` <span class="badge badge-nf-pendente">${contarNotasPendentes(emp.id)}</span>` : ''}
               </button>
-              ${emp.status === 'cancelada' ? `<button class="btn btn-danger btn-sm" style="margin-top:4px" onclick="abrirModalExcluirEmpresa('${emp.id}')">Excluir definitivamente</button>` : ''}
-            </td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
+              <div class="kebab-wrap">
+                <button class="btn btn-secondary btn-sm btn-icon" onclick="toggleKebabEmpresa('${emp.id}')">⋮</button>
+                <div class="kebab-menu" id="kebab-${emp.id}">
+                  <button onclick="abrirModalDetalhesEmpresa('${emp.id}')">Ver detalhes completos</button>
+                  ${emp.status === 'cancelada' ? `<button class="danger" onclick="abrirModalExcluirEmpresa('${emp.id}')">Excluir definitivamente</button>` : ''}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="emp-edit" id="edit-${emp.id}">
+            <div class="edit-grid">
+              <div class="field">
+                <label>Status</label>
+                <select id="pf-status-${emp.id}">
+                  <option value="trial" ${emp.status === 'trial' ? 'selected' : ''}>Trial</option>
+                  <option value="ativa" ${emp.status === 'ativa' ? 'selected' : ''}>Ativa</option>
+                  <option value="expirada" ${emp.status === 'expirada' ? 'selected' : ''}>Expirada</option>
+                  <option value="cancelada" ${emp.status === 'cancelada' ? 'selected' : ''}>Cancelada</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Trial até</label>
+                <input type="date" id="pf-trial-${emp.id}" value="${emp.trial_termina_em ? emp.trial_termina_em.slice(0, 10) : ''}">
+              </div>
+              <div class="field">
+                <label>Plano</label>
+                <select id="pf-plano-${emp.id}">
+                  <option value="" ${!emp.plano ? 'selected' : ''}>—</option>
+                  <option value="essencial" ${emp.plano === 'essencial' ? 'selected' : ''}>Essencial</option>
+                  <option value="profissional" ${emp.plano === 'profissional' ? 'selected' : ''}>Profissional</option>
+                  <option value="enterprise" ${emp.plano === 'enterprise' ? 'selected' : ''}>Enterprise</option>
+                </select>
+              </div>
+              <div class="field num">
+                <label>Limite forn.</label>
+                <input type="number" min="0" placeholder="ilimitado" id="pf-limite-forn-${emp.id}" value="${emp.limite_fornecedores ?? ''}">
+              </div>
+              <div class="field num">
+                <label>Limite admins</label>
+                <input type="number" min="0" placeholder="ilimitado" id="pf-limite-admins-${emp.id}" value="${emp.limite_admins ?? ''}">
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="salvarEmpresaPlataforma('${emp.id}')">Salvar</button>
+            </div>
+            ${emp.proximo_valor_mensal != null ? `<div style="font-size:11px; color:var(--warn); margin-top:10px">Reajuste agendado: → R$ ${Number(emp.proximo_valor_mensal).toFixed(2).replace('.', ',')} em ${new Date(emp.proximo_reajuste_em).toLocaleDateString('pt-BR')}</div>` : ''}
+          </div>
+        </div>
+      `).join('')}
+    </div>
   `;
 }
+
+function toggleEditEmpresa(empresaId) {
+  document.getElementById(`edit-${empresaId}`).classList.toggle('open');
+}
+
+function toggleKebabEmpresa(empresaId) {
+  document.querySelectorAll('.kebab-menu').forEach(m => { if (m.id !== `kebab-${empresaId}`) m.classList.remove('open'); });
+  document.getElementById(`kebab-${empresaId}`).classList.toggle('open');
+}
+
+document.addEventListener('click', (ev) => {
+  if (!ev.target.closest('.kebab-wrap')) {
+    document.querySelectorAll('.kebab-menu').forEach(m => m.classList.remove('open'));
+  }
+});
 
 async function salvarEmpresaPlataforma(empresaId) {
   const status = document.getElementById(`pf-status-${empresaId}`).value;
@@ -166,7 +228,7 @@ async function salvarEmpresaPlataforma(empresaId) {
   const { data, error } = await supabaseClient.functions.invoke('superadmin-atualizar-empresa', { body });
 
   if (error || (data && data.ok === false)) {
-    toastPlataforma('Erro: ' + ((data && data.error) || error?.message || 'falha ao salvar'));
+    toastPlataforma('Erro: ' + ((data && data.error) || await mensagemErroFuncao(error)));
     return;
   }
 
@@ -197,7 +259,7 @@ async function preverReajusteGeral() {
   });
 
   if (error || (data && data.ok === false)) {
-    wrap.innerHTML = `<div class="empty-state" style="color:var(--danger)">Erro: ${(data && data.error) || error?.message}</div>`;
+    wrap.innerHTML = `<div class="empty-state" style="color:var(--danger)">Erro: ${(data && data.error) || await mensagemErroFuncao(error)}</div>`;
     return;
   }
 
@@ -228,7 +290,7 @@ async function confirmarReajusteGeral(percentual, escopoPlanos) {
   });
 
   if (error || (data && data.ok === false)) {
-    toastPlataforma('Erro: ' + ((data && data.error) || error?.message));
+    toastPlataforma('Erro: ' + ((data && data.error) || await mensagemErroFuncao(error)));
     return;
   }
 
@@ -547,7 +609,7 @@ async function gerarCheckoutEnterprise() {
   });
 
   if (error || (data && data.ok === false)) {
-    resultBox.innerHTML = `<div class="empty-state" style="color:var(--danger)">Erro: ${(data && data.error) || error?.message || 'falha ao gerar'}</div>`;
+    resultBox.innerHTML = `<div class="empty-state" style="color:var(--danger)">Erro: ${(data && data.error) || await mensagemErroFuncao(error)}</div>`;
     return;
   }
 
@@ -617,7 +679,7 @@ async function confirmarExcluirEmpresa() {
   });
 
   if (error || (data && data.ok === false)) {
-    resultBox.innerHTML = `<div class="empty-state" style="color:var(--danger)">Erro: ${(data && data.error) || error?.message || 'falha ao excluir'}</div>`;
+    resultBox.innerHTML = `<div class="empty-state" style="color:var(--danger)">Erro: ${(data && data.error) || await mensagemErroFuncao(error)}</div>`;
     document.getElementById('ee-btn-confirmar').disabled = false;
     return;
   }
@@ -629,23 +691,28 @@ async function confirmarExcluirEmpresa() {
 
 // ============ NOTAS FISCAIS EMITIDAS ============
 //
-// Front-end construído primeiro, back-end vem depois (decisão do Carlos).
-// Por isso, TUDO nessa seção que dependeria de Edge Function real está
-// marcado com "TODO(backend)" e usa dado mockado por enquanto. Quando as
-// Edge Functions superadmin-listar-notas-pendentes e
-// superadmin-enviar-nota-fiscal existirem, trocar exatamente essas duas
-// funções (seedNotasFiscaisMock -> chamada real de listagem, e o corpo de
-// enviarNotaFiscal -> supabaseClient.functions.invoke('superadmin-enviar-nota-fiscal', ...))
-// sem precisar mexer no resto (modal, render, badge já ficam prontos).
+// Agora usa as Edge Functions reais (superadmin-listar-notas-fiscais e
+// superadmin-enviar-nota-fiscal). Se elas ainda não tiverem sido
+// deployadas no seu projeto Supabase (ex: primeira vez rodando essa
+// versão), cai automaticamente pro dado mockado, só pra não quebrar a
+// tela — assim que a migration + as functions existirem, passa a usar
+// dado real sem precisar mudar mais nada aqui.
 
 // empresaId -> array de notas: { id, valor, referenteA, cobradoEm, status: 'pendente'|'enviada', enviadoEm }
 let notasFiscaisCachePlataforma = {};
 
-// TODO(backend): substituir por chamada real (ou por campo já incluso no
-// retorno de superadmin-listar-empresas, se fizer mais sentido resolver
-// tudo numa call só). Por ora, gera pendências fixas de exemplo pra cada
-// empresa que ainda não tem entrada no cache — só pra dar pra montar/testar
-// a UI sem depender do banco ainda.
+async function carregarNotasFiscaisPlataforma() {
+  const { data, error } = await supabaseClient.functions.invoke('superadmin-listar-notas-fiscais');
+  if (error || !data || data.ok === false) {
+    console.warn('superadmin-listar-notas-fiscais indisponível ainda, usando dado de exemplo:', error || data?.error);
+    seedNotasFiscaisMock();
+    return;
+  }
+  notasFiscaisCachePlataforma = data.notasPorEmpresa || {};
+}
+
+// Dado de exemplo — só usado como fallback enquanto a Edge Function real
+// não estiver deployada (ver carregarNotasFiscaisPlataforma acima).
 function seedNotasFiscaisMock() {
   empresasCachePlataforma.forEach((emp, i) => {
     if (notasFiscaisCachePlataforma[emp.id]) return; // não reseta se já existe (ex: depois de "Enviar")
@@ -771,34 +838,41 @@ async function enviarNotaFiscal(notaId, empresaId) {
   btn.disabled = true;
   btn.textContent = 'Enviando...';
 
-  // TODO(backend): trocar esse bloco pela chamada real:
-  //
-  //   const formData = new FormData();
-  //   formData.append('notaFiscalId', notaId);
-  //   formData.append('arquivo', arquivo);
-  //   const { data, error } = await supabaseClient.functions.invoke(
-  //     'superadmin-enviar-nota-fiscal', { body: formData }
-  //   );
-  //   if (error || (data && data.ok === false)) {
-  //     toastPlataforma('Erro: ' + ((data && data.error) || error?.message));
-  //     btn.disabled = false;
-  //     btn.textContent = 'Enviar';
-  //     return;
-  //   }
-  //
-  // Por enquanto, só simula o sucesso pra validar o fluxo de UI.
-  await new Promise(resolve => setTimeout(resolve, 700));
-
-  const notas = notasFiscaisCachePlataforma[empresaId] || [];
-  const nota = notas.find(n => n.id === notaId);
-  if (nota) {
-    nota.status = 'enviada';
-    nota.enviadoEm = new Date().toISOString();
+  // Notas com id "mock-..." são só o fallback visual (Edge Functions ainda
+  // não deployadas) — não dá pra mandar de verdade, só simula.
+  if (notaId.startsWith('mock-')) {
+    await new Promise(resolve => setTimeout(resolve, 700));
+    const notas = notasFiscaisCachePlataforma[empresaId] || [];
+    const nota = notas.find(n => n.id === notaId);
+    if (nota) { nota.status = 'enviada'; nota.enviadoEm = new Date().toISOString(); }
+    toastPlataforma('Nota enviada! (simulado — Edge Functions ainda não deployadas)');
+    renderNotasFiscaisModal(empresaId);
+    renderEmpresasPlataforma();
+    return;
   }
 
-  toastPlataforma('Nota enviada! (simulado — ainda sem back-end)');
+  const formData = new FormData();
+  formData.append('notaFiscalId', notaId);
+  formData.append('arquivo', arquivo);
+
+  const { data, error } = await supabaseClient.functions.invoke(
+    'superadmin-enviar-nota-fiscal', { body: formData }
+  );
+
+  if (error || (data && data.ok === false)) {
+    toastPlataforma('Erro: ' + ((data && data.error) || await mensagemErroFuncao(error)));
+    btn.disabled = false;
+    btn.textContent = 'Enviar';
+    return;
+  }
+
+  toastPlataforma(data.avisoSemEmail
+    ? 'Nota enviada, mas a empresa não tem admin_master com e-mail cadastrado — ninguém foi avisado.'
+    : (data.emailEnviado ? 'Nota enviada e e-mail entregue ao cliente!' : 'Nota marcada como enviada, mas o e-mail falhou — confira o Resend.'));
+
+  await carregarNotasFiscaisPlataforma();
   renderNotasFiscaisModal(empresaId);
-  renderEmpresasPlataforma(); // atualiza o badge de pendências na tabela
+  renderEmpresasPlataforma();
 }
 
 // ============ KPIs (calculados a partir do cache já carregado — sem chamada extra) ============

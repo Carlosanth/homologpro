@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recuperar acesso — HomologPro</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #FAFAFA; --surface: #ffffff; --border: #E2E8F0; --navy: #0A192F;
+    --text: #0F172A; --text-muted: #94A3B8; --accent: #0066FF; --tan: #64FFDA;
+    --success: #16a34a; --success-bg: #f0fdf4;
+  }
+  body { background: var(--bg); font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: var(--text); min-height: 100vh; }
+
+  .top-brand {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 500;
+    height: 58px; background: var(--navy); color: #fff; padding: 0 20px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .top-brand-seal { width: 26px; height: 26px; flex-shrink: 0; color: var(--tan); }
+  .top-brand-text b { font-size: 14px; display: block; font-weight: 700; }
+  .top-brand-text b .logo-tag { color: var(--tan); }
+
+  .wrap { max-width: 440px; margin: 0 auto; padding: 110px 20px 40px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 28px; }
+  .head-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 5px; }
+  .head-title { font-size: 20px; font-weight: 800; color: var(--navy); line-height: 1.3; margin-bottom: 6px; }
+  .head-sub { font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 24px; }
+
+  label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  input[type="text"] {
+    width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 15px; margin-bottom: 16px; letter-spacing: 0.3px;
+  }
+  input[type="text"]:focus { outline: none; border-color: var(--accent); }
+
+  .btn-primary {
+    width: 100%; background: var(--accent); color: #fff; border: none; border-radius: 8px;
+    padding: 12px; font-size: 14px; font-weight: 700; cursor: pointer;
+  }
+  .btn-primary:disabled { opacity: 0.6; cursor: default; }
+
+  .msg-sucesso {
+    background: var(--success-bg); border: 1px solid #bbf7d0; color: #166534;
+    border-radius: 8px; padding: 14px 16px; font-size: 13px; line-height: 1.6; margin-top: 4px;
+  }
+  .voltar { display: block; text-align: center; margin-top: 18px; font-size: 13px; color: var(--text-muted); text-decoration: none; }
+  .voltar:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="top-brand">
+  <svg class="top-brand-seal" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="60" cy="60" r="54" stroke="currentColor" stroke-width="2" stroke-dasharray="3 5"/>
+    <circle cx="60" cy="60" r="44" stroke="currentColor" stroke-width="1.2"/>
+    <path d="M40 61 L53 75 L82 45" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <div class="top-brand-text"><b>Homolog<span class="logo-tag">Pro</span></b></div>
+</div>
+
+<div class="wrap">
+  <div class="card">
+    <p class="head-eyebrow">Portal do Fornecedor</p>
+    <h1 class="head-title">Recuperar acesso</h1>
+    <p class="head-sub">Se o seu link expirou ou você perdeu o e-mail, digite o CNPJ da sua empresa que a gente reenvia o acesso pro e-mail já cadastrado.</p>
+
+    <div id="form-area">
+      <label for="cnpj-input">CNPJ da sua empresa (fornecedor)</label>
+      <input type="text" id="cnpj-input" placeholder="00.000.000/0000-00" maxlength="18" inputmode="numeric">
+      <label for="cnpj-empresa-input">CNPJ da empresa que te avalia <span style="font-weight:400; color:var(--text-muted)">(opcional — só se souber)</span></label>
+      <input type="text" id="cnpj-empresa-input" placeholder="00.000.000/0000-00" maxlength="18" inputmode="numeric">
+      <button class="btn-primary" id="btn-enviar" onclick="solicitar()">Enviar link por e-mail</button>
+    </div>
+
+    <div id="resultado" style="display:none"></div>
+  </div>
+
+  <a class="voltar" href="/">&larr; Voltar</a>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.0/dist/umd/supabase.js" integrity="sha384-3lSoufGjgosjqp3JDr/NReX3PjMd3SlC8wJ23CWFjB6DSFNf71I0DhcRTUm9MwgO" crossorigin="anonymous"></script>
+<script>
+const SUPABASE_URL = 'https://qmvfsgwzbrhbxyonntgh.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_JjiXWFQTcOrUf5RXjsfeVw_5cwLPHf3';
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+const cnpjInput = document.getElementById('cnpj-input');
+cnpjInput.addEventListener('input', () => { cnpjInput.value = formatarCNPJ(cnpjInput.value); });
+cnpjInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') solicitar(); });
+
+const cnpjEmpresaInput = document.getElementById('cnpj-empresa-input');
+cnpjEmpresaInput.addEventListener('input', () => { cnpjEmpresaInput.value = formatarCNPJ(cnpjEmpresaInput.value); });
+cnpjEmpresaInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') solicitar(); });
+
+function formatarCNPJ(valor) {
+  let v = (valor || '').replace(/\D/g, '').slice(0, 14);
+  if (v.length > 12) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{1,2}).*/, '$1.$2.$3/$4-$5');
+  else if (v.length > 8) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{1,4}).*/, '$1.$2.$3/$4');
+  else if (v.length > 5) v = v.replace(/^(\d{2})(\d{3})(\d{1,3}).*/, '$1.$2.$3');
+  else if (v.length > 2) v = v.replace(/^(\d{2})(\d{1,3}).*/, '$1.$2');
+  return v;
+}
+
+async function solicitar() {
+  const digitos = cnpjInput.value.replace(/\D/g, '');
+  if (digitos.length !== 14) { alert('Digite um CNPJ válido (14 dígitos).'); return; }
+
+  const btn = document.getElementById('btn-enviar');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  try {
+    await supabaseClient.functions.invoke('solicitar-link-portal-fornecedor', {
+      body: { cnpj: digitos, cnpjEmpresa: cnpjEmpresaInput.value.replace(/\D/g, '') },
+    });
+  } catch (e) {
+    // Não importa o resultado técnico — a mensagem pro usuário é sempre a
+    // mesma (ver comentário na Edge Function sobre por quê).
+  }
+
+  document.getElementById('form-area').style.display = 'none';
+  const resultado = document.getElementById('resultado');
+  resultado.style.display = 'block';
+  resultado.innerHTML = '<div class="msg-sucesso">Se encontrarmos um cadastro com esse CNPJ, você vai receber um e-mail com o link de acesso em alguns instantes. Não esqueça de checar o spam/lixo eletrônico.</div>';
+}
+</script>
+</body>
+</html>

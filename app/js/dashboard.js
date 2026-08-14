@@ -2,6 +2,12 @@
 // Cada bloco só aparece se o admin tiver acesso ao módulo relacionado
 // (admin_master sempre vê tudo — temAcessoModulo() já trata isso).
 
+// Filtro do card "Setores que mais atrasam a entrega" — fica em memória
+// (não persiste em disco), então volta ao padrão (sem filtro) se a página
+// for recarregada, mas se mantém entre re-renders do dashboard causados
+// por outras ações (aprovar/rejeitar algo, etc).
+let _filtroSetoresAtraso = { de: '', ate: '', setor: '' };
+
 // Donut SVG (Aprovado/Parcial/Reprovado) — sem dependência externa, só stroke-dasharray.
 function donutSituacaoHTML(aprovados, parciais, reprovados) {
   const total = aprovados + parciais + reprovados;
@@ -59,6 +65,7 @@ function renderAdDashboard() {
   let alertaNotificar = '';
   let alertaNotificarProduto = '';
   let alertaPlanoAcaoAtrasado = '';
+  let alertaPlanoAcaoAprovacao = '';
   let alertasDoc = '';
   let alertaDocsEscalonados = '';
   let alertasDocUnidades = '';
@@ -69,6 +76,7 @@ function renderAdDashboard() {
   let lixeiraHTML = '';
   let atividadeHTML = '';
   let rankingHistoricoHTML = '';
+  let setoresAtrasoHTML = '';
 
   // ---------- ALERTA: DOCUMENTOS ENVIADOS PELO PORTAL, AGUARDANDO APROVAÇÃO ----------
   if (podeFornecedores) {
@@ -196,6 +204,40 @@ function renderAdDashboard() {
                 ${badgeSit(getSituacao(av.notaGeral))}
                 ${acao}
               </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+    }
+
+    // ---------- ALERTA: PLANO DE AÇÃO ENVIADO, AGUARDANDO APROVAÇÃO ----------
+    // Mesmo padrão do card de documentos do portal — aprova/rejeita direto
+    // aqui, sem precisar entrar em Avaliações recebidas.
+    const planoAcaoAguardando = (d.avaliacoes || []).filter(av =>
+      !av.semServico && av.planoAcaoAnexo && av.planoAcaoStatus === 'aguardando_aprovacao'
+    );
+
+    if (planoAcaoAguardando.length) {
+      alertaPlanoAcaoAprovacao = `
+        <div class="card alert-collapse alerta-shake" id="alerta-plano-acao-aprovacao" style="margin-bottom:16px; animation-delay:${proximoShakeDelay()}s">
+          <div class="alert-collapse-header" onclick="toggleAlertaCollapse('alerta-plano-acao-aprovacao')">
+            <div class="bar bar-accent"></div>
+            <span style="flex:1; font-size:13px; font-weight:600">Plano de ação enviado — aguardando aprovação</span>
+            <span class="alert-count">${planoAcaoAguardando.length} ocorrência(s)</span>
+            <span class="alert-collapse-chevron">${ic('chevronDown', 16)}</span>
+          </div>
+          <div class="alert-collapse-body">
+            ${planoAcaoAguardando.map(av => {
+              const forn = d.fornecedores.find(f => f.id === av.fornecedorId);
+              return `
+                <div style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px">
+                  <div style="flex:1">
+                    <b>${forn ? forn.nome : '—'}</b> enviou o plano de ação — ${av.periodo || '—'}
+                    <div style="font-size:11px; color:var(--text-muted)">Anexado em ${new Date(av.planoAcaoAnexo.enviadoEm).toLocaleDateString('pt-BR')}</div>
+                  </div>
+                  <button class="btn btn-secondary btn-sm" onclick="visualizarAnexo('${av.planoAcaoAnexo.caminhoStorage}', '${av.planoAcaoAnexo.nome}')">${ic('fileText', 13)} Ver</button>
+                  <button class="btn btn-primary btn-sm" onclick="aprovarPlanoAcao('${av.id}')">${ic('check', 13)} Aprovar</button>
+                  <button class="btn btn-danger btn-sm" onclick="rejeitarPlanoAcao('${av.id}')">${ic('x', 13)} Rejeitar</button>
+                </div>`;
             }).join('')}
           </div>
         </div>`;
@@ -334,6 +376,46 @@ function renderAdDashboard() {
               </tr>`).join('')}
             </tbody>
           </table>
+        </div>`;
+    }
+
+    // ---------- RANKING HISTÓRICO: setores que mais atrasam a entrega da avaliação ----------
+    // Considera só formulários com prazo de entrega configurado. Olha os
+    // períodos já vencidos e, pra cada um, checa se todas as associações
+    // do formulário foram entregues até a data do prazo daquele mês — se
+    // não (entregou depois, ou nem entregou até hoje), conta como um
+    // atraso do setor naquele período. Agrupa por setor (form.setor) pra
+    // cobrir o caso de mais de um formulário pro mesmo setor (um período
+    // com atraso em qualquer formulário do setor conta só 1 vez).
+    // Filtrável por período (de/até) e por setor — o filtro fica em
+    // _filtroSetoresAtraso e a tabela é re-renderizada isolada (só o
+    // conteúdo de #setores-atraso-lista muda, os selects continuam onde
+    // estavam), sem precisar redesenhar o dashboard inteiro.
+    const opcoesPeriodoSetorAtraso = listarPeriodosParaFiltro(d);
+    const opcoesSetorAtraso = listarSetoresParaFiltro(d);
+    if (opcoesSetorAtraso.length) {
+      const setoresAtraso = calcularSetoresAtrasoHistorico(d, _filtroSetoresAtraso);
+      const optPeriodo = selecionado => opcoesPeriodoSetorAtraso.map(p => `<option value="${p}" ${selecionado === p ? 'selected' : ''}>${rotuloPeriodo(p)}</option>`).join('');
+      setoresAtrasoHTML = `
+        <div class="card">
+          <div class="card-title" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px">
+            <span>Setores que mais atrasam a entrega — histórico</span>
+            <div style="display:flex; gap:6px; flex-wrap:wrap">
+              <select id="fsa-de" style="font-size:11px" onchange="aplicarFiltroSetoresAtraso()">
+                <option value="">De (início)</option>
+                ${optPeriodo(_filtroSetoresAtraso.de)}
+              </select>
+              <select id="fsa-ate" style="font-size:11px" onchange="aplicarFiltroSetoresAtraso()">
+                <option value="">Até (fim)</option>
+                ${optPeriodo(_filtroSetoresAtraso.ate)}
+              </select>
+              <select id="fsa-setor" style="font-size:11px" onchange="aplicarFiltroSetoresAtraso()">
+                <option value="">Todos os setores</option>
+                ${opcoesSetorAtraso.map(s => `<option value="${escapeHtml(s)}" ${_filtroSetoresAtraso.setor === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div id="setores-atraso-lista">${htmlTabelaSetoresAtraso(setoresAtraso)}</div>
         </div>`;
     }
   }
@@ -564,13 +646,17 @@ function renderAdDashboard() {
     }
   }
 
+  // Junta os cards de "insight" (ranking de reprovações, ranking de atraso
+  // por setor, atividade recente) de 2 em 2 no mesmo grid — se sobrar 1
+  // sozinho na última linha, ele ocupa a largura toda.
   let insightGridHTML = '';
-  if (rankingHistoricoHTML || atividadeHTML) {
-    const doisCards2 = rankingHistoricoHTML && atividadeHTML;
-    insightGridHTML = `<div class="admin-grid2"${doisCards2 ? '' : ' style="grid-template-columns:1fr"'}>${rankingHistoricoHTML}${atividadeHTML}</div>`;
+  const insightCards = [rankingHistoricoHTML, setoresAtrasoHTML, atividadeHTML].filter(Boolean);
+  for (let i = 0; i < insightCards.length; i += 2) {
+    const par = insightCards.slice(i, i + 2);
+    insightGridHTML += `<div class="admin-grid2"${par.length === 1 ? ' style="grid-template-columns:1fr"' : ''}>${par.join('')}</div>`;
   }
 
-  const semNadaParaMostrar = !alertaAprovacao && !alertaAvaliadoresPendentesHTML && !alertaNotificar && !alertaNotificarProduto && !alertaPlanoAcaoAtrasado && !alertasDoc && !alertaDocsEscalonados && !alertasDocUnidades && !dashGrid2HTML && !insightGridHTML && !graficosHTML && !tabelaHTML && !adminGridHTML;
+  const semNadaParaMostrar = !alertaAprovacao && !alertaAvaliadoresPendentesHTML && !alertaNotificar && !alertaNotificarProduto && !alertaPlanoAcaoAprovacao && !alertaPlanoAcaoAtrasado && !alertasDoc && !alertaDocsEscalonados && !alertasDocUnidades && !dashGrid2HTML && !insightGridHTML && !graficosHTML && !tabelaHTML && !adminGridHTML;
   document.getElementById('ad-page-dashboard').innerHTML = `
     <div class="page-header"><div><h2>Dashboard e notificações</h2><p>${MESES[mesAtual]} de ${anoAtual}</p></div></div>
     ${onboardingHTML}
@@ -578,6 +664,7 @@ function renderAdDashboard() {
     ${alertaAvaliadoresPendentesHTML}
     ${alertaNotificar}
     ${alertaNotificarProduto}
+    ${alertaPlanoAcaoAprovacao}
     ${alertaPlanoAcaoAtrasado}
     ${alertasDoc}
     ${alertaDocsEscalonados}
@@ -611,6 +698,142 @@ function calcularSetoresEnviadosMes(d, chaveMes) {
     ).length;
     return { formId: form.id, nome: form.nome, total, completos, pct: Math.round((completos / total) * 100) };
   }).filter(Boolean).sort((a, b) => b.pct - a.pct || a.nome.localeCompare(b.nome));
+}
+
+// ---------- HISTÓRICO DE ATRASO POR SETOR ----------
+// "Setor" aqui é o form.setor (setor avaliador de cada formulário) — pode
+// ter mais de um formulário pro mesmo setor, e nesse caso os formulários
+// são agrupados ANTES de contar: um período conta como "atraso do setor"
+// no máximo 1 vez, mesmo que vários formulários daquele setor tenham
+// atrasado no mesmo mês (senão um setor com muitos formulários apareceria
+// como "mais atrasado" só por ter mais formulários, não por atrasar mais).
+// Só entra na conta formulário com prazo de entrega configurado (sem
+// prazo não dá pra medir atraso).
+//
+// Pra cada período (mês) que já teve alguma avaliação enviada, mais o mês
+// atual: olha todos os formulários do setor cujo prazo daquele mês já
+// venceu (cada formulário pode ter um prazo diferente) e considera esse
+// período "avaliável" pro setor. Dentro desses, o setor atrasou no
+// período se PELO MENOS UM formulário dele não teve todas as associações
+// entregues até o prazo (entregue depois, ou nunca entregue). O ranking é
+// sobre a frequência de atraso ao longo do tempo, não sobre pendência em
+// aberto agora.
+// converte "YYYY-M" num número comparável (ano*12+mês), pra dar pra
+// ordenar/comparar sem cair na armadilha de comparar strings ("2026-10" <
+// "2026-9" alfabeticamente, mesmo sendo depois)
+function periodoParaNumero(periodo) {
+  const [ano, mes] = periodo.split('-').map(Number);
+  return ano * 12 + mes;
+}
+
+// "2026-8" -> "Agosto de 2026", pra exibir nos selects de filtro
+function rotuloPeriodo(periodo) {
+  const [ano, mes] = periodo.split('-').map(Number);
+  return `${MESES[mes]} de ${ano}`;
+}
+
+// todos os períodos com pelo menos 1 avaliação enviada, mais o mês atual —
+// ordenados cronologicamente, pra popular os selects de filtro "de"/"até"
+function listarPeriodosParaFiltro(d) {
+  const hoje = new Date();
+  const periodos = new Set(d.avaliacoes.map(av => av.periodo));
+  periodos.add(`${hoje.getFullYear()}-${hoje.getMonth() + 1}`);
+  return [...periodos].sort((a, b) => periodoParaNumero(a) - periodoParaNumero(b));
+}
+
+// setores com pelo menos 1 formulário com prazo de entrega configurado —
+// popula o select de filtro por setor
+function listarSetoresParaFiltro(d) {
+  const setores = new Set(d.formularios.filter(f => f.prazoEntregaDia).map(f => f.setor || f.nome));
+  return [...setores].sort((a, b) => a.localeCompare(b));
+}
+
+function calcularSetoresAtrasoHistorico(d, filtro) {
+  filtro = filtro || {};
+  const hoje = new Date();
+  const chaveMesAtual = `${hoje.getFullYear()}-${hoje.getMonth() + 1}`;
+  let periodos = new Set(d.avaliacoes.map(av => av.periodo));
+  periodos.add(chaveMesAtual);
+  if (filtro.de) periodos = new Set([...periodos].filter(p => periodoParaNumero(p) >= periodoParaNumero(filtro.de)));
+  if (filtro.ate) periodos = new Set([...periodos].filter(p => periodoParaNumero(p) <= periodoParaNumero(filtro.ate)));
+
+  // agrupa formulários (com prazo configurado e com associações) por setor
+  const formsPorSetor = {};
+  d.formularios.forEach(form => {
+    if (!form.prazoEntregaDia) return;
+    const chaveSetor = form.setor || form.nome;
+    if (filtro.setor && chaveSetor !== filtro.setor) return;
+    const assocsDoForm = d.associacoes.filter(a => a.formularioId === form.id);
+    if (!assocsDoForm.length) return;
+    if (!formsPorSetor[chaveSetor]) formsPorSetor[chaveSetor] = [];
+    formsPorSetor[chaveSetor].push({ form, assocsDoForm });
+  });
+
+
+  const porSetor = {};
+
+  Object.keys(formsPorSetor).forEach(chaveSetor => {
+    const formsDoSetor = formsPorSetor[chaveSetor];
+    let atrasos = 0, periodosContados = 0;
+
+    periodos.forEach(periodo => {
+      const [ano, mes] = periodo.split('-').map(Number);
+
+      // só considera formulários cujo prazo desse período já venceu
+      const vencidosNoPeriodo = formsDoSetor
+        .map(({ form, assocsDoForm }) => ({ form, assocsDoForm, prazoFinal: prazoFinalDiasUteis(ano, mes - 1, form.prazoEntregaDia) }))
+        .filter(x => x.prazoFinal && x.prazoFinal <= hoje);
+
+      if (!vencidosNoPeriodo.length) return; // nenhum formulário do setor com prazo vencido ainda nesse período
+
+      periodosContados++;
+
+      const setorAtrasouNoPeriodo = vencidosNoPeriodo.some(({ form, assocsDoForm, prazoFinal }) =>
+        !assocsDoForm.every(a => {
+          const av = d.avaliacoes.find(x => x.formularioId === form.id && x.fornecedorId === a.fornecedorId && x.usuarioId === a.usuarioId && x.periodo === periodo);
+          return av && new Date(av.enviadoEm) <= prazoFinal;
+        })
+      );
+      if (setorAtrasouNoPeriodo) atrasos++;
+    });
+
+    porSetor[chaveSetor] = { atrasos, periodos: periodosContados };
+  });
+
+  return Object.keys(porSetor).map(nome => ({ nome, ...porSetor[nome] }))
+    .filter(s => s.atrasos > 0)
+    .sort((a, b) => b.atrasos - a.atrasos || a.nome.localeCompare(b.nome))
+    .slice(0, 8);
+}
+
+function htmlTabelaSetoresAtraso(lista) {
+  if (!lista.length) return '<div class="empty-state"><p>Nenhum atraso encontrado para esse filtro.</p></div>';
+  return `
+    <table>
+      <thead><tr><th>Setor</th><th style="text-align:center">Atrasos</th><th style="text-align:right">De quantos períodos</th></tr></thead>
+      <tbody>
+        ${lista.map(s => `<tr>
+          <td>${s.nome}</td>
+          <td style="text-align:center" class="dash-nota baixa">${s.atrasos}</td>
+          <td style="text-align:right">${s.atrasos} de ${s.periodos}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+// Muda só o conteúdo de #setores-atraso-lista — não redesenha o dashboard
+// inteiro, então os selects (e o resto da página) não perdem estado.
+function renderSetoresAtrasoLista() {
+  const wrap = document.getElementById('setores-atraso-lista');
+  if (!wrap) return;
+  wrap.innerHTML = htmlTabelaSetoresAtraso(calcularSetoresAtrasoHistorico(db(), _filtroSetoresAtraso));
+}
+
+function aplicarFiltroSetoresAtraso() {
+  _filtroSetoresAtraso.de = document.getElementById('fsa-de').value;
+  _filtroSetoresAtraso.ate = document.getElementById('fsa-ate').value;
+  _filtroSetoresAtraso.setor = document.getElementById('fsa-setor').value;
+  renderSetoresAtrasoLista();
 }
 
 function barraPercentualHTML(label, pct) {

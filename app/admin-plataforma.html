@@ -91,6 +91,12 @@
   }
   .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 4px 12px rgba(0,102,255,.28); }
   .btn-primary:hover { background: #0052CC; }
+  .btn-primary:disabled { opacity: .75; cursor: default; box-shadow: none; }
+  .btn-spinner {
+    width: 15px; height: 15px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35);
+    border-top-color: #fff; display: inline-block; animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
   .btn-danger { background: var(--danger-bg); color: var(--danger); border-color: var(--danger-border); }
   .btn-danger:hover { background: #fee2e2; }
   .btn-secondary { background: #fff; color: var(--text); border-color: var(--border-strong); }
@@ -154,6 +160,50 @@
   td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid var(--border); vertical-align: middle; }
   tr:last-child td { border-bottom: none; }
   tr:hover td { background: var(--surface2); }
+
+  /* ---------- Lista de empresas — cards compactos (substitui a tabela de 12 colunas) ---------- */
+  .emp-list { display: flex; flex-direction: column; gap: 10px; }
+  .emp-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); }
+  .emp-row { display: flex; align-items: center; gap: 18px; padding: 14px 18px; flex-wrap: wrap; }
+  .emp-id { flex: 1 1 240px; min-width: 200px; }
+  .emp-id .nome { font-weight: 600; font-size: 13.5px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+  .emp-id .nome .info-ico { color: var(--text-muted); cursor: pointer; flex-shrink: 0; display: inline-flex; }
+  .emp-id .meta { font-size: 11px; color: var(--text-muted); margin-top: 3px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .emp-id .meta span { white-space: nowrap; }
+
+  .emp-stats { display: flex; gap: 22px; flex: 0 0 auto; }
+  .stat { text-align: center; min-width: 44px; }
+  .stat .n { font-weight: 700; font-size: 14px; }
+  .stat .l { font-size: 9.5px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 1px; }
+  .stat.plano .n { font-size: 12.5px; font-weight: 600; color: var(--text-sec); }
+  .stat.valor .n { color: var(--accent); }
+  .stat.valor .n.vazio { color: var(--text-muted); font-weight: 400; }
+
+  .emp-actions { display: flex; gap: 7px; flex: 0 0 auto; margin-left: auto; align-items: center; }
+  .btn-icon { width: 32px; height: 32px; padding: 0; justify-content: center; position: relative; }
+  .btn-secondary.warn { color: var(--warn); border-color: var(--warn-border); background: var(--warn-bg); }
+
+  .kebab-wrap { position: relative; }
+  .kebab-menu { display: none; position: absolute; right: 0; top: 38px; background: #fff; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 12px 28px -8px rgba(15,23,42,.2); min-width: 200px; z-index: 20; overflow: hidden; }
+  .kebab-menu.open { display: block; }
+  .kebab-menu button { width: 100%; text-align: left; background: none; border: none; padding: 10px 13px; font-size: 12.5px; font-family: inherit; cursor: pointer; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .kebab-menu button:hover { background: var(--surface2); }
+  .kebab-menu button.danger { color: var(--danger); }
+  .kebab-menu button.danger:hover { background: var(--danger-bg); }
+
+  .emp-edit { display: none; border-top: 1px solid var(--border); background: var(--surface2); padding: 16px 18px; border-radius: 0 0 10px 10px; }
+  .emp-edit.open { display: block; }
+  .edit-grid { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
+  .edit-grid .field { display: flex; flex-direction: column; gap: 5px; }
+  .edit-grid .field label { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+  .edit-grid .field select, .edit-grid .field input { padding: 8px 10px; width: auto; min-width: 118px; font-size: 12.5px; }
+  .edit-grid .field.num input { width: 90px; min-width: 0; text-align: center; }
+
+  @media (max-width: 760px) {
+    .emp-row { align-items: flex-start; }
+    .emp-stats { order: 3; width: 100%; justify-content: flex-start; padding-top: 10px; border-top: 1px dashed var(--border); margin-top: 4px; }
+    .emp-actions { margin-left: 0; order: 2; }
+  }
 
   .badge { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; gap: 4px; border: 1px solid transparent; }
   .badge-trial { background: var(--purple-bg); color: var(--purple); border-color: var(--purple-border); }
@@ -255,7 +305,7 @@
         <label>Senha</label>
         <input type="password" id="login-senha" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLoginPlataforma()">
       </div>
-      <button class="btn btn-primary btn-block" onclick="doLoginPlataforma()">Entrar</button>
+      <button class="btn btn-primary btn-block" id="login-btn" onclick="doLoginPlataforma()">Entrar</button>
     </section>
   </div>
 </div>

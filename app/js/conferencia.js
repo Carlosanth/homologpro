@@ -43,12 +43,15 @@ function renderAdConferencia() {
     <div class="tabs" style="margin-bottom:16px">
       <button class="tab ${_abaConferencia === 'lancar' ? 'active' : ''}" onclick="mudarAbaConferencia('lancar', this)">Fazer conferência</button>
       <button class="tab ${_abaConferencia === 'criterios' ? 'active' : ''}" onclick="mudarAbaConferencia('criterios', this)">Critérios</button>
+      <button class="tab ${_abaConferencia === 'rnc' ? 'active' : ''}" onclick="mudarAbaConferencia('rnc', this)">Modelos de RNC</button>
     </div>
     <div id="conferencia-tab-lancar" style="display:${_abaConferencia === 'lancar' ? 'block' : 'none'}"></div>
     <div id="conferencia-tab-criterios" style="display:${_abaConferencia === 'criterios' ? 'block' : 'none'}"></div>
+    <div id="conferencia-tab-rnc" style="display:${_abaConferencia === 'rnc' ? 'block' : 'none'}"></div>
   `;
   if (_abaConferencia === 'lancar') renderLancarConferenciaTab();
-  else renderCriteriosConferenciaTab();
+  else if (_abaConferencia === 'criterios') renderCriteriosConferenciaTab();
+  else renderRncModelosTab();
 }
 
 function mudarAbaConferencia(aba, btn) {
@@ -57,8 +60,10 @@ function mudarAbaConferencia(aba, btn) {
   if (btn) btn.classList.add('active');
   document.getElementById('conferencia-tab-lancar').style.display = aba === 'lancar' ? 'block' : 'none';
   document.getElementById('conferencia-tab-criterios').style.display = aba === 'criterios' ? 'block' : 'none';
+  document.getElementById('conferencia-tab-rnc').style.display = aba === 'rnc' ? 'block' : 'none';
   if (aba === 'lancar') renderLancarConferenciaTab();
-  else renderCriteriosConferenciaTab();
+  else if (aba === 'criterios') renderCriteriosConferenciaTab();
+  else renderRncModelosTab();
 }
 
 // ---------- Fazer conferência ----------
@@ -221,7 +226,7 @@ function iconeStatusSvg(ok) {
     : `<svg class="ic-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`;
 }
 
-function renderDetalheResposta(r) {
+function renderDetalheResposta(r, ctx) {
   let valor, icone = '', extra = '';
   if (r.tipo === 'sim_nao') {
     valor = r.valor === 'nao' ? 'Não' : 'Sim';
@@ -233,7 +238,14 @@ function renderDetalheResposta(r) {
   } else if (r.tipo === 'faixa') {
     valor = `${r.valor}${r.unidade || ''} <span style="font-weight:400; color:var(--text-muted)">(rec. ${r.min}-${r.max}${r.unidade || ''})</span>`;
     icone = iconeStatusSvg(r.dentroFaixa);
-    if (!r.dentroFaixa) extra = `<div style="font-size:11px; color:var(--danger); margin-top:2px">RPNC: ${escapeHtml(r.rpnc)}</div>`;
+    if (!r.dentroFaixa) {
+      extra = `<div style="font-size:11px; color:var(--danger); margin-top:2px">RPNC: ${escapeHtml(r.rpnc)}</div>`;
+      if (ctx) {
+        extra += r.rncId
+          ? `<button type="button" class="btn btn-secondary btn-sm" style="margin-top:4px" onclick="event.stopPropagation(); abrirVisualizarRnc('${r.rncId}')">${ic('fileText', 12)} Ver RNC ${r.rncNumeroSequencial ? escapeHtml(r.rncNumeroSequencial) : ''}</button>`
+          : `<button type="button" class="btn btn-secondary btn-sm" style="margin-top:4px" onclick="event.stopPropagation(); abrirVincularRnc('${ctx.conferenciaId}', '${r.criterioId}', '${ctx.fornecedorId}', '${escapeHtml(ctx.numeroNf)}')">${ic('fileText', 12)} Vincular RNC</button>`;
+      }
+    }
   } else {
     valor = escapeHtml(r.valor);
   }
@@ -282,7 +294,7 @@ function renderListaConferenciasHtml() {
       </div>
       ${expandida ? `
         <div style="padding:14px 18px 18px 37px; border-top:1px solid var(--border); display:flex; flex-wrap:wrap; gap:14px 28px">
-          ${c.respostas.map(r => renderDetalheResposta(r)).join('')}
+          ${c.respostas.map(r => renderDetalheResposta(r, { conferenciaId: c.id, fornecedorId: c.fornecedorId, numeroNf: c.numeroNf })).join('')}
         </div>
       ` : ''}
     </div>`;

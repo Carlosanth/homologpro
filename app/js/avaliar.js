@@ -52,6 +52,10 @@ function renderAvaliadorShell() {
       Notificações
       <span class="nav-badge" id="av-nav-notif-badge" style="display:${totalNotif > 0 ? 'inline-flex' : 'none'}">${totalNotif}</span>
     </button>
+    <button class="nav-item" onclick="showAvPage('rncs', this)">
+      ${ic('fileText', 16)}
+      RNCs
+    </button>
     <div class="nav-logout">
       <button class="nav-item" onclick="doLogout()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -63,6 +67,7 @@ function renderAvaliadorShell() {
     <div class="page active" id="av-page-formularios"></div>
     <div class="page" id="av-page-historico"></div>
     <div class="page" id="av-page-notificacoes"></div>
+    <div class="page" id="av-page-rncs"></div>
   `;
   renderAvFormularios();
 }
@@ -75,6 +80,67 @@ function showAvPage(page, btn) {
   if (page === 'formularios') renderAvFormularios();
   if (page === 'historico') renderAvHistorico();
   if (page === 'notificacoes') renderAvNotificacoes();
+  if (page === 'rncs') renderAvRncs();
+}
+
+// ---------- RNCs dos fornecedores vinculados a esse avaliador ----------
+// O portal do avaliador não carrega modelos de RNC nem a lista de usuários
+// no login (só o essencial pra "Meus formulários") — busca sob demanda aqui.
+async function renderAvRncs() {
+  const wrap = document.getElementById('av-page-rncs');
+  wrap.innerHTML = `<p style="font-size:12px; color:var(--text-muted)">Carregando...</p>`;
+
+  const d = db();
+  const meusFornecedorIds = [...new Set(
+    d.associacoes.filter(a => a.usuarioId === currentUser.id).map(a => a.fornecedorId)
+  )];
+
+  if (!meusFornecedorIds.length) {
+    wrap.innerHTML = `<div class="card"><div class="empty-state"><p>Nenhum fornecedor vinculado a você ainda.</p></div></div>`;
+    return;
+  }
+
+  if (typeof carregarRncModelos === 'function') await carregarRncModelos();
+  if (!usuariosCache.length) await carregarUsuarios();
+
+  const { data, error } = await supabaseClient
+    .from('rncs')
+    .select('*')
+    .eq('empresa_id', currentUser.empresaId)
+    .in('fornecedor_id', meusFornecedorIds)
+    .order('criado_em', { ascending: false });
+
+  if (error) {
+    wrap.innerHTML = `<div class="card"><p style="color:var(--danger)">Erro ao carregar RNCs: ${escapeHtml(error.message)}</p></div>`;
+    return;
+  }
+
+  const rncs = data || [];
+  const d2 = db();
+  wrap.innerHTML = `
+    <div class="page-header"><h2>RNCs dos seus fornecedores</h2></div>
+    <div class="card">
+      ${!rncs.length ? '<div class="empty-state"><p>Nenhum RNC registrado ainda pros fornecedores vinculados a você.</p></div>' : `
+      <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Nº RNC</th><th>Fornecedor</th><th>NF</th><th>Data</th><th></th></tr></thead>
+        <tbody>
+          ${rncs.map(r => {
+            const fornecedor = d2.fornecedores.find(f => f.id === r.fornecedor_id);
+            return `<tr>
+              <td>${escapeHtml(r.numero_sequencial || '—')}</td>
+              <td>${fornecedor ? escapeHtml(fornecedor.nome) : '—'}</td>
+              <td>${escapeHtml(r.numero_nf)}</td>
+              <td>${new Date(r.criado_em).toLocaleDateString('pt-BR')}</td>
+              <td><button class="btn btn-secondary btn-sm" onclick="abrirVisualizarRnc('${r.id}')">Ver</button></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+      </div>
+      `}
+    </div>
+  `;
 }
 
 // ---------- NOTIFICAÇÕES (plano de ação recebido + liberação de edição) ----------
@@ -83,7 +149,9 @@ function showAvPage(page, btn) {
 // é só um filtro em memória — não pesa nada a mais no portal.
 function contarNotificacoesAvaliador(d, usuarioId) {
   const minhas = (d.avaliacoes || []).filter(av => av.usuarioId === usuarioId);
-  const planosNaoVistos = minhas.filter(av => av.planoAcaoAnexo && !av.planoAcaoVistoEm).length;
+  // Só entra na contagem depois de aprovado pelo admin (planoAcaoResolvidoEm)
+  // — enquanto está aguardando_aprovacao, o avaliador ainda não vê.
+  const planosNaoVistos = minhas.filter(av => av.planoAcaoAnexo && av.planoAcaoResolvidoEm && !av.planoAcaoVistoEm).length;
   // Liberação de edição "se resolve sozinha": liberado_edicao volta pra
   // false automaticamente quando o avaliador reenvia a avaliação corrigida
   // (ver enviarAvaliacao) — não precisa de campo "visto" separado pra isso.
@@ -102,7 +170,7 @@ function atualizarBadgeNotificacoesAvaliador() {
 function renderAvNotificacoes() {
   const d = db();
   const minhas = d.avaliacoes.filter(av => av.usuarioId === currentUser.id);
-  const planos = minhas.filter(av => av.planoAcaoAnexo && !av.planoAcaoVistoEm)
+  const planos = minhas.filter(av => av.planoAcaoAnexo && av.planoAcaoResolvidoEm && !av.planoAcaoVistoEm)
     .sort((a, b) => new Date(b.planoAcaoAnexo.enviadoEm) - new Date(a.planoAcaoAnexo.enviadoEm));
   const liberacoes = minhas.filter(av => av.liberadoEdicao)
     .sort((a, b) => new Date(b.enviadoEm) - new Date(a.enviadoEm));
@@ -165,7 +233,7 @@ async function marcarNotificacaoVista(avId) {
 
 async function marcarTodasNotificacoesVistas() {
   const d = db();
-  const pendentes = d.avaliacoes.filter(av => av.usuarioId === currentUser.id && av.planoAcaoAnexo && !av.planoAcaoVistoEm);
+  const pendentes = d.avaliacoes.filter(av => av.usuarioId === currentUser.id && av.planoAcaoAnexo && av.planoAcaoResolvidoEm && !av.planoAcaoVistoEm);
   if (!pendentes.length) return;
   const agora = new Date().toISOString();
   const { error } = await supabaseClient.from('avaliacoes').update({ plano_acao_visto_em: agora }).in('id', pendentes.map(av => av.id));
@@ -950,10 +1018,42 @@ function normalizarNomeCriterio(nome) {
 // opção como motivo — sem precisar digitar nada.
 function toggleLpSelectDropdown(critId) {
   const dropdown = document.getElementById(`lp-select-dropdown-${critId}`);
-  if (!dropdown) return;
+  const closedBox = document.getElementById(`lp-select-closed-${critId}`);
+  if (!dropdown || !closedBox) return;
   const abrindo = dropdown.style.display === 'none';
   fecharTodosLpSelectDropdowns();
-  if (abrindo) dropdown.style.display = 'block';
+  if (abrindo) {
+    // Usa position:fixed calculado a partir da caixinha fechada, em vez do
+    // position:absolute original — isso evita o dropdown ficar escondido
+    // atrás de outro card quando algum ancestral cria um stacking context
+    // (o absolute ficava preso à ordem do DOM/stacking do container pai).
+    const rect = closedBox.getBoundingClientRect();
+    dropdown.style.position = 'fixed';
+    dropdown.style.top = `${rect.bottom + 4}px`;
+    dropdown.style.left = `${rect.left}px`;
+    dropdown.style.width = `${rect.width}px`;
+    dropdown.style.right = 'auto';
+    dropdown.style.margin = '0';
+    dropdown.style.zIndex = '9999';
+    dropdown.style.display = 'block';
+    if (!window._lpSelectRepositionBound) {
+      window._lpSelectRepositionBound = true;
+      const reposicionar = () => {
+        document.querySelectorAll('[id^="lp-select-dropdown-"]').forEach(dd => {
+          if (dd.style.display === 'none') return;
+          const cid = dd.id.replace('lp-select-dropdown-', '');
+          const cb = document.getElementById(`lp-select-closed-${cid}`);
+          if (!cb) return;
+          const r = cb.getBoundingClientRect();
+          dd.style.top = `${r.bottom + 4}px`;
+          dd.style.left = `${r.left}px`;
+          dd.style.width = `${r.width}px`;
+        });
+      };
+      window.addEventListener('scroll', reposicionar, true);
+      window.addEventListener('resize', reposicionar);
+    }
+  }
 }
 
 function fecharTodosLpSelectDropdowns() {
@@ -1123,9 +1223,15 @@ function aplicarConferenciaVinculada() {
   });
 
   const infoTextos = conferencia.respostas.filter(r => r.tipo === 'texto').map(r => `${escapeHtml(r.nome)}: <b>${escapeHtml(r.valor)}</b>`);
-  const infoFaixas = conferencia.respostas.filter(r => r.tipo === 'faixa').map(r =>
-    `${escapeHtml(r.nome)}: <b>${r.valor}${r.unidade || ''}</b> (${r.min}-${r.max}${r.unidade || ''}) ${r.dentroFaixa ? ic('check', 12) : `${ic('alertTriangle', 12)} fora — RPNC ${escapeHtml(r.rpnc)}`}`
-  );
+  const infoFaixas = conferencia.respostas.filter(r => r.tipo === 'faixa').map(r => {
+    let rncLink = '';
+    if (!r.dentroFaixa) {
+      rncLink = r.rncId
+        ? ` <button type="button" class="btn btn-secondary btn-sm" style="padding:1px 8px; font-size:11px" onclick="abrirVisualizarRnc('${r.rncId}')">Ver RNC ${r.rncNumeroSequencial ? escapeHtml(r.rncNumeroSequencial) : ''}</button>`
+        : ` <button type="button" class="btn btn-secondary btn-sm" style="padding:1px 8px; font-size:11px" onclick="abrirVincularRnc('${conferencia.id}', '${r.criterioId}', '${estado.id}', '${escapeHtml(numeroNf)}')">Vincular RNC</button>`;
+    }
+    return `${escapeHtml(r.nome)}: <b>${r.valor}${r.unidade || ''}</b> (${r.min}-${r.max}${r.unidade || ''}) ${r.dentroFaixa ? ic('check', 12) : `${ic('alertTriangle', 12)} fora — RPNC ${escapeHtml(r.rpnc)}`}${rncLink}`;
+  });
   const infoPartes = [...infoTextos, ...infoFaixas];
   if (infoBox) {
     infoBox.innerHTML = `<div style="margin:10px 0; padding:8px 12px; background:var(--surface2); border-radius:8px; font-size:12px; display:flex; align-items:center; gap:6px; flex-wrap:wrap">
