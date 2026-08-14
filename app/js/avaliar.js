@@ -52,10 +52,6 @@ function renderAvaliadorShell() {
       Notificações
       <span class="nav-badge" id="av-nav-notif-badge" style="display:${totalNotif > 0 ? 'inline-flex' : 'none'}">${totalNotif}</span>
     </button>
-    <button class="nav-item" onclick="showAvPage('rncs', this)">
-      ${ic('fileText', 16)}
-      RNCs
-    </button>
     <div class="nav-logout">
       <button class="nav-item" onclick="doLogout()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -67,7 +63,6 @@ function renderAvaliadorShell() {
     <div class="page active" id="av-page-formularios"></div>
     <div class="page" id="av-page-historico"></div>
     <div class="page" id="av-page-notificacoes"></div>
-    <div class="page" id="av-page-rncs"></div>
   `;
   renderAvFormularios();
 }
@@ -80,67 +75,6 @@ function showAvPage(page, btn) {
   if (page === 'formularios') renderAvFormularios();
   if (page === 'historico') renderAvHistorico();
   if (page === 'notificacoes') renderAvNotificacoes();
-  if (page === 'rncs') renderAvRncs();
-}
-
-// ---------- RNCs dos fornecedores vinculados a esse avaliador ----------
-// O portal do avaliador não carrega modelos de RNC nem a lista de usuários
-// no login (só o essencial pra "Meus formulários") — busca sob demanda aqui.
-async function renderAvRncs() {
-  const wrap = document.getElementById('av-page-rncs');
-  wrap.innerHTML = `<p style="font-size:12px; color:var(--text-muted)">Carregando...</p>`;
-
-  const d = db();
-  const meusFornecedorIds = [...new Set(
-    d.associacoes.filter(a => a.usuarioId === currentUser.id).map(a => a.fornecedorId)
-  )];
-
-  if (!meusFornecedorIds.length) {
-    wrap.innerHTML = `<div class="card"><div class="empty-state"><p>Nenhum fornecedor vinculado a você ainda.</p></div></div>`;
-    return;
-  }
-
-  if (typeof carregarRncModelos === 'function') await carregarRncModelos();
-  if (!usuariosCache.length) await carregarUsuarios();
-
-  const { data, error } = await supabaseClient
-    .from('rncs')
-    .select('*')
-    .eq('empresa_id', currentUser.empresaId)
-    .in('fornecedor_id', meusFornecedorIds)
-    .order('criado_em', { ascending: false });
-
-  if (error) {
-    wrap.innerHTML = `<div class="card"><p style="color:var(--danger)">Erro ao carregar RNCs: ${escapeHtml(error.message)}</p></div>`;
-    return;
-  }
-
-  const rncs = data || [];
-  const d2 = db();
-  wrap.innerHTML = `
-    <div class="page-header"><h2>RNCs dos seus fornecedores</h2></div>
-    <div class="card">
-      ${!rncs.length ? '<div class="empty-state"><p>Nenhum RNC registrado ainda pros fornecedores vinculados a você.</p></div>' : `
-      <div style="overflow-x:auto">
-      <table>
-        <thead><tr><th>Nº RNC</th><th>Fornecedor</th><th>NF</th><th>Data</th><th></th></tr></thead>
-        <tbody>
-          ${rncs.map(r => {
-            const fornecedor = d2.fornecedores.find(f => f.id === r.fornecedor_id);
-            return `<tr>
-              <td>${escapeHtml(r.numero_sequencial || '—')}</td>
-              <td>${fornecedor ? escapeHtml(fornecedor.nome) : '—'}</td>
-              <td>${escapeHtml(r.numero_nf)}</td>
-              <td>${new Date(r.criado_em).toLocaleDateString('pt-BR')}</td>
-              <td><button class="btn btn-secondary btn-sm" onclick="abrirVisualizarRnc('${r.id}')">Ver</button></td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-      </div>
-      `}
-    </div>
-  `;
 }
 
 // ---------- NOTIFICAÇÕES (plano de ação recebido + liberação de edição) ----------
