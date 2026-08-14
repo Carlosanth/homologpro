@@ -467,6 +467,7 @@ function atualizarBotaoSignup() {
 
 async function doSignupEmpresa() {
   const nomeEmpresa = document.getElementById('signup-empresa').value.trim();
+  const cnpj = document.getElementById('signup-cnpj').value.trim();
   const nomeAdmin = document.getElementById('signup-nome').value.trim();
   const email = document.getElementById('signup-email').value.trim().toLowerCase();
   const senha = document.getElementById('signup-senha').value;
@@ -478,6 +479,16 @@ async function doSignupEmpresa() {
 
   if (!nomeEmpresa || !nomeAdmin || !email || senha.length < 6) {
     errBox.textContent = 'Preencha todos os campos. Senha mínima de 6 caracteres.';
+    errBox.style.display = 'block';
+    return;
+  }
+
+  // Só confere se tem 14 dígitos (formato). Validação de dígito verificador
+  // de verdade fica pro back-end, se um dia precisar — aqui é só pra pegar
+  // erro de digitação óbvio antes do round-trip.
+  const cnpjDigitos = cnpj.replace(/\D/g, '');
+  if (cnpjDigitos.length !== 14) {
+    errBox.textContent = 'Digite um CNPJ válido (14 dígitos).';
     errBox.style.display = 'block';
     return;
   }
@@ -498,7 +509,7 @@ async function doSignupEmpresa() {
   // plano/cicloFaturamento viajam junto para a function — se a function ainda
   // não usa esses campos, é só ler e gravar em empresas (ela ignora o que não usa).
   const { data, error } = await supabaseClient.functions.invoke('onboarding-criar-empresa', {
-    body: { nomeEmpresa, nomeAdmin, email, senha, plano, cicloFaturamento, aceiteTermos, termosVersao: VERSAO_TERMOS_ATUAL },
+    body: { nomeEmpresa, cnpj, nomeAdmin, email, senha, plano, cicloFaturamento, aceiteTermos, termosVersao: VERSAO_TERMOS_ATUAL },
   });
 
   btn.disabled = false;
