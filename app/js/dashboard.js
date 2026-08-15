@@ -2,6 +2,12 @@
 // Cada bloco só aparece se o admin tiver acesso ao módulo relacionado
 // (admin_master sempre vê tudo — temAcessoModulo() já trata isso).
 
+// Filtro do card "Setores que mais atrasam a entrega" — fica em memória
+// (não persiste em disco), então volta ao padrão (sem filtro) se a página
+// for recarregada, mas se mantém entre re-renders do dashboard causados
+// por outras ações (aprovar/rejeitar algo, etc).
+let _filtroSetoresAtraso = { de: '', ate: '', setor: '' };
+
 // Donut SVG (Aprovado/Parcial/Reprovado) — sem dependência externa, só stroke-dasharray.
 function donutSituacaoHTML(aprovados, parciais, reprovados) {
   const total = aprovados + parciais + reprovados;
@@ -54,6 +60,31 @@ function renderAdDashboard() {
   const podeAvaliacoes = temAcessoModulo('avaliacoes');
   const podeMeusDocumentos = temAcessoModulo('meusdocumentos');
 
+  // ---------- CADASTRO FISCAL INCOMPLETO (falta CNPJ e/ou Inscrição Estadual) ----------
+  // Só pro admin_master — é quem consegue ir preencher em Config, e é quem
+  // vai receber a nota fiscal por e-mail depois.
+  let alertaCadastroFiscalHtml = '';
+  if (currentUser.papel === 'admin_master') {
+    const faltando = [];
+    if (!(d.empresa.cnpj || '').trim()) faltando.push('CNPJ');
+    if (!(d.empresa.ie || '').trim()) faltando.push('Inscrição Estadual');
+
+    if (faltando.length) {
+      alertaCadastroFiscalHtml = `
+        <div class="card" style="border-left:3px solid var(--warn); margin-bottom:16px">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap">
+            <div style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600">
+              ${ic('alertTriangle', 16)} Complete seu cadastro
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="irParaCompletarCadastroFiscal()">Completar agora</button>
+          </div>
+          <p style="font-size:12px; color:var(--text-muted); margin-top:6px">
+            Falta ${faltando.join(' e ')} da sua empresa — esse dado é necessário pra gente conseguir emitir sua nota fiscal.
+          </p>
+        </div>`;
+    }
+  }
+
   let alertaAprovacao = '';
   let alertaAvaliadoresPendentesHTML = '';
   let alertaNotificar = '';
@@ -70,13 +101,21 @@ function renderAdDashboard() {
   let lixeiraHTML = '';
   let atividadeHTML = '';
   let rankingHistoricoHTML = '';
+  let setoresAtrasoHTML = '';
+
+  // KPIs do resumo do mês — cada um só é preenchido se o módulo
+  // correspondente estiver liberado (fica null senão, e o stat-card some).
+  let kpiEnviadas = null;
+  let kpiSetoresAtraso = null;
+  let kpiDocsVencendo = null;
+  let kpiFornecedoresAtencao = null;
 
   // ---------- ALERTA: DOCUMENTOS ENVIADOS PELO PORTAL, AGUARDANDO APROVAÇÃO ----------
   if (podeFornecedores) {
     const pendentesAprovacao = (d.documentosPendentesAprovacao || []).filter(p => p.status === 'pendente');
     if (pendentesAprovacao.length) {
       alertaAprovacao = `
-        <div class="card alert-collapse alerta-shake" id="alerta-aprovacao-portal" style="margin-bottom:16px; animation-delay:${proximoShakeDelay()}s">
+        <div class="alert-collapse alerta-shake alert-collapse-row" id="alerta-aprovacao-portal" style="animation-delay:${proximoShakeDelay()}s">
           <div class="alert-collapse-header" onclick="toggleAlertaCollapse('alerta-aprovacao-portal')">
             <div class="bar bar-accent"></div>
             <span style="flex:1; font-size:13px; font-weight:600">Documentos enviados pelo portal — aguardando aprovação</span>
@@ -118,7 +157,7 @@ function renderAdDashboard() {
 
       if (avaliadoresPendentesLista.length) {
         alertaAvaliadoresPendentesHTML = `
-          <div class="card alert-collapse alerta-shake" id="alerta-avaliadores-pendentes" style="margin-bottom:16px; animation-delay:${proximoShakeDelay()}s">
+          <div class="alert-collapse alerta-shake alert-collapse-row" id="alerta-avaliadores-pendentes" style="animation-delay:${proximoShakeDelay()}s">
             <div class="alert-collapse-header" onclick="toggleAlertaCollapse('alerta-avaliadores-pendentes')">
               <div class="bar bar-warn"></div>
               <span style="flex:1; font-size:13px; font-weight:600">Avaliadores com avaliação pendente</span>
@@ -143,7 +182,7 @@ function renderAdDashboard() {
     // ---------- ALERTA: NOTIFICAR NOTA BAIXA (com "cobrado em") ----------
     if (reprovadosLista.length) {
       alertaNotificar = `
-        <div class="card alert-collapse alerta-shake" id="alerta-notificar-reprovados" style="margin-bottom:16px; animation-delay:${proximoShakeDelay()}s">
+        <div class="alert-collapse alerta-shake alert-collapse-row" id="alerta-notificar-reprovados" style="animation-delay:${proximoShakeDelay()}s">
           <div class="alert-collapse-header" onclick="toggleAlertaCollapse('alerta-notificar-reprovados')">
             <div class="bar bar-danger"></div>
             <span style="flex:1; font-size:13px; font-weight:600; color:var(--danger)">Fornecedores para notificar (Parcial/Reprovado — ${MESES[mesAtual]})</span>
@@ -175,12 +214,12 @@ function renderAdDashboard() {
     // Intermediário/Ruim) é só uma classificação informativa do fornecedor,
     // não decide notificação.
     const produtoAtencaoLista = (d.avaliacoesProduto || []).filter(av =>
-      periodoDeData(av.data) === chaveMes && !av.planoAcaoResolvidoEm &&
+      periodoDeData(av.data) === chaveMes &&
       (getSituacao(av.notaGeral) === 'reprovado' || getSituacao(av.notaGeral) === 'parcial'));
 
     if (produtoAtencaoLista.length) {
       alertaNotificarProduto = `
-        <div class="card alert-collapse alerta-shake" id="alerta-notificar-produto" style="margin-bottom:16px; animation-delay:${proximoShakeDelay()}s">
+        <div class="alert-collapse alerta-shake alert-collapse-row" id="alerta-notificar-produto" style="animation-delay:${proximoShakeDelay()}s">
           <div class="alert-collapse-header" onclick="toggleAlertaCollapse('alerta-notificar-produto')">
             <div class="bar bar-danger"></div>
             <span style="flex:1; font-size:13px; font-weight:600; color:var(--danger)">Notas fiscais com ocorrência para notificar (${MESES[mesAtual]})</span>
@@ -220,7 +259,7 @@ function renderAdDashboard() {
 
     if (planoAcaoAguardando.length) {
       alertaPlanoAcaoAprovacao = `
-        <div class="card alert-collapse alerta-shake" id="alerta-plano-acao-aprovacao" style="margin-bottom:16px; animation-delay:${proximoShakeDelay()}s">
+        <div class="alert-collapse alerta-shake alert-collapse-row" id="alerta-plano-acao-aprovacao" style="animation-delay:${proximoShakeDelay()}s">
           <div class="alert-collapse-header" onclick="toggleAlertaCollapse('alerta-plano-acao-aprovacao')">
             <div class="bar bar-accent"></div>
             <span style="flex:1; font-size:13px; font-weight:600">Plano de ação enviado — aguardando aprovação</span>
@@ -265,7 +304,7 @@ function renderAdDashboard() {
 
     if (planoAcaoAtrasado.length) {
       alertaPlanoAcaoAtrasado = `
-        <div class="card alert-collapse alerta-shake" id="alerta-plano-acao-atrasado" style="margin-bottom:16px; animation-delay:${proximoShakeDelay()}s">
+        <div class="alert-collapse alerta-shake alert-collapse-row" id="alerta-plano-acao-atrasado" style="animation-delay:${proximoShakeDelay()}s">
           <div class="alert-collapse-header" onclick="toggleAlertaCollapse('alerta-plano-acao-atrasado')">
             <div class="bar bar-danger"></div>
             <span style="flex:1; font-size:13px; font-weight:600; color:var(--danger)">Plano de ação atrasado — fornecedor não respondeu no prazo</span>
@@ -293,7 +332,7 @@ function renderAdDashboard() {
     const reprovados = avaliacoesMes.filter(av => getSituacao(av.nota) === 'reprovado').length;
 
     graficosHTML = `
-      <div class="card" style="margin-bottom:16px">
+      <div class="card">
         <div class="card-title">Avaliações por situação — ${MESES[mesAtual]}</div>
         ${donutSituacaoHTML(aprovados, parciais, reprovados)}
       </div>`;
@@ -302,7 +341,7 @@ function renderAdDashboard() {
     tabelaHTML = `
       <div class="card">
         <div class="card-title">Avaliações recentes</div>
-        ${renderAvaliacoesTable(d.avaliacoes.slice().sort((a, b) => new Date(b.enviadoEm) - new Date(a.enviadoEm)).slice(0, 8), d)}
+        <div class="scroll-area" style="--scroll-h:260px">${renderAvaliacoesTable(d.avaliacoes.slice().sort((a, b) => new Date(b.enviadoEm) - new Date(a.enviadoEm)).slice(0, 8), d)}</div>
       </div>`;
 
     // ---------- PAINEL DUPLO: notas por fornecedor + participação por setor ----------
@@ -322,6 +361,7 @@ function renderAdDashboard() {
     }).sort((a, b) => b.media - a.media);
 
     const dadosSetores = calcularSetoresEnviadosMes(d, chaveMes);
+    kpiEnviadas = dadosSetores.reduce((acc, s) => ({ completos: acc.completos + s.completos, total: acc.total + s.total }), { completos: 0, total: 0 });
 
     dashGrid2HTML = `
       <div class="dash-grid2">
@@ -329,6 +369,7 @@ function renderAdDashboard() {
           <div class="dash-panel-title">Fornecedores avaliados — notas</div>
           <div class="dash-panel-sub">${MESES[mesAtual]} de ${anoAtual}</div>
           ${dadosNotas.length ? `
+            <div class="scroll-area" style="--scroll-h:220px">
             <table>
               <thead><tr><th>Fornecedor</th><th style="text-align:center">Nota</th><th style="text-align:right">Status</th></tr></thead>
               <tbody>
@@ -338,12 +379,13 @@ function renderAdDashboard() {
                   <td style="text-align:right"><span class="dot ${n.dotClasse}"></span></td>
                 </tr>`).join('')}
               </tbody>
-            </table>` : '<div class="empty-state"><p>Nenhuma avaliação registrada este mês.</p></div>'}
+            </table>
+            </div>` : '<div class="empty-state"><p>Nenhuma avaliação registrada este mês.</p></div>'}
         </div>
         <div class="dash-panel">
           <div class="dash-panel-title">Setores que enviaram avaliações</div>
           <div class="dash-panel-sub">Participação por setor — ${MESES[mesAtual]}</div>
-          ${dadosSetores.length ? dadosSetores.map(s => barraPercentualHTML(s.nome, s.pct)).join('') : '<div class="empty-state"><p>Nenhum setor com formulário associado ainda.</p></div>'}
+          <div class="scroll-area" style="--scroll-h:220px">${dadosSetores.length ? dadosSetores.map(s => barraPercentualHTML(s.nome, s.pct)).join('') : '<div class="empty-state"><p>Nenhum setor com formulário associado ainda.</p></div>'}</div>
         </div>
       </div>`;
 
@@ -371,6 +413,7 @@ function renderAdDashboard() {
       rankingHistoricoHTML = `
         <div class="card">
           <div class="card-title">Fornecedores com mais reprovações — histórico</div>
+          <div class="scroll-area" style="--scroll-h:220px">
           <table>
             <thead><tr><th>Fornecedor</th><th style="text-align:center">Nota média</th><th style="text-align:right">Reprovações</th></tr></thead>
             <tbody>
@@ -381,13 +424,63 @@ function renderAdDashboard() {
               </tr>`).join('')}
             </tbody>
           </table>
+          </div>
         </div>`;
     }
+
+    // ---------- RANKING HISTÓRICO: setores que mais atrasam a entrega da avaliação ----------
+    // Considera só formulários com prazo de entrega configurado. Olha os
+    // períodos já vencidos e, pra cada um, checa se todas as associações
+    // do formulário foram entregues até a data do prazo daquele mês — se
+    // não (entregou depois, ou nem entregou até hoje), conta como um
+    // atraso do setor naquele período. Agrupa por setor (form.setor) pra
+    // cobrir o caso de mais de um formulário pro mesmo setor (um período
+    // com atraso em qualquer formulário do setor conta só 1 vez).
+    // Filtrável por período (de/até) e por setor — o filtro fica em
+    // _filtroSetoresAtraso e a tabela é re-renderizada isolada (só o
+    // conteúdo de #setores-atraso-lista muda, os selects continuam onde
+    // estavam), sem precisar redesenhar o dashboard inteiro.
+    const opcoesPeriodoSetorAtraso = listarPeriodosParaFiltro(d);
+    const opcoesSetorAtraso = listarSetoresParaFiltro(d);
+    // KPI usa sempre o mês atual, independente do filtro escolhido no
+    // ranking (_filtroSetoresAtraso) — são duas leituras diferentes.
+    kpiSetoresAtraso = calcularSetoresAtrasoHistorico(d, { de: chaveMes, ate: chaveMes }).length;
+    if (opcoesSetorAtraso.length) {
+      const setoresAtraso = calcularSetoresAtrasoHistorico(d, _filtroSetoresAtraso);
+      const optPeriodo = selecionado => opcoesPeriodoSetorAtraso.map(p => `<option value="${p}" ${selecionado === p ? 'selected' : ''}>${rotuloPeriodo(p)}</option>`).join('');
+      setoresAtrasoHTML = `
+        <div class="card" id="card-setores-atraso">
+          <div class="card-title" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px">
+            <span>Setores que mais atrasam a entrega — histórico</span>
+            <div style="display:flex; gap:6px; flex-wrap:wrap">
+              <select id="fsa-de" style="font-size:11px" onchange="aplicarFiltroSetoresAtraso()">
+                <option value="">De (início)</option>
+                ${optPeriodo(_filtroSetoresAtraso.de)}
+              </select>
+              <select id="fsa-ate" style="font-size:11px" onchange="aplicarFiltroSetoresAtraso()">
+                <option value="">Até (fim)</option>
+                ${optPeriodo(_filtroSetoresAtraso.ate)}
+              </select>
+              <select id="fsa-setor" style="font-size:11px" onchange="aplicarFiltroSetoresAtraso()">
+                <option value="">Todos os setores</option>
+                ${opcoesSetorAtraso.map(s => `<option value="${escapeHtml(s)}" ${_filtroSetoresAtraso.setor === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div id="setores-atraso-lista" class="scroll-area" style="--scroll-h:220px">${htmlTabelaSetoresAtraso(setoresAtraso)}</div>
+        </div>`;
+    }
+
+    // Fornecedores em atenção no mês = quem apareceu em qualquer um dos dois
+    // alertas de nota baixa (Serviço ou Produto/NF), sem contar duas vezes
+    // o mesmo fornecedor se ele aparecer nos dois.
+    kpiFornecedoresAtencao = new Set([...reprovadosLista.map(av => av.fornecedorId), ...produtoAtencaoLista.map(av => av.fornecedorId)]).size;
   }
 
   // ---------- ALERTA: DOCUMENTOS DE FORNECEDOR VENCENDO (com "cobrado em") ----------
   if (podeFornecedores) {
     const { vencidos, proximos } = contarDocumentosVencendo(d);
+    kpiDocsVencendo = { vencidos: vencidos.length, proximos: proximos.length };
     if (vencidos.length || proximos.length) {
       const linhaDoc = (doc, vencido) => {
         const forn = d.fornecedores.find(f => f.id === doc.fornecedorId);
@@ -409,7 +502,7 @@ function renderAdDashboard() {
         </div>`;
       };
       alertasDoc = `
-        <div class="card alert-collapse alerta-shake" id="alerta-docs-fornecedores" style="margin-bottom:16px; animation-delay:${proximoShakeDelay()}s">
+        <div class="alert-collapse alerta-shake alert-collapse-row" id="alerta-docs-fornecedores" style="animation-delay:${proximoShakeDelay()}s">
           <div class="alert-collapse-header" onclick="toggleAlertaCollapse('alerta-docs-fornecedores')">
             <div class="bar bar-danger"></div>
             <span style="flex:1; font-size:13px; font-weight:600; color:var(--danger)">Documentos de fornecedores que precisam de atenção</span>
@@ -435,7 +528,7 @@ function renderAdDashboard() {
     const docsEscalonados = (d.documentos || []).filter(doc => -diasParaVencer(doc.validade) > toleranciaDias);
     if (docsEscalonados.length) {
       alertaDocsEscalonados = `
-        <div class="card alert-collapse alerta-shake" id="alerta-docs-escalonados" style="margin-bottom:16px; animation-delay:${proximoShakeDelay()}s">
+        <div class="alert-collapse alerta-shake alert-collapse-row" id="alerta-docs-escalonados" style="animation-delay:${proximoShakeDelay()}s">
           <div class="alert-collapse-header" onclick="toggleAlertaCollapse('alerta-docs-escalonados')">
             <div class="bar bar-danger"></div>
             <span style="flex:1; font-size:13px; font-weight:600; color:var(--danger)">Documentação vencida há muito tempo, sem retorno</span>
@@ -477,7 +570,7 @@ function renderAdDashboard() {
         </div>`;
       };
       alertasDocUnidades = `
-        <div class="card alert-collapse alerta-shake" id="alerta-docs-unidades" style="margin-bottom:16px; animation-delay:${proximoShakeDelay()}s">
+        <div class="alert-collapse alerta-shake alert-collapse-row" id="alerta-docs-unidades" style="animation-delay:${proximoShakeDelay()}s">
           <div class="alert-collapse-header" onclick="toggleAlertaCollapse('alerta-docs-unidades')">
             <div class="bar bar-danger"></div>
             <span style="flex:1; font-size:13px; font-weight:600; color:var(--danger)">Documentos de "Meus Documentos" que precisam de atenção</span>
@@ -491,31 +584,6 @@ function renderAdDashboard() {
               <button class="btn btn-secondary btn-sm" onclick="showAdPage('meusdocumentos')">Ver Meus Documentos →</button>
             </div>
           </div>
-        </div>`;
-    }
-  }
-
-  // ---------- CADASTRO FISCAL INCOMPLETO (falta CNPJ e/ou Inscrição Estadual) ----------
-  // Só pro admin_master — é quem consegue ir preencher em Config, e é quem
-  // vai receber a nota fiscal por e-mail depois.
-  let alertaCadastroFiscalHtml = '';
-  if (currentUser.papel === 'admin_master') {
-    const faltando = [];
-    if (!(d.empresa.cnpj || '').trim()) faltando.push('CNPJ');
-    if (!(d.empresa.ie || '').trim()) faltando.push('Inscrição Estadual');
-
-    if (faltando.length) {
-      alertaCadastroFiscalHtml = `
-        <div class="card" style="border-left:3px solid var(--warn); margin-bottom:16px">
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap">
-            <div style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600">
-              ${ic('alertTriangle', 16)} Complete seu cadastro
-            </div>
-            <button class="btn btn-primary btn-sm" onclick="irParaCompletarCadastroFiscal()">Completar agora</button>
-          </div>
-          <p style="font-size:12px; color:var(--text-muted); margin-top:6px">
-            Falta ${faltando.join(' e ')} da sua empresa — esse dado é necessário pra gente conseguir emitir sua nota fiscal.
-          </p>
         </div>`;
     }
   }
@@ -608,6 +676,18 @@ function renderAdDashboard() {
       </div>`;
   }
 
+  // Consolida os 9 alertas (antes eram 9 cards empilhados) numa "Central de
+  // alertas" só, com scroll fixo — cada alerta continua sendo uma linha
+  // colapsável independente (toggleAlertaCollapse) e com o shake escalonado
+  // (proximoShakeDelay), só muda o container visual em volta.
+  const listaDeAlertas = [alertaAprovacao, alertaAvaliadoresPendentesHTML, alertaNotificar, alertaNotificarProduto, alertaPlanoAcaoAprovacao, alertaPlanoAcaoAtrasado, alertasDoc, alertaDocsEscalonados, alertasDocUnidades].filter(Boolean);
+  const centralAlertasHTML = listaDeAlertas.length ? `
+    <div class="card" style="padding:8px 22px 4px; margin-bottom:16px">
+      <div class="scroll-area" style="--scroll-h:360px">
+        ${listaDeAlertas.join('')}
+      </div>
+    </div>` : '';
+
   let adminGridHTML = '';
   if (assinaturaHTML || lixeiraHTML) {
     const doisCards = assinaturaHTML && lixeiraHTML;
@@ -624,6 +704,7 @@ function renderAdDashboard() {
             <span>Atividade recente</span>
             <button class="btn btn-secondary btn-sm" onclick="showAdPage('auditoria')">Ver tudo →</button>
           </div>
+          <div class="scroll-area" style="--scroll-h:220px">
           ${logsRecentes.map(l => `
             <div class="log-item">
               <div class="log-dot"></div>
@@ -632,35 +713,74 @@ function renderAdDashboard() {
                 <div class="log-time">${fmtData(l.timestamp)}</div>
               </div>
             </div>`).join('')}
+          </div>
         </div>`;
     }
   }
 
+  // Junta os cards de "insight" (ranking de reprovações, ranking de atraso
+  // por setor, atividade recente) de 2 em 2 no mesmo grid — se sobrar 1
+  // sozinho na última linha, ele ocupa a largura toda.
   let insightGridHTML = '';
-  if (rankingHistoricoHTML || atividadeHTML) {
-    const doisCards2 = rankingHistoricoHTML && atividadeHTML;
-    insightGridHTML = `<div class="admin-grid2"${doisCards2 ? '' : ' style="grid-template-columns:1fr"'}>${rankingHistoricoHTML}${atividadeHTML}</div>`;
+  const insightCards = [rankingHistoricoHTML, setoresAtrasoHTML, atividadeHTML].filter(Boolean);
+  for (let i = 0; i < insightCards.length; i += 2) {
+    const par = insightCards.slice(i, i + 2);
+    insightGridHTML += `<div class="admin-grid2"${par.length === 1 ? ' style="grid-template-columns:1fr"' : ''}>${par.join('')}</div>`;
   }
 
-  const semNadaParaMostrar = !alertaCadastroFiscalHtml && !alertaAprovacao && !alertaAvaliadoresPendentesHTML && !alertaNotificar && !alertaNotificarProduto && !alertaPlanoAcaoAprovacao && !alertaPlanoAcaoAtrasado && !alertasDoc && !alertaDocsEscalonados && !alertasDocUnidades && !dashGrid2HTML && !insightGridHTML && !graficosHTML && !tabelaHTML && !adminGridHTML;
+  // ---------- RESUMO DO MÊS (faixa de KPIs no topo) ----------
+  const statCards = [];
+  if (kpiEnviadas) {
+    const pct = kpiEnviadas.total ? Math.round((kpiEnviadas.completos / kpiEnviadas.total) * 100) : 0;
+    statCards.push(`
+      <div class="stat-card">
+        <div class="stat-label">Avaliações enviadas</div>
+        <div class="stat-value">${kpiEnviadas.completos} <span style="font-size:14px; color:var(--text-muted); font-weight:500">de ${kpiEnviadas.total}</span></div>
+        <div class="stat-sub">${pct}% do mês concluído</div>
+      </div>`);
+  }
+  if (kpiSetoresAtraso !== null) {
+    statCards.push(`
+      <div class="stat-card${kpiSetoresAtraso > 0 ? ' stat-card-danger' : ''}">
+        <div class="stat-label">Setores em atraso</div>
+        <div class="stat-value${kpiSetoresAtraso > 0 ? ' danger' : ''}">${kpiSetoresAtraso}</div>
+        ${kpiSetoresAtraso > 0 ? '<div class="stat-sub link" onclick="irParaRankingSetoresAtraso()">Ver ranking ↓</div>' : '<div class="stat-sub">nenhum atraso este mês</div>'}
+      </div>`);
+  }
+  if (kpiDocsVencendo) {
+    statCards.push(`
+      <div class="stat-card">
+        <div class="stat-label">Documentos vencendo</div>
+        <div class="stat-value">${kpiDocsVencendo.vencidos + kpiDocsVencendo.proximos}</div>
+        <div class="stat-sub">${kpiDocsVencendo.vencidos} já vencido(s), ${kpiDocsVencendo.proximos} nos próximos dias</div>
+      </div>`);
+  }
+  if (kpiFornecedoresAtencao !== null) {
+    statCards.push(`
+      <div class="stat-card">
+        <div class="stat-label">Fornecedores em atenção</div>
+        <div class="stat-value">${kpiFornecedoresAtencao}</div>
+        <div class="stat-sub">parcial ou reprovado este mês</div>
+      </div>`);
+  }
+  const statsRowHTML = statCards.length ? `<div class="stats-grid">${statCards.join('')}</div>` : '';
+
+  const visaoGeralHTML = (graficosHTML || tabelaHTML) ? `<div class="admin-grid2"${(graficosHTML && tabelaHTML) ? '' : ' style="grid-template-columns:1fr"'}>${graficosHTML}${tabelaHTML}</div>` : '';
+
+  const semNadaParaMostrar = !alertaCadastroFiscalHtml && !statsRowHTML && !centralAlertasHTML && !dashGrid2HTML && !insightGridHTML && !visaoGeralHTML && !adminGridHTML;
   document.getElementById('ad-page-dashboard').innerHTML = `
-    <div class="page-header"><div><h2>Dashboard e notificações</h2><p>${MESES[mesAtual]} de ${anoAtual}</p></div></div>
+    <div class="page-header">
+      <div><h2>Dashboard e notificações</h2><p>${MESES[mesAtual]} de ${anoAtual}</p></div>
+      <div class="period-toggle">Este mês ${ic('chevronDown', 12)}</div>
+    </div>
     ${alertaCadastroFiscalHtml}
     ${onboardingHTML}
-    ${alertaAprovacao}
-    ${alertaAvaliadoresPendentesHTML}
-    ${alertaNotificar}
-    ${alertaNotificarProduto}
-    ${alertaPlanoAcaoAprovacao}
-    ${alertaPlanoAcaoAtrasado}
-    ${alertasDoc}
-    ${alertaDocsEscalonados}
-    ${alertasDocUnidades}
-    ${adminGridHTML}
+    ${statsRowHTML ? `<div class="section-label">Resumo do mês <span class="n">${statCards.length}</span></div>${statsRowHTML}` : ''}
+    ${centralAlertasHTML ? `<div class="section-label">Central de alertas <span class="n">${listaDeAlertas.length}</span></div>${centralAlertasHTML}` : ''}
+    ${visaoGeralHTML ? `<div class="section-label">Visão geral do mês</div>${visaoGeralHTML}` : ''}
     ${dashGrid2HTML}
-    ${insightGridHTML}
-    ${graficosHTML}
-    ${tabelaHTML}
+    ${insightGridHTML ? `<div class="section-label">Insights e histórico</div>${insightGridHTML}` : ''}
+    ${adminGridHTML ? `<div class="section-label">Administração</div>${adminGridHTML}` : ''}
     ${semNadaParaMostrar ? '<div class="card"><div class="empty-state"><p>Nenhum módulo com dados pra mostrar aqui — os módulos liberados pra você aparecem no menu ao lado.</p></div></div>' : ''}
   `;
 }
@@ -669,6 +789,23 @@ function renderAdDashboard() {
 function toggleAlertaCollapse(cardId) {
   const card = document.getElementById(cardId);
   if (card) card.classList.toggle('open');
+}
+
+// Rola até o card de ranking de setores atrasados — usado pelo link
+// "Ver ranking" do stat-card "Setores em atraso" no topo do dashboard.
+function irParaRankingSetoresAtraso() {
+  document.getElementById('card-setores-atraso')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Chamado pelo card "Complete seu cadastro" no dashboard — leva direto pra
+// Config > Minha empresa, já na aba certa, sem o usuário precisar achar
+// o caminho sozinho.
+async function irParaCompletarCadastroFiscal() {
+  const navBtn = document.querySelector("#sidebar .nav-item[onclick*='config']");
+  showAdPage('config', navBtn);
+  await renderAdConfig(); // garante que a aba já existe no DOM antes de trocar de sub-aba
+  const tabBtn = document.querySelector('#ad-page-config .config-tab-btn[onclick*="\'empresa\'"]');
+  if (tabBtn) showConfigTabAd('empresa', tabBtn);
 }
 
 // ---------- MINI-RELATÓRIO "AVALIAÇÕES ENVIADAS" (popup do stat-card) ----------
@@ -685,6 +822,142 @@ function calcularSetoresEnviadosMes(d, chaveMes) {
     ).length;
     return { formId: form.id, nome: form.nome, total, completos, pct: Math.round((completos / total) * 100) };
   }).filter(Boolean).sort((a, b) => b.pct - a.pct || a.nome.localeCompare(b.nome));
+}
+
+// ---------- HISTÓRICO DE ATRASO POR SETOR ----------
+// "Setor" aqui é o form.setor (setor avaliador de cada formulário) — pode
+// ter mais de um formulário pro mesmo setor, e nesse caso os formulários
+// são agrupados ANTES de contar: um período conta como "atraso do setor"
+// no máximo 1 vez, mesmo que vários formulários daquele setor tenham
+// atrasado no mesmo mês (senão um setor com muitos formulários apareceria
+// como "mais atrasado" só por ter mais formulários, não por atrasar mais).
+// Só entra na conta formulário com prazo de entrega configurado (sem
+// prazo não dá pra medir atraso).
+//
+// Pra cada período (mês) que já teve alguma avaliação enviada, mais o mês
+// atual: olha todos os formulários do setor cujo prazo daquele mês já
+// venceu (cada formulário pode ter um prazo diferente) e considera esse
+// período "avaliável" pro setor. Dentro desses, o setor atrasou no
+// período se PELO MENOS UM formulário dele não teve todas as associações
+// entregues até o prazo (entregue depois, ou nunca entregue). O ranking é
+// sobre a frequência de atraso ao longo do tempo, não sobre pendência em
+// aberto agora.
+// converte "YYYY-M" num número comparável (ano*12+mês), pra dar pra
+// ordenar/comparar sem cair na armadilha de comparar strings ("2026-10" <
+// "2026-9" alfabeticamente, mesmo sendo depois)
+function periodoParaNumero(periodo) {
+  const [ano, mes] = periodo.split('-').map(Number);
+  return ano * 12 + mes;
+}
+
+// "2026-8" -> "Agosto de 2026", pra exibir nos selects de filtro
+function rotuloPeriodo(periodo) {
+  const [ano, mes] = periodo.split('-').map(Number);
+  return `${MESES[mes]} de ${ano}`;
+}
+
+// todos os períodos com pelo menos 1 avaliação enviada, mais o mês atual —
+// ordenados cronologicamente, pra popular os selects de filtro "de"/"até"
+function listarPeriodosParaFiltro(d) {
+  const hoje = new Date();
+  const periodos = new Set(d.avaliacoes.map(av => av.periodo));
+  periodos.add(`${hoje.getFullYear()}-${hoje.getMonth() + 1}`);
+  return [...periodos].sort((a, b) => periodoParaNumero(a) - periodoParaNumero(b));
+}
+
+// setores com pelo menos 1 formulário com prazo de entrega configurado —
+// popula o select de filtro por setor
+function listarSetoresParaFiltro(d) {
+  const setores = new Set(d.formularios.filter(f => f.prazoEntregaDia).map(f => f.setor || f.nome));
+  return [...setores].sort((a, b) => a.localeCompare(b));
+}
+
+function calcularSetoresAtrasoHistorico(d, filtro) {
+  filtro = filtro || {};
+  const hoje = new Date();
+  const chaveMesAtual = `${hoje.getFullYear()}-${hoje.getMonth() + 1}`;
+  let periodos = new Set(d.avaliacoes.map(av => av.periodo));
+  periodos.add(chaveMesAtual);
+  if (filtro.de) periodos = new Set([...periodos].filter(p => periodoParaNumero(p) >= periodoParaNumero(filtro.de)));
+  if (filtro.ate) periodos = new Set([...periodos].filter(p => periodoParaNumero(p) <= periodoParaNumero(filtro.ate)));
+
+  // agrupa formulários (com prazo configurado e com associações) por setor
+  const formsPorSetor = {};
+  d.formularios.forEach(form => {
+    if (!form.prazoEntregaDia) return;
+    const chaveSetor = form.setor || form.nome;
+    if (filtro.setor && chaveSetor !== filtro.setor) return;
+    const assocsDoForm = d.associacoes.filter(a => a.formularioId === form.id);
+    if (!assocsDoForm.length) return;
+    if (!formsPorSetor[chaveSetor]) formsPorSetor[chaveSetor] = [];
+    formsPorSetor[chaveSetor].push({ form, assocsDoForm });
+  });
+
+
+  const porSetor = {};
+
+  Object.keys(formsPorSetor).forEach(chaveSetor => {
+    const formsDoSetor = formsPorSetor[chaveSetor];
+    let atrasos = 0, periodosContados = 0;
+
+    periodos.forEach(periodo => {
+      const [ano, mes] = periodo.split('-').map(Number);
+
+      // só considera formulários cujo prazo desse período já venceu
+      const vencidosNoPeriodo = formsDoSetor
+        .map(({ form, assocsDoForm }) => ({ form, assocsDoForm, prazoFinal: prazoFinalDiasUteis(ano, mes - 1, form.prazoEntregaDia) }))
+        .filter(x => x.prazoFinal && x.prazoFinal <= hoje);
+
+      if (!vencidosNoPeriodo.length) return; // nenhum formulário do setor com prazo vencido ainda nesse período
+
+      periodosContados++;
+
+      const setorAtrasouNoPeriodo = vencidosNoPeriodo.some(({ form, assocsDoForm, prazoFinal }) =>
+        !assocsDoForm.every(a => {
+          const av = d.avaliacoes.find(x => x.formularioId === form.id && x.fornecedorId === a.fornecedorId && x.usuarioId === a.usuarioId && x.periodo === periodo);
+          return av && new Date(av.enviadoEm) <= prazoFinal;
+        })
+      );
+      if (setorAtrasouNoPeriodo) atrasos++;
+    });
+
+    porSetor[chaveSetor] = { atrasos, periodos: periodosContados };
+  });
+
+  return Object.keys(porSetor).map(nome => ({ nome, ...porSetor[nome] }))
+    .filter(s => s.atrasos > 0)
+    .sort((a, b) => b.atrasos - a.atrasos || a.nome.localeCompare(b.nome))
+    .slice(0, 8);
+}
+
+function htmlTabelaSetoresAtraso(lista) {
+  if (!lista.length) return '<div class="empty-state"><p>Nenhum atraso encontrado para esse filtro.</p></div>';
+  return `
+    <table>
+      <thead><tr><th>Setor</th><th style="text-align:center">Atrasos</th><th style="text-align:right">De quantos períodos</th></tr></thead>
+      <tbody>
+        ${lista.map(s => `<tr>
+          <td>${s.nome}</td>
+          <td style="text-align:center" class="dash-nota baixa">${s.atrasos}</td>
+          <td style="text-align:right">${s.atrasos} de ${s.periodos}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+// Muda só o conteúdo de #setores-atraso-lista — não redesenha o dashboard
+// inteiro, então os selects (e o resto da página) não perdem estado.
+function renderSetoresAtrasoLista() {
+  const wrap = document.getElementById('setores-atraso-lista');
+  if (!wrap) return;
+  wrap.innerHTML = htmlTabelaSetoresAtraso(calcularSetoresAtrasoHistorico(db(), _filtroSetoresAtraso));
+}
+
+function aplicarFiltroSetoresAtraso() {
+  _filtroSetoresAtraso.de = document.getElementById('fsa-de').value;
+  _filtroSetoresAtraso.ate = document.getElementById('fsa-ate').value;
+  _filtroSetoresAtraso.setor = document.getElementById('fsa-setor').value;
+  renderSetoresAtrasoLista();
 }
 
 function barraPercentualHTML(label, pct) {
@@ -798,15 +1071,4 @@ async function rejeitarPendenteAprovacao(pendenteId) {
   await carregarDocumentosPendentesAprovacao();
   renderAdDashboard();
   toast('Rejeitado. O fornecedor pode enviar de novo pelo mesmo link.');
-}
-
-// Chamado pelo card "Complete seu cadastro" no dashboard — leva direto pra
-// Config > Minha empresa, já na aba certa, sem o usuário precisar achar
-// o caminho sozinho.
-async function irParaCompletarCadastroFiscal() {
-  const navBtn = document.querySelector("#sidebar .nav-item[onclick*='config']");
-  showAdPage('config', navBtn);
-  await renderAdConfig(); // garante que a aba já existe no DOM antes de trocar de sub-aba
-  const tabBtn = document.querySelector('#ad-page-config .config-tab-btn[onclick*="\'empresa\'"]');
-  if (tabBtn) showConfigTabAd('empresa', tabBtn);
 }
