@@ -16,6 +16,13 @@ const TIPOS_SECAO_RNC = [
   { valor: 'campos_diversos', label: 'Campos de texto/data/responsável' },
 ];
 
+// Se o campo (de uma seção "campos_diversos") não tiver rótulo próprio,
+// usa o título da seção — evita ter que digitar o mesmo nome duas vezes
+// quando a seção só tem um campo (ex: seção "Observação" com 1 campo de texto).
+function rotuloCampoRnc(sec, campo) {
+  return (campo.label && campo.label.trim()) ? campo.label : sec.titulo;
+}
+
 // ---------- Aba "Modelos de RNC" ----------
 function renderRncModelosTab() {
   const d = db();
@@ -168,7 +175,7 @@ function renderCampoRncHtml(sec, secIndex, campo, campoIndex) {
   return `
     <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px">
       ${precisaTipoValor ? '' : `<span style="display:inline-block; width:11px; height:11px; border:1px solid #555; flex-shrink:0"></span>`}
-      <input type="text" value="${escapeHtml(campo.label || '')}" placeholder="Como esse campo aparece no formulário"
+      <input type="text" value="${escapeHtml(campo.label || '')}" placeholder="${precisaTipoValor ? 'Em branco usa o título da seção' : 'Como essa opção aparece no formulário'}"
         oninput="atualizarCampoRncConstrucaoSemRender(${secIndex}, ${campoIndex}, 'label', this.value)"
         style="flex:1; border:none; outline:none; background:transparent; font-size:12.5px; color:#1a1a1a; border-bottom:1px solid transparent" onfocus="this.style.borderBottomColor='#ccc'" onblur="this.style.borderBottomColor='transparent'">
       ${precisaTipoValor ? `
@@ -224,7 +231,15 @@ function moverSecaoRncConstrucao(i, direcao) {
 }
 function atualizarSecaoRncConstrucao(i, campo, valor) {
   _secoesRncEmConstrucao[i][campo] = valor;
-  if (campo === 'tipo') rerenderConstrutorModeloRnc(); // muda os campos disponíveis (ex: tipo_campo só existe em campos_diversos)
+  if (campo === 'tipo') {
+    // "Campos de texto/data/responsável" já nasce com 1 campo pronto — o
+    // rótulo pode ficar em branco (aí usa o título da seção na hora de
+    // mostrar), assim não precisa digitar o mesmo nome duas vezes.
+    if (valor === 'campos_diversos' && !_secoesRncEmConstrucao[i].campos.length) {
+      _secoesRncEmConstrucao[i].campos.push({ id: gerarIdCampoRnc(), label: '', tipo_campo: 'texto' });
+    }
+    rerenderConstrutorModeloRnc(); // muda os campos disponíveis (ex: tipo_campo só existe em campos_diversos)
+  }
 }
 // Versão usada no "oninput" do título da seção — não re-renderiza a cada
 // tecla, só guarda o valor, senão o input perde o foco a cada letra digitada.
@@ -407,12 +422,12 @@ function renderSecaoPreenchimentoHtml(sec, usuarios) {
         ${sec.campos.map(campo => {
           const valorAtual = _rncDadosEmPreenchimento[campo.id];
           if (campo.tipo_campo === 'date') {
-            return `<div class="form-group" style="margin:0"><label>${escapeHtml(campo.label)}</label><input type="date" value="${valorAtual || ''}" onchange="atualizarDadoRnc('${campo.id}', this.value)"></div>`;
+            return `<div class="form-group" style="margin:0"><label>${escapeHtml(rotuloCampoRnc(sec, campo))}</label><input type="date" value="${valorAtual || ''}" onchange="atualizarDadoRnc('${campo.id}', this.value)"></div>`;
           }
           if (campo.tipo_campo === 'usuario_ref') {
-            return `<div class="form-group" style="margin:0"><label>${escapeHtml(campo.label)}</label><select onchange="atualizarDadoRnc('${campo.id}', this.value)"><option value="">Selecione</option>${usuarios.map(u => `<option value="${u.id}" ${valorAtual === u.id ? 'selected' : ''}>${escapeHtml(u.nome || u.email)}</option>`).join('')}</select></div>`;
+            return `<div class="form-group" style="margin:0"><label>${escapeHtml(rotuloCampoRnc(sec, campo))}</label><select onchange="atualizarDadoRnc('${campo.id}', this.value)"><option value="">Selecione</option>${usuarios.map(u => `<option value="${u.id}" ${valorAtual === u.id ? 'selected' : ''}>${escapeHtml(u.nome || u.email)}</option>`).join('')}</select></div>`;
           }
-          return `<div class="form-group" style="margin:0"><label>${escapeHtml(campo.label)}</label><input type="text" value="${escapeHtml(valorAtual || '')}" onchange="atualizarDadoRnc('${campo.id}', this.value)"></div>`;
+          return `<div class="form-group" style="margin:0"><label>${escapeHtml(rotuloCampoRnc(sec, campo))}</label><input type="text" value="${escapeHtml(valorAtual || '')}" onchange="atualizarDadoRnc('${campo.id}', this.value)"></div>`;
         }).join('')}
       </div>
     </div>
@@ -532,7 +547,7 @@ async function abrirVisualizarRnc(rncId) {
                 const valor = c.tipo_campo === 'usuario_ref'
                   ? ((usuarios.find(u => u.id === rnc.dados[c.id]) || {}).nome || '—')
                   : (rnc.dados[c.id] || '—');
-                return `<div><div style="font-size:10px; color:var(--text-muted)">${escapeHtml(c.label)}</div><div style="font-size:13px">${escapeHtml(String(valor))}</div></div>`;
+                return `<div><div style="font-size:10px; color:var(--text-muted)">${escapeHtml(rotuloCampoRnc(sec, c))}</div><div style="font-size:13px">${escapeHtml(String(valor))}</div></div>`;
               }).join('')}
             </div>`
           : `<div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 12px">
@@ -640,7 +655,7 @@ async function gerarPDFRnc(rncId) {
           ? ((usuarios.find(u => u.id === valorBruto) || {}).nome || '—')
           : (valorBruto || '—');
         doc.setFontSize(8.5);
-        doc.text(`${campo.label}: ${valor}`, margem + 2, y);
+        doc.text(`${rotuloCampoRnc(sec, campo)}: ${valor}`, margem + 2, y);
         y += 5.5;
       });
     } else {
