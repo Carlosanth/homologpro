@@ -141,6 +141,10 @@ function renderSecaoRncHtml(sec, i) {
           <option value="" ${!sec.tipo ? 'selected' : ''} disabled>Formato...</option>
           ${TIPOS_SECAO_RNC.map(t => `<option value="${t.valor}" ${sec.tipo === t.valor ? 'selected' : ''}>${t.label}</option>`).join('')}
         </select>
+        <button type="button" onclick="moverSecaoRncConstrucao(${i}, -1)" title="Mover para cima" ${i === 0 ? 'disabled' : ''}
+          style="border:none; background:transparent; color:${i === 0 ? '#ccc' : '#666'}; cursor:${i === 0 ? 'default' : 'pointer'}; font-size:12px; line-height:1; padding:0 2px">▲</button>
+        <button type="button" onclick="moverSecaoRncConstrucao(${i}, 1)" title="Mover para baixo" ${i === _secoesRncEmConstrucao.length - 1 ? 'disabled' : ''}
+          style="border:none; background:transparent; color:${i === _secoesRncEmConstrucao.length - 1 ? '#ccc' : '#666'}; cursor:${i === _secoesRncEmConstrucao.length - 1 ? 'default' : 'pointer'}; font-size:12px; line-height:1; padding:0 2px">▼</button>
         <button type="button" onclick="removerSecaoRncConstrucao(${i})" title="Excluir seção"
           style="border:none; background:transparent; color:#c0392b; cursor:pointer; font-size:14px; line-height:1; padding:0 2px">×</button>
       </div>
@@ -209,6 +213,13 @@ function addSecaoRncConstrucao() {
 }
 function removerSecaoRncConstrucao(i) {
   _secoesRncEmConstrucao.splice(i, 1);
+  rerenderConstrutorModeloRnc();
+}
+function moverSecaoRncConstrucao(i, direcao) {
+  const novoIndex = i + direcao;
+  if (novoIndex < 0 || novoIndex >= _secoesRncEmConstrucao.length) return;
+  const [sec] = _secoesRncEmConstrucao.splice(i, 1);
+  _secoesRncEmConstrucao.splice(novoIndex, 0, sec);
   rerenderConstrutorModeloRnc();
 }
 function atualizarSecaoRncConstrucao(i, campo, valor) {
@@ -507,7 +518,6 @@ async function abrirVisualizarRnc(rncId) {
   const modelo = (d.rncModelos || []).find(m => m.id === rnc.modelo_id);
   const usuarios = d.usuarios || [];
   const fornecedor = (d.fornecedores || []).find(f => f.id === rnc.fornecedor_id);
-  const responsavel = rnc.responsavel_user_id ? usuarios.find(u => u.id === rnc.responsavel_user_id) : null;
 
   const checkboxSvg = (marcado) => `<span style="display:inline-block; width:11px; height:11px; border:1px solid #555; background:${marcado ? '#0A192F' : 'transparent'}; flex-shrink:0"></span>`;
 
@@ -554,8 +564,6 @@ async function abrirVisualizarRnc(rncId) {
 
     ${corpoSecoes}
 
-    <div style="border-top:1px solid #999; padding-top:6px; font-size:11px; color:#444; margin-top:4px">Responsável: ${responsavel ? escapeHtml(responsavel.nome || responsavel.email) : '—'}</div>
-
     <div style="display:flex; gap:8px; margin-top:14px; flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" onclick="gerarPDFRnc('${rnc.id}')">${ic('fileText', 13)} Baixar PDF</button>
       ${modelo ? `<button class="btn btn-secondary btn-sm" onclick="abrirEditarRespostasRnc('${rnc.id}')">Editar respostas</button>` : ''}
@@ -574,7 +582,6 @@ async function gerarPDFRnc(rncId) {
   const modelo = (d.rncModelos || []).find(m => m.id === rnc.modelo_id);
   const usuarios = d.usuarios || [];
   const fornecedor = d.fornecedores.find(f => f.id === rnc.fornecedor_id);
-  const responsavel = rnc.responsavel_user_id ? usuarios.find(u => u.id === rnc.responsavel_user_id) : null;
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
@@ -624,7 +631,7 @@ async function gerarPDFRnc(rncId) {
     doc.setFont(undefined, 'bold');
     doc.text(sec.titulo, margem + 2, y + 4.3);
     doc.setFont(undefined, 'normal');
-    y += 9;
+    y += 7;
 
     if (sec.tipo === 'campos_diversos') {
       sec.campos.forEach(campo => {
@@ -641,27 +648,24 @@ async function gerarPDFRnc(rncId) {
       const colLargura = largura / 2;
       sec.campos.forEach((campo, i) => {
         const col = i % 2;
-        if (col === 0 && i > 0) y += 6;
+        if (col === 0 && i > 0) y += 5.5;
         const x = margem + col * colLargura;
         const marcado = !!rnc.dados[campo.id];
-        doc.setDrawColor(80);
-        doc.rect(x, y - 3, 3, 3);
-        if (marcado) { doc.setFillColor(10, 25, 47); doc.rect(x + 0.5, y - 2.5, 2, 2, 'F'); }
+        if (marcado) {
+          doc.setDrawColor(10, 25, 47);
+          doc.setFillColor(10, 25, 47);
+          doc.rect(x, y - 3, 3, 3, 'FD'); // preenche o quadrado inteiro, não só o miolo
+        } else {
+          doc.setDrawColor(120);
+          doc.rect(x, y - 3, 3, 3, 'D');
+        }
         doc.setFontSize(8.5);
         doc.text(campo.label, x + 5, y - 0.3);
       });
-      y += 8;
+      y += 6;
     }
-    y += 3;
+    y += 2;
   });
-
-  // Responsável (equivalente à assinatura do formulário em papel)
-  if (y > 265) { doc.addPage(); y = 16; }
-  doc.setDrawColor(180);
-  doc.line(margem, y, margem + largura, y);
-  y += 5;
-  doc.setFontSize(8.5);
-  doc.text(`Responsável: ${responsavel ? (responsavel.nome || responsavel.email) : '—'}`, margem, y);
 
   // Rodapé: marca do HomologPro (discreto, cinza claro) — o nome do cliente já
   // está no topo do documento, não precisa repetir aqui.
