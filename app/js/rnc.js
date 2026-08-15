@@ -6,6 +6,9 @@
 
 let _novaSecaoRncAberta = false;
 let _secoesRncEmConstrucao = []; // seções do modelo sendo montado na tela "Novo modelo"
+let _construtorModeloContexto = 'tab'; // 'tab' (aba Modelos de RNC) ou 'modal' (editando a partir do Ver RNC)
+let _modeloRncEditandoId = null; // id do modelo em edição, ou null se estiver criando um novo
+let _modeloRncEditandoInfo = null; // { nome, codigo, revisao } pra pré-preencher o formulário na edição
 
 const TIPOS_SECAO_RNC = [
   { valor: 'checkbox_grupo', label: 'Marcar várias opções (grupo de checkbox)' },
@@ -46,7 +49,10 @@ function renderRncModelosTab() {
               <td>${m.revisao || '—'}</td>
               <td>${(m.secoes || []).length}</td>
               <td><input type="checkbox" ${m.ativo ? 'checked' : ''} onchange="toggleRncModeloAtivo('${m.id}', this.checked)"></td>
-              <td><div class="actions"><button class="btn btn-danger btn-sm" onclick="excluirRncModelo('${m.id}')">Excluir</button></div></td>
+              <td><div class="actions">
+                <button class="btn btn-secondary btn-sm" onclick="abrirEditarModeloRnc('${m.id}')">Editar</button>
+                <button class="btn btn-danger btn-sm" onclick="excluirRncModelo('${m.id}')">Excluir</button>
+              </div></td>
             </tr>`).join('')}
           </tbody>
         </table>
@@ -58,6 +64,9 @@ function renderRncModelosTab() {
 
 function toggleNovoModeloRncCard() {
   _novaSecaoRncAberta = !_novaSecaoRncAberta;
+  _construtorModeloContexto = 'tab';
+  _modeloRncEditandoId = null;
+  _modeloRncEditandoInfo = null;
   if (_novaSecaoRncAberta && !_secoesRncEmConstrucao.length) {
     _secoesRncEmConstrucao = [{ id: gerarIdSecaoRnc(), titulo: '', tipo: 'checkbox_grupo', campos: [] }];
   }
@@ -74,18 +83,23 @@ function gerarIdCampoRnc() {
 }
 
 function renderConstrutorModeloRncHtml() {
+  const prefill = _modeloRncEditandoInfo || {};
   return `
+    ${_construtorModeloContexto === 'modal' ? `<h3 style="margin-bottom:10px">Editar modelo de RNC</h3>` : ''}
     <div class="form-row three">
-      <div class="form-group"><label>Nome do modelo</label><input type="text" id="rnc-modelo-nome" placeholder="Nome que identifica esse formulário para sua equipe"></div>
-      <div class="form-group"><label>Código do documento (opcional)</label><input type="text" id="rnc-modelo-codigo" placeholder="Se sua empresa usa um código interno de documento"></div>
-      <div class="form-group"><label>Revisão (opcional)</label><input type="text" id="rnc-modelo-revisao" placeholder="Se sua empresa controla versão/revisão do documento"></div>
+      <div class="form-group"><label>Nome do modelo</label><input type="text" id="rnc-modelo-nome" value="${escapeHtml(prefill.nome || '')}" placeholder="Nome que identifica esse formulário para sua equipe"></div>
+      <div class="form-group"><label>Código do documento (opcional)</label><input type="text" id="rnc-modelo-codigo" value="${escapeHtml(prefill.codigo || '')}" placeholder="Se sua empresa usa um código interno de documento"></div>
+      <div class="form-group"><label>Revisão (opcional)</label><input type="text" id="rnc-modelo-revisao" value="${escapeHtml(prefill.revisao || '')}" placeholder="Se sua empresa controla versão/revisão do documento"></div>
     </div>
 
     <div id="rnc-secoes-lista">
       ${_secoesRncEmConstrucao.map((sec, i) => renderSecaoRncHtml(sec, i)).join('')}
     </div>
     <button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="addSecaoRncConstrucao()">+ Adicionar seção</button>
-    <button class="btn btn-primary" style="margin-top:10px; margin-left:8px" onclick="salvarModeloRnc()">Salvar modelo</button>
+    <div style="margin-top:10px; display:flex; gap:8px">
+      <button class="btn btn-primary" onclick="salvarModeloRnc()">Salvar modelo</button>
+      ${_construtorModeloContexto === 'modal' ? `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>` : ''}
+    </div>
   `;
 }
 
@@ -138,26 +152,31 @@ function renderCampoRncHtml(sec, secIndex, campo, campoIndex) {
   `;
 }
 
+function rerenderConstrutorModeloRnc() {
+  if (_construtorModeloContexto === 'modal') openModal(renderConstrutorModeloRncHtml());
+  else renderRncModelosTab();
+}
+
 function addSecaoRncConstrucao() {
   _secoesRncEmConstrucao.push({ id: gerarIdSecaoRnc(), titulo: '', tipo: 'checkbox_grupo', campos: [] });
-  renderRncModelosTab();
+  rerenderConstrutorModeloRnc();
 }
 function removerSecaoRncConstrucao(i) {
   _secoesRncEmConstrucao.splice(i, 1);
-  renderRncModelosTab();
+  rerenderConstrutorModeloRnc();
 }
 function atualizarSecaoRncConstrucao(i, campo, valor) {
   _secoesRncEmConstrucao[i][campo] = valor;
-  if (campo === 'tipo') renderRncModelosTab(); // muda os campos disponíveis (ex: tipo_campo só existe em campos_diversos)
+  if (campo === 'tipo') rerenderConstrutorModeloRnc(); // muda os campos disponíveis (ex: tipo_campo só existe em campos_diversos)
 }
 function addCampoRncConstrucao(secIndex) {
   const tipoDefault = _secoesRncEmConstrucao[secIndex].tipo === 'campos_diversos' ? 'texto' : undefined;
   _secoesRncEmConstrucao[secIndex].campos.push({ id: gerarIdCampoRnc(), label: '', tipo_campo: tipoDefault });
-  renderRncModelosTab();
+  rerenderConstrutorModeloRnc();
 }
 function removerCampoRncConstrucao(secIndex, campoIndex) {
   _secoesRncEmConstrucao[secIndex].campos.splice(campoIndex, 1);
-  renderRncModelosTab();
+  rerenderConstrutorModeloRnc();
 }
 function atualizarCampoRncConstrucao(secIndex, campoIndex, chave, valor) {
   _secoesRncEmConstrucao[secIndex].campos[campoIndex][chave] = valor;
@@ -176,19 +195,42 @@ async function salvarModeloRnc() {
     toast('Toda seção precisa de pelo menos um campo.'); return;
   }
 
-  const { error } = await supabaseClient.from('rnc_modelos').insert({
-    empresa_id: currentUser.empresaId,
-    nome, codigo: codigo || null, revisao: revisao || null,
-    secoes: _secoesRncEmConstrucao, ativo: true,
-  });
-  if (error) { toast('Erro ao salvar modelo: ' + error.message); return; }
+  if (_modeloRncEditandoId) {
+    const { error } = await supabaseClient.from('rnc_modelos').update({
+      nome, codigo: codigo || null, revisao: revisao || null, secoes: _secoesRncEmConstrucao,
+    }).eq('id', _modeloRncEditandoId);
+    if (error) { toast('Erro ao salvar modelo: ' + error.message); return; }
+    addLog('rnc_modelo_editado', `${currentUser.email} editou o modelo de RNC "${nome}"`);
+  } else {
+    const { error } = await supabaseClient.from('rnc_modelos').insert({
+      empresa_id: currentUser.empresaId,
+      nome, codigo: codigo || null, revisao: revisao || null,
+      secoes: _secoesRncEmConstrucao, ativo: true,
+    });
+    if (error) { toast('Erro ao salvar modelo: ' + error.message); return; }
+    addLog('rnc_modelo_criado', `${currentUser.email} criou o modelo de RNC "${nome}"`);
+  }
 
-  addLog('rnc_modelo_criado', `${currentUser.email} criou o modelo de RNC "${nome}"`);
+  const eraModal = _construtorModeloContexto === 'modal';
   _secoesRncEmConstrucao = [];
   _novaSecaoRncAberta = false;
+  _modeloRncEditandoId = null;
+  _modeloRncEditandoInfo = null;
+  _construtorModeloContexto = 'tab';
   await carregarRncModelos();
-  renderRncModelosTab();
+  if (eraModal) closeModal(); else renderRncModelosTab();
   toast('Modelo de RNC salvo!');
+}
+
+function abrirEditarModeloRnc(modeloId) {
+  const d = db();
+  const modelo = (d.rncModelos || []).find(m => m.id === modeloId);
+  if (!modelo) { toast('Modelo não encontrado.'); return; }
+  _construtorModeloContexto = 'modal';
+  _modeloRncEditandoId = modelo.id;
+  _modeloRncEditandoInfo = { nome: modelo.nome, codigo: modelo.codigo, revisao: modelo.revisao };
+  _secoesRncEmConstrucao = JSON.parse(JSON.stringify(modelo.secoes || []));
+  openModal(renderConstrutorModeloRncHtml());
 }
 
 async function toggleRncModeloAtivo(id, ativo) {
@@ -211,6 +253,7 @@ async function excluirRncModelo(id) {
 let _rncVinculoCtx = null;
 let _rncModeloEmUso = null;
 let _rncDadosEmPreenchimento = {};
+let _rncEditandoId = null; // se estiver editando as respostas de um RNC já salvo, o id dele; senão null
 
 function abrirVincularRnc(conferenciaId, criterioId, fornecedorId, numeroNf) {
   const d = db();
@@ -219,6 +262,7 @@ function abrirVincularRnc(conferenciaId, criterioId, fornecedorId, numeroNf) {
     toast('Nenhum modelo de RNC configurado ainda. Crie um na aba "Modelos de RNC".');
     return;
   }
+  _rncEditandoId = null;
   _rncVinculoCtx = { conferenciaId, criterioId, fornecedorId, numeroNf };
   _rncDadosEmPreenchimento = {};
 
@@ -252,13 +296,13 @@ function renderFormularioRncHtml() {
   const d = db();
   const usuarios = d.usuarios || [];
   return `
-    <h3>${escapeHtml(modelo.nome)}</h3>
+    <h3>${_rncEditandoId ? 'Editar respostas — ' : ''}${escapeHtml(modelo.nome)}</h3>
     ${modelo.codigo || modelo.revisao ? `<p style="font-size:12px; color:var(--text-muted); margin-bottom:10px">${modelo.codigo ? escapeHtml(modelo.codigo) : ''}${modelo.codigo && modelo.revisao ? ' · ' : ''}${modelo.revisao ? 'Revisão ' + escapeHtml(modelo.revisao) : ''}</p>` : ''}
     <div id="rnc-form-secoes">
       ${modelo.secoes.map(sec => renderSecaoPreenchimentoHtml(sec, usuarios)).join('')}
     </div>
     <div style="display:flex; gap:8px; margin-top:14px">
-      <button class="btn btn-primary" onclick="salvarRncVinculado()">Salvar RNC</button>
+      <button class="btn btn-primary" onclick="salvarRncVinculado()">${_rncEditandoId ? 'Salvar alterações' : 'Salvar RNC'}</button>
       <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
     </div>
   `;
@@ -271,7 +315,7 @@ function renderSecaoPreenchimentoHtml(sec, usuarios) {
         <p style="font-size:12px; font-weight:600; color:var(--text-sec); margin-bottom:6px">${escapeHtml(sec.titulo)}</p>
         ${sec.campos.map(campo => `
           <label style="display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:4px">
-            <input type="checkbox" onchange="atualizarDadoRnc('${campo.id}', this.checked)"> ${escapeHtml(campo.label)}
+            <input type="checkbox" ${_rncDadosEmPreenchimento[campo.id] ? 'checked' : ''} onchange="atualizarDadoRnc('${campo.id}', this.checked)"> ${escapeHtml(campo.label)}
           </label>
         `).join('')}
       </div>
@@ -283,7 +327,7 @@ function renderSecaoPreenchimentoHtml(sec, usuarios) {
         <p style="font-size:12px; font-weight:600; color:var(--text-sec); margin-bottom:6px">${escapeHtml(sec.titulo)}</p>
         ${sec.campos.map(campo => `
           <label style="display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:4px">
-            <input type="radio" name="rnc-radio-${sec.id}" onchange="atualizarDadoRncSelecaoUnica('${sec.id}', '${campo.id}')"> ${escapeHtml(campo.label)}
+            <input type="radio" name="rnc-radio-${sec.id}" ${_rncDadosEmPreenchimento[campo.id] ? 'checked' : ''} onchange="atualizarDadoRncSelecaoUnica('${sec.id}', '${campo.id}')"> ${escapeHtml(campo.label)}
           </label>
         `).join('')}
       </div>
@@ -294,16 +338,16 @@ function renderSecaoPreenchimentoHtml(sec, usuarios) {
     <div style="margin-bottom:14px">
       <p style="font-size:12px; font-weight:600; color:var(--text-sec); margin-bottom:6px">${escapeHtml(sec.titulo)}</p>
       <div class="form-row" style="grid-template-columns:repeat(${sec.campos.length}, 1fr)">
-        ${sec.campos.map(campo => `
-          <div class="form-group" style="margin:0">
-            <label>${escapeHtml(campo.label)}</label>
-            ${campo.tipo_campo === 'date'
-              ? `<input type="date" onchange="atualizarDadoRnc('${campo.id}', this.value)">`
-              : campo.tipo_campo === 'usuario_ref'
-              ? `<select onchange="atualizarDadoRnc('${campo.id}', this.value)"><option value="">Selecione</option>${usuarios.map(u => `<option value="${u.id}">${escapeHtml(u.nome || u.email)}</option>`).join('')}</select>`
-              : `<input type="text" onchange="atualizarDadoRnc('${campo.id}', this.value)">`}
-          </div>
-        `).join('')}
+        ${sec.campos.map(campo => {
+          const valorAtual = _rncDadosEmPreenchimento[campo.id];
+          if (campo.tipo_campo === 'date') {
+            return `<div class="form-group" style="margin:0"><label>${escapeHtml(campo.label)}</label><input type="date" value="${valorAtual || ''}" onchange="atualizarDadoRnc('${campo.id}', this.value)"></div>`;
+          }
+          if (campo.tipo_campo === 'usuario_ref') {
+            return `<div class="form-group" style="margin:0"><label>${escapeHtml(campo.label)}</label><select onchange="atualizarDadoRnc('${campo.id}', this.value)"><option value="">Selecione</option>${usuarios.map(u => `<option value="${u.id}" ${valorAtual === u.id ? 'selected' : ''}>${escapeHtml(u.nome || u.email)}</option>`).join('')}</select></div>`;
+          }
+          return `<div class="form-group" style="margin:0"><label>${escapeHtml(campo.label)}</label><input type="text" value="${escapeHtml(valorAtual || '')}" onchange="atualizarDadoRnc('${campo.id}', this.value)"></div>`;
+        }).join('')}
       </div>
     </div>
   `;
@@ -324,6 +368,22 @@ async function salvarRncVinculado() {
 
   const responsavelCampo = modelo.secoes.flatMap(s => s.campos).find(c => c.tipo_campo === 'usuario_ref');
   const responsavelUserId = responsavelCampo ? (_rncDadosEmPreenchimento[responsavelCampo.id] || null) : null;
+
+  if (_rncEditandoId) {
+    const { error } = await supabaseClient.from('rncs').update({
+      dados: _rncDadosEmPreenchimento,
+      responsavel_user_id: responsavelUserId,
+    }).eq('id', _rncEditandoId);
+    if (error) { toast('Erro ao salvar RNC: ' + error.message); return; }
+
+    addLog('rnc_editado', `${currentUser.email} editou as respostas do RNC ${_rncEditandoId}`);
+    closeModal();
+    _rncEditandoId = null; _rncVinculoCtx = null; _rncModeloEmUso = null; _rncDadosEmPreenchimento = {};
+    if (typeof rerenderListaConferencias === 'function') rerenderListaConferencias();
+    if (typeof aplicarConferenciaVinculada === 'function' && document.getElementById('lp-nf')) aplicarConferenciaVinculada();
+    toast('RNC atualizado!');
+    return;
+  }
 
   const anoAtual = new Date().getFullYear();
   const { count: totalDoAno } = await supabaseClient
@@ -369,6 +429,20 @@ async function salvarRncVinculado() {
   toast(`RNC ${numeroSequencial} salvo e vinculado!`);
 }
 
+function abrirEditarRespostasRnc(rncId) {
+  supabaseClient.from('rncs').select('*').eq('id', rncId).single().then(({ data: rnc, error }) => {
+    if (error || !rnc) { toast('Não foi possível carregar o RNC.'); return; }
+    const d = db();
+    const modelo = (d.rncModelos || []).find(m => m.id === rnc.modelo_id);
+    if (!modelo) { toast('O modelo original desse RNC foi excluído — não é possível editar as respostas sem ele.'); return; }
+    _rncEditandoId = rnc.id;
+    _rncVinculoCtx = { conferenciaId: rnc.conferencia_id, criterioId: rnc.criterio_conferencia_id, fornecedorId: rnc.fornecedor_id, numeroNf: rnc.numero_nf };
+    _rncModeloEmUso = modelo;
+    _rncDadosEmPreenchimento = { ...rnc.dados };
+    openModal(renderFormularioRncHtml());
+  });
+}
+
 // ---------- Visualizar RNC já vinculado ----------
 async function abrirVisualizarRnc(rncId) {
   const { data: rnc, error } = await supabaseClient.from('rncs').select('*').eq('id', rncId).single();
@@ -377,22 +451,60 @@ async function abrirVisualizarRnc(rncId) {
   const d = db();
   const modelo = (d.rncModelos || []).find(m => m.id === rnc.modelo_id);
   const usuarios = d.usuarios || [];
+  const fornecedor = (d.fornecedores || []).find(f => f.id === rnc.fornecedor_id);
+  const responsavel = rnc.responsavel_user_id ? usuarios.find(u => u.id === rnc.responsavel_user_id) : null;
+
+  const checkboxSvg = (marcado) => `<span style="display:inline-block; width:11px; height:11px; border:1px solid #555; background:${marcado ? '#0A192F' : 'transparent'}; flex-shrink:0"></span>`;
+
+  const corpoSecoes = !modelo
+    ? '<p style="font-size:12px; color:var(--text-muted)">Modelo original foi excluído — mostrando dados salvos, sem o layout original.</p>'
+    : modelo.secoes.map(sec => `
+      <div style="margin-bottom:14px">
+        <div style="background:#ebeef0; padding:4px 8px; font-size:12px; font-weight:600; color:#1a1a1a; border-radius:2px; margin-bottom:8px">${escapeHtml(sec.titulo)}</div>
+        ${sec.tipo === 'campos_diversos'
+          ? `<div style="display:grid; grid-template-columns:repeat(${sec.campos.length}, 1fr); gap:8px">
+              ${sec.campos.map(c => {
+                const valor = c.tipo_campo === 'usuario_ref'
+                  ? ((usuarios.find(u => u.id === rnc.dados[c.id]) || {}).nome || '—')
+                  : (rnc.dados[c.id] || '—');
+                return `<div><div style="font-size:10px; color:var(--text-muted)">${escapeHtml(c.label)}</div><div style="font-size:13px">${escapeHtml(String(valor))}</div></div>`;
+              }).join('')}
+            </div>`
+          : `<div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 12px">
+              ${sec.campos.map(c => `
+                <label style="display:flex; align-items:center; gap:6px; font-size:12.5px">${checkboxSvg(!!rnc.dados[c.id])}${escapeHtml(c.label)}</label>
+              `).join('')}
+            </div>`}
+      </div>
+    `).join('');
 
   openModal(`
-    <h3>${modelo ? escapeHtml(modelo.nome) : 'RNC'} ${rnc.numero_sequencial ? '— ' + escapeHtml(rnc.numero_sequencial) : ''}</h3>
-    <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px">NF ${escapeHtml(rnc.numero_nf)} · ${new Date(rnc.criado_em).toLocaleDateString('pt-BR')}</p>
-    ${!modelo ? '<p style="font-size:12px; color:var(--text-muted)">Modelo original foi excluído — mostrando dados salvos.</p>' : modelo.secoes.map(sec => `
-      <div style="margin-bottom:12px">
-        <p style="font-size:12px; font-weight:600; color:var(--text-sec); margin-bottom:4px">${escapeHtml(sec.titulo)}</p>
-        ${sec.campos.filter(c => rnc.dados[c.id] !== undefined && rnc.dados[c.id] !== '' && rnc.dados[c.id] !== false).map(c => `
-          <div style="font-size:13px; margin-bottom:2px">
-            ${escapeHtml(c.label)}${sec.tipo === 'campos_diversos' ? ': ' + escapeHtml(c.tipo_campo === 'usuario_ref' ? ((usuarios.find(u => u.id === rnc.dados[c.id]) || {}).nome || '—') : String(rnc.dados[c.id])) : ''}
-          </div>
-        `).join('') || '<div style="font-size:12px; color:var(--text-muted)">Nada marcado nessa seção.</div>'}
-      </div>
-    `).join('')}
-    <div style="display:flex; gap:8px; margin-top:6px">
+    <div style="font-size:14px; font-weight:500; margin-bottom:10px">${d.nomeEmpresa || 'Empresa'}</div>
+    <div style="border:1px solid #999; border-radius:2px; padding:8px 10px; margin-bottom:14px">
+      <div style="font-size:13px; font-weight:600">${modelo ? escapeHtml(modelo.nome) : 'Registro de não conformidade'}</div>
+      ${modelo && (modelo.codigo || modelo.revisao) ? `<div style="display:flex; gap:18px; font-size:11px; color:#666; margin-top:4px">${modelo.codigo ? `<span>Código: ${escapeHtml(modelo.codigo)}</span>` : ''}${modelo.revisao ? `<span>Revisão: ${escapeHtml(modelo.revisao)}</span>` : ''}</div>` : ''}
+    </div>
+
+    <table style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:16px">
+      <tr style="background:#0A192F; color:#fff">
+        <td style="padding:5px 6px">Nº RNC</td><td style="padding:5px 6px">Fornecedor</td><td style="padding:5px 6px">Nota fiscal</td><td style="padding:5px 6px">Data</td>
+      </tr>
+      <tr>
+        <td style="padding:5px 6px; border:1px solid #ddd">${escapeHtml(rnc.numero_sequencial || '—')}</td>
+        <td style="padding:5px 6px; border:1px solid #ddd">${fornecedor ? escapeHtml(fornecedor.nome) : '—'}</td>
+        <td style="padding:5px 6px; border:1px solid #ddd">${escapeHtml(rnc.numero_nf)}</td>
+        <td style="padding:5px 6px; border:1px solid #ddd">${new Date(rnc.criado_em).toLocaleDateString('pt-BR')}</td>
+      </tr>
+    </table>
+
+    ${corpoSecoes}
+
+    <div style="border-top:1px solid #999; padding-top:6px; font-size:11px; color:#444; margin-top:4px">Responsável: ${responsavel ? escapeHtml(responsavel.nome || responsavel.email) : '—'}</div>
+
+    <div style="display:flex; gap:8px; margin-top:14px; flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" onclick="gerarPDFRnc('${rnc.id}')">${ic('fileText', 13)} Baixar PDF</button>
+      ${modelo ? `<button class="btn btn-secondary btn-sm" onclick="abrirEditarRespostasRnc('${rnc.id}')">Editar respostas</button>` : ''}
+      ${modelo ? `<button class="btn btn-secondary btn-sm" onclick="abrirEditarModeloRnc('${modelo.id}')">Editar modelo</button>` : ''}
       <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
     </div>
   `);
