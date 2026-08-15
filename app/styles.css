@@ -1426,6 +1426,27 @@ tr:hover td {
   border-bottom: none;
 }
 
+/* ---------- Selects de filtro compactos (ex: "Setores que mais atrasam"
+   — de/até/setor) — sem isso caem no visual padrão feio do navegador ---------- */
+.filtro-select {
+  font-size: 11px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.filtro-select:hover {
+  border-color: var(--text-muted);
+}
+
+.filtro-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 /* ---------- Containers de tamanho fixo com scroll fino e minimalista —
    usado na Central de alertas e nas listas/tabelas do dashboard, pra elas
    não crescerem sem limite conforme os dados aumentam ---------- */
