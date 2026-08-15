@@ -635,6 +635,73 @@ async function notificarFornecedorProduto(avId) {
     .then(({ error }) => { if (!error) { av.notificadoEm = new Date().toISOString(); av.planoAcaoPrazo = prazo ? prazo.iso : null; renderAdDashboard(); } });
 }
 
+// ---------- APROVAÇÃO DO PLANO DE AÇÃO — PRODUTO (NF) ----------
+// Mesmo par aprovar/rejeitar que já existe pra Serviço em
+// avaliacoes-recebidas.js, só que apontando pra avaliacoes_produto /
+// d.avaliacoesProduto. Ver comentários lá pra entender o fluxo completo.
+async function aprovarPlanoAcaoProduto(avaliacaoId) {
+  if (!confirm('Aprovar esse plano de ação? A cobrança pra essa NF para.')) return;
+
+  const { error } = await supabaseClient.from('avaliacoes_produto').update({
+    plano_acao_status: null,
+    plano_acao_revisado_por: currentUser.id,
+    plano_acao_revisado_em: new Date().toISOString(),
+    plano_acao_resolvido_em: new Date().toISOString(),
+    plano_acao_resolvido_por: currentUser.id,
+  }).eq('id', avaliacaoId);
+
+  if (error) { toast('Erro ao aprovar: ' + error.message); return; }
+
+  addLog('plano_acao_produto_aprovado', `${currentUser.email} aprovou o plano de ação da NF (avaliação produto ${avaliacaoId}).`);
+  toast('Plano de ação aprovado.');
+  await carregarAvaliacoesProduto();
+  closeModal();
+  renderAdDashboard();
+}
+
+async function rejeitarPlanoAcaoProduto(avaliacaoId) {
+  const d = db();
+  const av = d.avaliacoesProduto.find(a => a.id === avaliacaoId);
+  if (!av || !av.planoAcaoAnexo) return;
+
+  const motivo = prompt('Motivo da rejeição (opcional — vai ficar registrado no histórico):') || '';
+  if (motivo === null) return;
+  if (!confirm('Rejeitar esse plano de ação? O arquivo enviado é removido e o fornecedor precisa enviar um novo pelo mesmo link.')) return;
+
+  if (av.planoAcaoAnexo.caminhoStorage) {
+    try { await r2Remover(av.planoAcaoAnexo.caminhoStorage); }
+    catch (e) { toast('Erro ao remover o arquivo: ' + e.message); return; }
+  }
+
+  const { error } = await supabaseClient.from('avaliacoes_produto').update({
+    plano_acao_anexo: null,
+    plano_acao_status: null,
+    plano_acao_revisado_por: currentUser.id,
+    plano_acao_revisado_em: new Date().toISOString(),
+  }).eq('id', avaliacaoId);
+
+  if (error) { toast('Erro ao rejeitar: ' + error.message); return; }
+
+  addLog('plano_acao_produto_rejeitado', `${currentUser.email} rejeitou o plano de ação da NF (avaliação produto ${avaliacaoId})${motivo ? ` — motivo: ${motivo}` : ''}.`);
+  toast('Plano de ação rejeitado. O fornecedor pode enviar de novo.');
+  await carregarAvaliacoesProduto();
+  closeModal();
+  renderAdDashboard();
+}
+
+async function marcarPlanoAcaoResolvidoProduto(avaliacaoId) {
+  if (!confirm('Marcar esse plano de ação como resolvido? Isso para os lembretes pro fornecedor.')) return;
+  const { error } = await supabaseClient.from('avaliacoes_produto').update({
+    plano_acao_resolvido_em: new Date().toISOString(), plano_acao_resolvido_por: currentUser.id,
+  }).eq('id', avaliacaoId);
+  if (error) { toast('Erro ao marcar como resolvido: ' + error.message); return; }
+  addLog('plano_acao_produto_resolvido', `${currentUser.email} marcou como resolvido o plano de ação da NF (avaliação produto ${avaliacaoId}).`);
+  toast('Marcado como resolvido.');
+  await carregarAvaliacoesProduto();
+  closeModal();
+  renderAdDashboard();
+}
+
 async function enviarCobrancaDocumento(docId) {
   const d = db();
   const doc = d.documentos.find(x => x.id === docId);

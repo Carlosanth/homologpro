@@ -952,42 +952,10 @@ function normalizarNomeCriterio(nome) {
 // opção como motivo — sem precisar digitar nada.
 function toggleLpSelectDropdown(critId) {
   const dropdown = document.getElementById(`lp-select-dropdown-${critId}`);
-  const closedBox = document.getElementById(`lp-select-closed-${critId}`);
-  if (!dropdown || !closedBox) return;
+  if (!dropdown) return;
   const abrindo = dropdown.style.display === 'none';
   fecharTodosLpSelectDropdowns();
-  if (abrindo) {
-    // Usa position:fixed calculado a partir da caixinha fechada, em vez do
-    // position:absolute original — isso evita o dropdown ficar escondido
-    // atrás de outro card quando algum ancestral cria um stacking context
-    // (o absolute ficava preso à ordem do DOM/stacking do container pai).
-    const rect = closedBox.getBoundingClientRect();
-    dropdown.style.position = 'fixed';
-    dropdown.style.top = `${rect.bottom + 4}px`;
-    dropdown.style.left = `${rect.left}px`;
-    dropdown.style.width = `${rect.width}px`;
-    dropdown.style.right = 'auto';
-    dropdown.style.margin = '0';
-    dropdown.style.zIndex = '9999';
-    dropdown.style.display = 'block';
-    if (!window._lpSelectRepositionBound) {
-      window._lpSelectRepositionBound = true;
-      const reposicionar = () => {
-        document.querySelectorAll('[id^="lp-select-dropdown-"]').forEach(dd => {
-          if (dd.style.display === 'none') return;
-          const cid = dd.id.replace('lp-select-dropdown-', '');
-          const cb = document.getElementById(`lp-select-closed-${cid}`);
-          if (!cb) return;
-          const r = cb.getBoundingClientRect();
-          dd.style.top = `${r.bottom + 4}px`;
-          dd.style.left = `${r.left}px`;
-          dd.style.width = `${r.width}px`;
-        });
-      };
-      window.addEventListener('scroll', reposicionar, true);
-      window.addEventListener('resize', reposicionar);
-    }
-  }
+  if (abrindo) dropdown.style.display = 'block';
 }
 
 function fecharTodosLpSelectDropdowns() {
@@ -1157,15 +1125,9 @@ function aplicarConferenciaVinculada() {
   });
 
   const infoTextos = conferencia.respostas.filter(r => r.tipo === 'texto').map(r => `${escapeHtml(r.nome)}: <b>${escapeHtml(r.valor)}</b>`);
-  const infoFaixas = conferencia.respostas.filter(r => r.tipo === 'faixa').map(r => {
-    let rncLink = '';
-    if (!r.dentroFaixa) {
-      rncLink = r.rncId
-        ? ` <button type="button" class="btn btn-secondary btn-sm" style="padding:1px 8px; font-size:11px" onclick="abrirVisualizarRnc('${r.rncId}')">Ver RNC ${r.rncNumeroSequencial ? escapeHtml(r.rncNumeroSequencial) : ''}</button>`
-        : ` <button type="button" class="btn btn-secondary btn-sm" style="padding:1px 8px; font-size:11px" onclick="abrirVincularRnc('${conferencia.id}', '${r.criterioId}', '${estado.id}', '${escapeHtml(numeroNf)}')">Vincular RNC</button>`;
-    }
-    return `${escapeHtml(r.nome)}: <b>${r.valor}${r.unidade || ''}</b> (${r.min}-${r.max}${r.unidade || ''}) ${r.dentroFaixa ? ic('check', 12) : `${ic('alertTriangle', 12)} fora — RPNC ${escapeHtml(r.rpnc)}`}${rncLink}`;
-  });
+  const infoFaixas = conferencia.respostas.filter(r => r.tipo === 'faixa').map(r =>
+    `${escapeHtml(r.nome)}: <b>${r.valor}${r.unidade || ''}</b> (${r.min}-${r.max}${r.unidade || ''}) ${r.dentroFaixa ? ic('check', 12) : `${ic('alertTriangle', 12)} fora — RPNC ${escapeHtml(r.rpnc)}`}`
+  );
   const infoPartes = [...infoTextos, ...infoFaixas];
   if (infoBox) {
     infoBox.innerHTML = `<div style="margin:10px 0; padding:8px 12px; background:var(--surface2); border-radius:8px; font-size:12px; display:flex; align-items:center; gap:6px; flex-wrap:wrap">
@@ -1444,8 +1406,23 @@ function verDetalheAvaliacaoProduto(id) {
     ${getSituacao(av.notaGeral) === 'reprovado' ? blocoPlanoAcaoHtml('produto', av) : ''}
     <div class="no-print" style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px">
       ${(av.notas || []).some(n => n.motivo) || (av.descontoExtraDetalhe || []).length ? (
-        av.planoAcaoAnexo
-          ? `<span style="margin-right:auto; font-size:12px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:4px">${ic('check', 13)}Plano de ação enviado</span>`
+        av.planoAcaoResolvidoEm
+          ? `<span style="margin-right:auto; font-size:12px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:4px">${ic('check', 13)}Plano de ação resolvido em ${new Date(av.planoAcaoResolvidoEm).toLocaleDateString('pt-BR')}</span>`
+          : (av.planoAcaoAnexo && av.planoAcaoStatus === 'aguardando_aprovacao')
+          ? `
+        <div style="margin-right:auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap">
+          <span style="font-size:12px; color:var(--warning, #b45309); font-weight:600; display:flex; align-items:center; gap:4px">${ic('fileText', 13)}Plano de ação aguardando aprovação</span>
+          <button class="btn btn-primary btn-sm" onclick="aprovarPlanoAcaoProduto('${av.id}')">Aprovar</button>
+          <button class="btn btn-secondary btn-sm" onclick="rejeitarPlanoAcaoProduto('${av.id}')">Rejeitar</button>
+        </div>
+      `
+          : av.planoAcaoAnexo
+          ? `
+        <div style="margin-right:auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap">
+          <span style="font-size:12px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:4px">${ic('check', 13)}Plano de ação enviado</span>
+          <button class="btn btn-primary btn-sm" onclick="marcarPlanoAcaoResolvidoProduto('${av.id}')">Marcar como resolvido</button>
+        </div>
+      `
           : `
         <div style="margin-right:auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap">
           ${av.notificadoEm ? `<span style="font-size:12px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:4px">${ic('mail', 13)}Cobrado em ${new Date(av.notificadoEm).toLocaleDateString('pt-BR')}</span>` : ''}
