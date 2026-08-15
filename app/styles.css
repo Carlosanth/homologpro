@@ -913,6 +913,47 @@ body {
   margin-top: 4px;
 }
 
+.period-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 7px 12px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+/* ---------- Rótulo de seção (RESUMO DO MÊS, CENTRAL DE ALERTAS, etc.) —
+   separa visualmente os blocos do dashboard, com a bolinha de contagem
+   ao lado do texto ---------- */
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  margin: 26px 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-label:first-of-type {
+  margin-top: 0;
+}
+
+.section-label .n {
+  background: var(--surface2);
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-weight: 700;
+  color: var(--text-sec);
+}
+
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1335,8 +1376,8 @@ tr:hover td {
 }
 
 .stat-value {
-  font-size: 24px;
-  font-weight: 600;
+  font-size: 25px;
+  font-weight: 700;
   letter-spacing: -0.5px;
 }
 
@@ -1344,6 +1385,79 @@ tr:hover td {
   font-size: 11px;
   color: var(--text-muted);
   margin-top: 2px;
+}
+
+.stat-sub.link {
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.stat-sub.link:hover {
+  text-decoration: underline;
+}
+
+.stat-card-danger {
+  border-color: var(--danger-border);
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card-danger::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--danger);
+}
+
+.stat-value.danger {
+  color: var(--danger);
+}
+
+/* ---------- Central de alertas: linhas dentro de um único card, no lugar
+   dos ~9 cards de alerta que ficavam empilhados um embaixo do outro ---------- */
+.alert-collapse-row {
+  padding: 11px 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.alert-collapse-row:last-child {
+  border-bottom: none;
+}
+
+/* ---------- Containers de tamanho fixo com scroll fino e minimalista —
+   usado na Central de alertas e nas listas/tabelas do dashboard, pra elas
+   não crescerem sem limite conforme os dados aumentam ---------- */
+.scroll-area {
+  max-height: var(--scroll-h, 260px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.scroll-area::-webkit-scrollbar {
+  width: 5px;
+}
+
+.scroll-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scroll-area::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 10px;
+}
+
+.scroll-area::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+.scroll-area thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
 }
 
 .alert {
