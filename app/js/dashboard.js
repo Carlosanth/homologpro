@@ -486,23 +486,29 @@ function renderAdDashboard() {
     }
   }
 
-  // ---------- CADASTRO FISCAL INCOMPLETO (falta CNPJ) ----------
+  // ---------- CADASTRO FISCAL INCOMPLETO (falta CNPJ e/ou Inscrição Estadual) ----------
   // Só pro admin_master — é quem consegue ir preencher em Config, e é quem
   // vai receber a nota fiscal por e-mail depois.
   let alertaCadastroFiscalHtml = '';
-  if (currentUser.papel === 'admin_master' && !(d.empresa.cnpj || '').trim()) {
-    alertaCadastroFiscalHtml = `
-      <div class="card" style="border-left:3px solid var(--warn); margin-bottom:16px">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap">
-          <div style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600">
-            ${ic('alertTriangle', 16)} Complete seu cadastro
+  if (currentUser.papel === 'admin_master') {
+    const faltando = [];
+    if (!(d.empresa.cnpj || '').trim()) faltando.push('CNPJ');
+    if (!(d.empresa.ie || '').trim()) faltando.push('Inscrição Estadual');
+
+    if (faltando.length) {
+      alertaCadastroFiscalHtml = `
+        <div class="card" style="border-left:3px solid var(--warn); margin-bottom:16px">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap">
+            <div style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600">
+              ${ic('alertTriangle', 16)} Complete seu cadastro
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="irParaCompletarCadastroFiscal()">Completar agora</button>
           </div>
-          <button class="btn btn-primary btn-sm" onclick="irParaCompletarCadastroFiscal()">Completar agora</button>
-        </div>
-        <p style="font-size:12px; color:var(--text-muted); margin-top:6px">
-          Falta o CNPJ da sua empresa — esse dado é necessário pra gente conseguir emitir sua nota fiscal.
-        </p>
-      </div>`;
+          <p style="font-size:12px; color:var(--text-muted); margin-top:6px">
+            Falta ${faltando.join(' e ')} da sua empresa — esse dado é necessário pra gente conseguir emitir sua nota fiscal.
+          </p>
+        </div>`;
+    }
   }
 
   // ---------- ONBOARDING GUIADO ----------

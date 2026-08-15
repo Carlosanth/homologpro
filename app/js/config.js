@@ -716,22 +716,29 @@ async function renderAdConfig() {
           </div>
           <div class="form-row">
             <div class="form-group"><label>Nome da empresa</label><input type="text" id="emp-nome" value="${escapeHtml(d.nomeEmpresa || d.empresa.nome || '')}" disabled title="Definido no cadastro — pra alterar, fale com o suporte."></div>
-            <div class="form-group"><label>CNPJ</label><input type="text" id="emp-cnpj" placeholder="00.000.000/0000-00" value="${escapeHtml(d.empresa.cnpj||'')}" oninput="this.value = formatarCNPJ(this.value)"></div>
+            <div class="form-group"><label>CNPJ</label><input type="text" id="emp-cnpj" value="${escapeHtml(d.empresa.cnpj||'')}" disabled title="Definido no cadastro — pra alterar, fale com o suporte."></div>
           </div>
           <div class="form-row">
+            <div class="form-group">
+              <label>Inscrição estadual <span style="color:var(--text-muted); font-weight:400">(usada na emissão da nota fiscal)</span></label>
+              <input type="text" id="emp-ie" placeholder="Ex: 123.456.789.012 ou ISENTO" value="${escapeHtml(d.empresa.ie||'')}">
+            </div>
             <div class="form-group"><label>Cidade/UF</label><input type="text" id="emp-cidade" value="${d.empresa.cidade||''}"></div>
+          </div>
+          <div class="form-row">
             <div class="form-group">
               <label>Setor <span style="color:var(--text-muted); font-weight:400">(assina os e-mails automáticos no lugar de um nome de pessoa)</span></label>
               <input type="text" id="emp-setor" placeholder="Ex: Compras e Almoxarifado" value="${d.setorEmpresa || ''}">
             </div>
-          </div>
-          <div class="form-row">
             <div class="form-group"><label>Endereço</label><input type="text" id="emp-endereco" value="${d.empresa.endereco||''}"></div>
-            <div class="form-group"><label>CEP</label><input type="text" id="emp-cep" value="${d.empresa.cep||''}"></div>
           </div>
           <div class="form-row">
+            <div class="form-group"><label>CEP</label><input type="text" id="emp-cep" value="${d.empresa.cep||''}"></div>
             <div class="form-group"><label>Telefone</label><input type="text" id="emp-tel" value="${d.empresa.tel||''}"></div>
+          </div>
+          <div class="form-row">
             <div class="form-group"><label>E-mail</label><input type="text" id="emp-email" value="${d.empresa.email||''}"></div>
+            <div class="form-group"></div>
           </div>
           <button class="btn btn-primary" onclick="salvarEmpresaAd()">Salvar dados</button>
         </div>
@@ -1139,7 +1146,12 @@ async function salvarMatriz() {
 
 async function salvarEmpresaAd() {
   const empresa = {};
-  ['cidade','endereco','cep','tel','email','cnpj'].forEach(k => {
+  // "cnpj" fica no loop só pra PRESERVAR o valor ao salvar — salvarConfigEmpresa
+  // substitui o objeto "empresa" inteiro (não faz merge profundo), então se
+  // não ler o cnpj aqui ele seria apagado. O campo em si está travado
+  // (disabled) lá no HTML, então o valor lido é sempre o mesmo que já veio
+  // do banco — o usuário não consegue alterá-lo por aqui.
+  ['cidade','endereco','cep','tel','email','ie','cnpj'].forEach(k => {
     empresa[k] = document.getElementById('emp-' + k).value.trim();
   });
   const { error } = await salvarConfigEmpresa('empresa', empresa);
