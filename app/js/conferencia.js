@@ -71,6 +71,7 @@ function renderLancarConferenciaTab() {
   const d = db();
   const wrap = document.getElementById('conferencia-tab-lancar');
   const criteriosAtivos = d.criteriosConferencia.filter(c => c.ativo);
+  if (typeof _rncsPendentesLancamento !== 'undefined') _rncsPendentesLancamento = {}; // começa do zero a cada vez que a tela é montada
 
   if (!criteriosAtivos.length) {
     wrap.innerHTML = `
@@ -174,7 +175,7 @@ function renderLancarConferenciaTab() {
           <div id="cf-faixa-status-${c.id}"></div>
         </div>
       `).join('')}
-      <button class="btn btn-primary" style="margin-top:16px" onclick="salvarConferencia()">Salvar conferência</button>
+      <div id="cf-botoes-salvar" style="margin-top:16px"></div>
       </div>
     </div>
     <div class="card">
@@ -189,6 +190,7 @@ function renderLancarConferenciaTab() {
       <div id="cf-lista-wrap">${renderListaConferenciasHtml()}</div>
     </div>
   `;
+  if (typeof renderBotoesSalvarConferencia === 'function') renderBotoesSalvarConferencia();
 }
 
 let _conferenciasExpandidas = new Set();
@@ -416,7 +418,7 @@ function atualizarStatusFaixa(criterioId) {
   const max = parseFloat(document.querySelector(`.cf-faixa-max[data-criterio-id="${criterioId}"]`).value);
   const recebida = parseFloat(document.querySelector(`.cf-faixa-recebida[data-criterio-id="${criterioId}"]`).value);
   const statusEl = document.getElementById(`cf-faixa-status-${criterioId}`);
-  if (isNaN(min) || isNaN(max) || isNaN(recebida)) { statusEl.innerHTML = ''; return; }
+  if (isNaN(min) || isNaN(max) || isNaN(recebida)) { statusEl.innerHTML = ''; if (typeof renderBotoesSalvarConferencia === 'function') renderBotoesSalvarConferencia(); return; }
 
   const dentro = recebida >= min && recebida <= max;
   if (dentro) {
@@ -425,11 +427,14 @@ function atualizarStatusFaixa(criterioId) {
     statusEl.innerHTML = `
       <div style="margin-top:6px; font-size:12px; color:var(--danger); font-weight:600; display:flex; align-items:center; gap:5px">${ic('alertTriangle', 13)}Fora da faixa recomendada</div>
       <div class="form-group" style="margin-top:6px; max-width:280px">
-        <label>RPNC (obrigatório, fora da faixa)</label>
+        <label>RPNC</label>
         <input type="text" class="cf-faixa-rpnc" data-criterio-id="${criterioId}" placeholder="Nº ou referência da não conformidade">
       </div>
+      <div id="cf-faixa-rnc-indicador-${criterioId}"></div>
     `;
+    if (typeof atualizarIndicadorRncPendente === 'function') atualizarIndicadorRncPendente(criterioId);
   }
+  if (typeof renderBotoesSalvarConferencia === 'function') renderBotoesSalvarConferencia();
 }
 
 // Compara a nota digitada aqui com o peso do critério de MESMO NOME lá no
@@ -550,7 +555,9 @@ async function salvarConferencia() {
     if (!dentro) {
       const rpncInp = document.querySelector(`.cf-faixa-rpnc[data-criterio-id="${c.id}"]`);
       rpnc = rpncInp ? rpncInp.value.trim() : '';
-      if (!rpnc) { faltando = true; toast(`Informe o RPNC de "${c.nome}" (ficou fora da faixa).`); return; }
+      // Não trava mais o salvamento se ficar em branco — quem trava agora é o
+      // formulário de RNC não estar preenchido (checado logo abaixo). Se a
+      // pessoa digitar algo aqui, esse texto vira o número do RNC vinculado.
       desconto = Number(c.desconto_se_nao) || 0;
     }
     descontoTotal += desconto;
@@ -561,6 +568,14 @@ async function salvarConferencia() {
   });
 
   if (faltando || !respostas.length) { toast('Preencha todos os critérios.'); return; }
+
+  const criteriosSemRncPendente = respostas.filter(r =>
+    r.tipo === 'faixa' && !r.dentroFaixa && !(typeof _rncsPendentesLancamento !== 'undefined' && _rncsPendentesLancamento[r.criterioId])
+  );
+  if (criteriosSemRncPendente.length) {
+    toast(`Preencha o RNC de "${criteriosSemRncPendente[0].nome}" (ficou fora da faixa) antes de salvar.`);
+    return;
+  }
 
   let fornecedorId = estado.id;
   if (!fornecedorId) {
@@ -573,7 +588,7 @@ async function salvarConferencia() {
     await carregarFornecedores();
   }
 
-  const { error } = await supabaseClient.from('conferencias').insert({
+  const { data: conferenciaSalva, error } = await supabaseClient.from('conferencias').insert({
     empresa_id: currentUser.empresaId,
     fornecedor_id: fornecedorId,
     usuario_id: currentUser.id,
@@ -582,9 +597,13 @@ async function salvarConferencia() {
     respostas,
     desconto_total: descontoTotal,
     enviado_por_email: currentUser.email,
-  });
+  }).select().single();
 
   if (error) { toast('Erro ao salvar conferência: ' + error.message); return; }
+
+  if (typeof salvarRncsPendentesAoLancarConferencia === 'function' && Object.keys(_rncsPendentesLancamento || {}).length) {
+    await salvarRncsPendentesAoLancarConferencia(conferenciaSalva, fornecedorId, numeroNf);
+  }
 
   addLog('conferencia_lancada', `${currentUser.email} lançou conferência da NF ${numeroNf} do fornecedor "${nomeFornecedor}"`);
   toast('Conferência salva!');

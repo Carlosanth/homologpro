@@ -16,11 +16,11 @@ const TIPOS_SECAO_RNC = [
   { valor: 'campos_diversos', label: 'Campos de texto/data/responsável' },
 ];
 
-// Se o campo (de uma seção "campos_diversos") não tiver rótulo próprio,
-// usa o título da seção — evita ter que digitar o mesmo nome duas vezes
-// quando a seção só tem um campo (ex: seção "Observação" com 1 campo de texto).
+// Se o campo (de uma seção "campos_diversos") não tiver rótulo próprio, fica
+// sem rótulo mesmo — só o valor aparece. Ele continua funcionando normalmente
+// (mantém o tipo texto/data/responsável), só não mostra nome descritivo.
 function rotuloCampoRnc(sec, campo) {
-  return (campo.label && campo.label.trim()) ? campo.label : sec.titulo;
+  return campo.label || '';
 }
 
 // ---------- Aba "Modelos de RNC" ----------
@@ -175,7 +175,7 @@ function renderCampoRncHtml(sec, secIndex, campo, campoIndex) {
   return `
     <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px">
       ${precisaTipoValor ? '' : `<span style="display:inline-block; width:11px; height:11px; border:1px solid #555; flex-shrink:0"></span>`}
-      <input type="text" value="${escapeHtml(campo.label || '')}" placeholder="${precisaTipoValor ? 'Em branco usa o título da seção' : 'Como essa opção aparece no formulário'}"
+      <input type="text" value="${escapeHtml(campo.label || '')}" placeholder="${precisaTipoValor ? 'Rótulo (opcional — pode deixar em branco)' : 'Como essa opção aparece no formulário'}"
         oninput="atualizarCampoRncConstrucaoSemRender(${secIndex}, ${campoIndex}, 'label', this.value)"
         style="flex:1; border:none; outline:none; background:transparent; font-size:12.5px; color:#1a1a1a; border-bottom:1px solid transparent" onfocus="this.style.borderBottomColor='#ccc'" onblur="this.style.borderBottomColor='transparent'">
       ${precisaTipoValor ? `
@@ -336,6 +336,12 @@ let _rncModeloEmUso = null;
 let _rncDadosEmPreenchimento = {};
 let _rncEditandoId = null; // se estiver editando as respostas de um RNC já salvo, o id dele; senão null
 
+// RNCs preenchidos durante o lançamento de uma nova conferência, antes dela
+// existir no banco — ficam em memória (chave = criterioId) até o clique em
+// "Salvar conferência", que grava a conferência primeiro e os RNCs depois,
+// já linkados ao conferencia_id recém-criado.
+let _rncsPendentesLancamento = {};
+
 function abrirVincularRnc(conferenciaId, criterioId, fornecedorId, numeroNf) {
   const d = db();
   const modelosAtivos = (d.rncModelos || []).filter(m => m.ativo);
@@ -370,6 +376,86 @@ function selecionarModeloRncEContinuar() {
   const modeloId = document.getElementById('rnc-escolher-modelo').value;
   _rncModeloEmUso = (d.rncModelos || []).find(m => m.id === modeloId);
   openModal(renderFormularioRncHtml());
+}
+
+// Preenche o RNC de um critério ANTES de a conferência existir de verdade —
+// fica guardado em _rncsPendentesLancamento até o clique de "Salvar conferência".
+function abrirPreencherRncPendente(criterioId) {
+  const d = db();
+  const modelosAtivos = (d.rncModelos || []).filter(m => m.ativo);
+  if (!modelosAtivos.length) {
+    toast('Nenhum modelo de RNC configurado ainda. Crie um na aba "Modelos de RNC".');
+    return;
+  }
+  _rncEditandoId = null;
+  _rncVinculoCtx = { pendente: true, criterioId };
+  const jaPreenchido = _rncsPendentesLancamento[criterioId];
+  _rncDadosEmPreenchimento = jaPreenchido ? { ...jaPreenchido.dados } : {};
+
+  if (modelosAtivos.length === 1) {
+    _rncModeloEmUso = modelosAtivos[0];
+    openModal(renderFormularioRncHtml());
+    return;
+  }
+
+  const modeloPreSelecionado = jaPreenchido ? jaPreenchido.modeloId : null;
+  openModal(`
+    <h3>Preencher RNC</h3>
+    <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px">Escolha o modelo de formulário a preencher.</p>
+    <div class="form-group">
+      <select id="rnc-escolher-modelo">
+        ${modelosAtivos.map(m => `<option value="${m.id}" ${modeloPreSelecionado === m.id ? 'selected' : ''}>${escapeHtml(m.nome)}</option>`).join('')}
+      </select>
+    </div>
+    <button class="btn btn-primary" onclick="selecionarModeloRncEContinuar()">Continuar</button>
+  `);
+}
+
+// Lista os critérios de faixa fora do range no formulário de lançamento atual
+// que ainda não têm RNC preenchido — lê os valores direto dos inputs em tela,
+// já que a conferência ainda não foi salva.
+function getCriteriosForaDaFaixaPendentesDeRnc() {
+  const d = db();
+  const pendentes = [];
+  (d.criteriosConferencia || []).filter(c => c.ativo && c.tipo === 'faixa').forEach(c => {
+    const min = parseFloat(document.querySelector(`.cf-faixa-min[data-criterio-id="${c.id}"]`)?.value);
+    const max = parseFloat(document.querySelector(`.cf-faixa-max[data-criterio-id="${c.id}"]`)?.value);
+    const recebida = parseFloat(document.querySelector(`.cf-faixa-recebida[data-criterio-id="${c.id}"]`)?.value);
+    if (isNaN(min) || isNaN(max) || isNaN(recebida)) return;
+    const dentro = recebida >= min && recebida <= max;
+    if (!dentro && !_rncsPendentesLancamento[c.id]) pendentes.push(c.id);
+  });
+  return pendentes;
+}
+
+function abrirProximoRncPendente() {
+  const pendentes = getCriteriosForaDaFaixaPendentesDeRnc();
+  if (pendentes.length) abrirPreencherRncPendente(pendentes[0]);
+}
+
+// Container com "Preencher RNC" (se faltar algum) + "Salvar conferência"
+// (desabilitado enquanto faltar) — vive no lugar onde só tinha o botão salvar.
+function renderBotoesSalvarConferencia() {
+  const wrap = document.getElementById('cf-botoes-salvar');
+  if (!wrap) return;
+  const pendentes = getCriteriosForaDaFaixaPendentesDeRnc();
+  wrap.innerHTML = `
+    <div style="display:flex; gap:8px; align-items:center">
+      ${pendentes.length ? `<button type="button" class="btn btn-secondary" onclick="abrirProximoRncPendente()">Preencher RNC${pendentes.length > 1 ? ` (${pendentes.length})` : ''}</button>` : ''}
+      <button class="btn btn-primary" onclick="salvarConferencia()" ${pendentes.length ? 'disabled title="Preencha o RNC das não conformidades antes de salvar"' : ''}>Salvar conferência</button>
+    </div>
+  `;
+}
+
+// Indicador visual (abaixo do RPNC) mostrando que o RNC daquele critério já
+// foi preenchido em memória, com opção de reabrir e editar antes de salvar.
+function atualizarIndicadorRncPendente(criterioId) {
+  const el = document.getElementById(`cf-faixa-rnc-indicador-${criterioId}`);
+  if (!el) return;
+  const pendente = _rncsPendentesLancamento[criterioId];
+  el.innerHTML = pendente
+    ? `<div style="margin-top:6px; font-size:12px; color:var(--success); display:flex; align-items:center; gap:5px; cursor:pointer" onclick="abrirPreencherRncPendente('${criterioId}')">${ic('check', 13)} RNC preenchido — clique pra editar</div>`
+    : '';
 }
 
 function renderFormularioRncHtml() {
@@ -450,6 +536,20 @@ async function salvarRncVinculado() {
   const responsavelCampo = modelo.secoes.flatMap(s => s.campos).find(c => c.tipo_campo === 'usuario_ref');
   const responsavelUserId = responsavelCampo ? (_rncDadosEmPreenchimento[responsavelCampo.id] || null) : null;
 
+  if (ctx && ctx.pendente) {
+    _rncsPendentesLancamento[ctx.criterioId] = {
+      modeloId: modelo.id,
+      dados: { ..._rncDadosEmPreenchimento },
+      responsavelUserId,
+    };
+    closeModal();
+    _rncVinculoCtx = null; _rncModeloEmUso = null; _rncDadosEmPreenchimento = {};
+    if (typeof atualizarIndicadorRncPendente === 'function') atualizarIndicadorRncPendente(ctx.criterioId);
+    if (typeof renderBotoesSalvarConferencia === 'function') renderBotoesSalvarConferencia();
+    toast('RNC preenchido — falta salvar a conferência pra confirmar.');
+    return;
+  }
+
   if (_rncEditandoId) {
     const { error } = await supabaseClient.from('rncs').update({
       dados: _rncDadosEmPreenchimento,
@@ -510,6 +610,56 @@ async function salvarRncVinculado() {
   toast(`RNC ${numeroSequencial} salvo e vinculado!`);
 }
 
+// Chamada por salvarConferencia() (conferencia.js) logo depois de a
+// conferência ser inserida de verdade no banco — grava cada RNC que ficou em
+// memória durante o lançamento, já linkado ao conferencia_id recém-criado.
+// Se a pessoa tiver digitado algo no campo RPNC daquele critério, esse texto
+// vira o número do RNC; senão, gera o automático (RNC-{ano}-{sequência}).
+async function salvarRncsPendentesAoLancarConferencia(conferencia, fornecedorId, numeroNf) {
+  const anoAtual = new Date().getFullYear();
+  for (const [criterioId, pendente] of Object.entries(_rncsPendentesLancamento)) {
+    const rpncInp = document.querySelector(`.cf-faixa-rpnc[data-criterio-id="${criterioId}"]`);
+    const rpncDigitado = rpncInp ? rpncInp.value.trim() : '';
+
+    let numeroSequencial = rpncDigitado;
+    if (!numeroSequencial) {
+      const { count } = await supabaseClient.from('rncs')
+        .select('id', { count: 'exact', head: true })
+        .eq('empresa_id', currentUser.empresaId)
+        .like('numero_sequencial', `RNC-${anoAtual}-%`);
+      numeroSequencial = `RNC-${anoAtual}-${String((count || 0) + 1).padStart(4, '0')}`;
+    }
+
+    const { data: rncSalvo, error } = await supabaseClient.from('rncs').insert({
+      empresa_id: currentUser.empresaId,
+      fornecedor_id: fornecedorId,
+      numero_nf: numeroNf,
+      numero_sequencial: numeroSequencial,
+      modelo_id: pendente.modeloId,
+      conferencia_id: conferencia.id,
+      criterio_conferencia_id: criterioId,
+      dados: pendente.dados,
+      responsavel_user_id: pendente.responsavelUserId,
+      criado_por: currentUser.id,
+    }).select().single();
+
+    if (error) { toast('Erro ao salvar RNC vinculado: ' + error.message); continue; }
+    addLog('rnc_criado', `${currentUser.email} vinculou o RNC ${numeroSequencial} à NF ${numeroNf}`);
+
+    // Marca, dentro do array de respostas da conferência, qual resposta ficou
+    // vinculada a esse RNC — re-busca porque, com mais de um RNC pendente,
+    // cada volta desse loop precisa enxergar o patch da volta anterior.
+    const { data: confAtual } = await supabaseClient.from('conferencias').select('respostas').eq('id', conferencia.id).single();
+    if (confAtual) {
+      const respostasAtualizadas = (confAtual.respostas || []).map(r =>
+        r.criterioId === criterioId ? { ...r, rncId: rncSalvo.id, rncNumeroSequencial: numeroSequencial } : r
+      );
+      await supabaseClient.from('conferencias').update({ respostas: respostasAtualizadas }).eq('id', conferencia.id);
+    }
+  }
+  _rncsPendentesLancamento = {};
+}
+
 function abrirEditarRespostasRnc(rncId) {
   supabaseClient.from('rncs').select('*').eq('id', rncId).single().then(({ data: rnc, error }) => {
     if (error || !rnc) { toast('Não foi possível carregar o RNC.'); return; }
@@ -539,7 +689,7 @@ async function abrirVisualizarRnc(rncId) {
   const corpoSecoes = !modelo
     ? '<p style="font-size:12px; color:var(--text-muted)">Modelo original foi excluído — mostrando dados salvos, sem o layout original.</p>'
     : modelo.secoes.map(sec => `
-      <div style="margin-bottom:14px">
+      <div style="margin-bottom:20px">
         <div style="background:#ebeef0; padding:4px 8px; font-size:12px; font-weight:600; color:#1a1a1a; border-radius:2px; margin-bottom:8px">${escapeHtml(sec.titulo)}</div>
         ${sec.tipo === 'campos_diversos'
           ? `<div style="display:grid; grid-template-columns:repeat(${sec.campos.length}, 1fr); gap:8px">
@@ -646,18 +796,23 @@ async function gerarPDFRnc(rncId) {
     doc.setFont(undefined, 'bold');
     doc.text(sec.titulo, margem + 2, y + 4.3);
     doc.setFont(undefined, 'normal');
-    y += 7;
+    y += 11;
 
     if (sec.tipo === 'campos_diversos') {
-      sec.campos.forEach(campo => {
+      const colLarguraCd = largura / 2;
+      sec.campos.forEach((campo, i) => {
+        const col = i % 2;
+        if (col === 0 && i > 0) y += 5.5;
+        const x = margem + col * colLarguraCd;
         const valorBruto = rnc.dados[campo.id];
         const valor = campo.tipo_campo === 'usuario_ref'
           ? ((usuarios.find(u => u.id === valorBruto) || {}).nome || '—')
           : (valorBruto || '—');
         doc.setFontSize(8.5);
-        doc.text(`${rotuloCampoRnc(sec, campo)}: ${valor}`, margem + 2, y);
-        y += 5.5;
+        const rotulo = rotuloCampoRnc(sec, campo);
+        doc.text(rotulo ? `${rotulo}: ${valor}` : String(valor), x + 2, y);
       });
+      y += 5.5;
     } else {
       // checkbox_grupo ou selecao_unica: desenha caixinha marcada/desmarcada em 2 colunas
       const colLargura = largura / 2;
