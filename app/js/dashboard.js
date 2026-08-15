@@ -453,15 +453,15 @@ function renderAdDashboard() {
           <div class="card-title" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px">
             <span>Setores que mais atrasam a entrega — histórico</span>
             <div style="display:flex; gap:6px; flex-wrap:wrap">
-              <select id="fsa-de" style="font-size:11px" onchange="aplicarFiltroSetoresAtraso()">
+              <select id="fsa-de" class="filtro-select" onchange="aplicarFiltroSetoresAtraso()">
                 <option value="">De (início)</option>
                 ${optPeriodo(_filtroSetoresAtraso.de)}
               </select>
-              <select id="fsa-ate" style="font-size:11px" onchange="aplicarFiltroSetoresAtraso()">
+              <select id="fsa-ate" class="filtro-select" onchange="aplicarFiltroSetoresAtraso()">
                 <option value="">Até (fim)</option>
                 ${optPeriodo(_filtroSetoresAtraso.ate)}
               </select>
-              <select id="fsa-setor" style="font-size:11px" onchange="aplicarFiltroSetoresAtraso()">
+              <select id="fsa-setor" class="filtro-select" onchange="aplicarFiltroSetoresAtraso()">
                 <option value="">Todos os setores</option>
                 ${opcoesSetorAtraso.map(s => `<option value="${escapeHtml(s)}" ${_filtroSetoresAtraso.setor === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
               </select>
