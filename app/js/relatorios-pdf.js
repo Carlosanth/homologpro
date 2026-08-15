@@ -635,6 +635,30 @@ async function notificarFornecedorProduto(avId) {
     .then(({ error }) => { if (!error) { av.notificadoEm = new Date().toISOString(); av.planoAcaoPrazo = prazo ? prazo.iso : null; renderAdDashboard(); } });
 }
 
+// Botão de teste — dispara o e-mail HTML automático (enviar-avaliacao-produto-html)
+// SEM tocar no mailto acima. Os dois convivem até o Carlos validar que o
+// padrão visual do HTML está bom; só depois disso decide se substitui o
+// mailto ou deixa os dois.
+async function enviarAvaliacaoProdutoHtml(avId) {
+  mostrarCarregando('Enviando e-mail...');
+  const { data, error } = await supabaseClient.functions.invoke('enviar-avaliacao-produto-html', { body: { avaliacaoId: avId } });
+  esconderProgresso();
+
+  if (error || !data || data.ok === false) {
+    toast('Erro ao enviar: ' + ((data && data.error) || (error && error.message) || 'falha desconhecida'));
+    return;
+  }
+
+  const d = db();
+  const av = d.avaliacoesProduto.find(a => a.id === avId);
+  if (av) { av.notificadoEm = new Date().toISOString(); }
+  addLog('notificacao_produto_html_enviada', `${currentUser.email} enviou o e-mail automático (teste) sobre a NF de avaliação produto ${avId}`);
+  toast('E-mail automático enviado!');
+  await carregarAvaliacoesProduto();
+  closeModal();
+  renderAdDashboard();
+}
+
 // ---------- APROVAÇÃO DO PLANO DE AÇÃO — PRODUTO (NF) ----------
 // Mesmo par aprovar/rejeitar que já existe pra Serviço em
 // avaliacoes-recebidas.js, só que apontando pra avaliacoes_produto /

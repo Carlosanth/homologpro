@@ -1427,6 +1427,7 @@ function verDetalheAvaliacaoProduto(id) {
         <div style="margin-right:auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap">
           ${av.notificadoEm ? `<span style="font-size:12px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:4px">${ic('mail', 13)}Cobrado em ${new Date(av.notificadoEm).toLocaleDateString('pt-BR')}</span>` : ''}
           <button class="btn ${av.notificadoEm ? 'btn-secondary' : 'btn-primary'} btn-sm" onclick="notificarFornecedorProduto('${av.id}')" style="display:inline-flex; align-items:center; gap:6px">${ic('mail', 13)}${av.notificadoEm ? 'Notificar novamente' : 'Notificar por e-mail'}</button>
+          <button class="btn btn-secondary btn-sm" onclick="enviarAvaliacaoProdutoHtml('${av.id}')" style="display:inline-flex; align-items:center; gap:6px" title="Testa o e-mail automático em HTML (não mexe no botão de cima)">${ic('fileText', 13)}E-mail automático (teste)</button>
         </div>
       `) : ''}
       <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
