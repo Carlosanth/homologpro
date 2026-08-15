@@ -175,7 +175,7 @@ function renderAdDashboard() {
     // Intermediário/Ruim) é só uma classificação informativa do fornecedor,
     // não decide notificação.
     const produtoAtencaoLista = (d.avaliacoesProduto || []).filter(av =>
-      periodoDeData(av.data) === chaveMes &&
+      periodoDeData(av.data) === chaveMes && !av.planoAcaoResolvidoEm &&
       (getSituacao(av.notaGeral) === 'reprovado' || getSituacao(av.notaGeral) === 'parcial'));
 
     if (produtoAtencaoLista.length) {
@@ -207,10 +207,16 @@ function renderAdDashboard() {
 
     // ---------- ALERTA: PLANO DE AÇÃO ENVIADO, AGUARDANDO APROVAÇÃO ----------
     // Mesmo padrão do card de documentos do portal — aprova/rejeita direto
-    // aqui, sem precisar entrar em Avaliações recebidas.
-    const planoAcaoAguardando = (d.avaliacoes || []).filter(av =>
+    // aqui, sem precisar entrar em Avaliações recebidas. Junta Serviço e
+    // Produto no mesmo card (mesma ação pro admin nos dois casos), igual o
+    // card de "atrasado" logo abaixo já faz.
+    const planoAcaoAguardandoServico = (d.avaliacoes || []).filter(av =>
       !av.semServico && av.planoAcaoAnexo && av.planoAcaoStatus === 'aguardando_aprovacao'
-    );
+    ).map(av => ({ ...av, tipo: 'servico' }));
+    const planoAcaoAguardandoProduto = (d.avaliacoesProduto || []).filter(av =>
+      av.planoAcaoAnexo && av.planoAcaoStatus === 'aguardando_aprovacao'
+    ).map(av => ({ ...av, tipo: 'produto' }));
+    const planoAcaoAguardando = [...planoAcaoAguardandoServico, ...planoAcaoAguardandoProduto];
 
     if (planoAcaoAguardando.length) {
       alertaPlanoAcaoAprovacao = `
@@ -224,15 +230,18 @@ function renderAdDashboard() {
           <div class="alert-collapse-body">
             ${planoAcaoAguardando.map(av => {
               const forn = d.fornecedores.find(f => f.id === av.fornecedorId);
+              const titulo = av.tipo === 'produto' ? `NF ${av.numeroNf || '—'}` : (av.periodo || '—');
+              const fnAprovar = av.tipo === 'produto' ? 'aprovarPlanoAcaoProduto' : 'aprovarPlanoAcao';
+              const fnRejeitar = av.tipo === 'produto' ? 'rejeitarPlanoAcaoProduto' : 'rejeitarPlanoAcao';
               return `
                 <div style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px">
                   <div style="flex:1">
-                    <b>${forn ? forn.nome : '—'}</b> enviou o plano de ação — ${av.periodo || '—'}
+                    <b>${forn ? forn.nome : '—'}</b> enviou o plano de ação — ${titulo}
                     <div style="font-size:11px; color:var(--text-muted)">Anexado em ${new Date(av.planoAcaoAnexo.enviadoEm).toLocaleDateString('pt-BR')}</div>
                   </div>
                   <button class="btn btn-secondary btn-sm" onclick="visualizarAnexo('${av.planoAcaoAnexo.caminhoStorage}', '${av.planoAcaoAnexo.nome}')">${ic('fileText', 13)} Ver</button>
-                  <button class="btn btn-primary btn-sm" onclick="aprovarPlanoAcao('${av.id}')">${ic('check', 13)} Aprovar</button>
-                  <button class="btn btn-danger btn-sm" onclick="rejeitarPlanoAcao('${av.id}')">${ic('x', 13)} Rejeitar</button>
+                  <button class="btn btn-primary btn-sm" onclick="${fnAprovar}('${av.id}')">${ic('check', 13)} Aprovar</button>
+                  <button class="btn btn-danger btn-sm" onclick="${fnRejeitar}('${av.id}')">${ic('x', 13)} Rejeitar</button>
                 </div>`;
             }).join('')}
           </div>

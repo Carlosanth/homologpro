@@ -1021,6 +1021,7 @@ async function carregarAvaliacoesProduto() {
     planoAcaoPrazo: av.plano_acao_prazo || null,
     planoAcaoAnexo: av.plano_acao_anexo || null,
     planoAcaoStatus: av.plano_acao_status || null,
+    planoAcaoResolvidoEm: av.plano_acao_resolvido_em || null,
   }));
 }
 
