@@ -334,28 +334,29 @@ function verDetalheAvaliacao(id) {
         av.planoAcaoResolvidoEm
           ? `<span style="margin-right:auto; font-size:12px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:4px">${ic('check', 13)}Plano de ação resolvido em ${new Date(av.planoAcaoResolvidoEm).toLocaleDateString('pt-BR')}</span>`
           : (av.planoAcaoAnexo && av.planoAcaoStatus === 'aguardando_aprovacao')
-          ? `
+          ? (ehAdmin(currentUser.papel) ? `
         <div style="margin-right:auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap">
           <span style="font-size:12px; color:var(--warning, #b45309); font-weight:600; display:flex; align-items:center; gap:4px">${ic('fileText', 13)}Plano de ação aguardando aprovação</span>
           <button class="btn btn-primary btn-sm" onclick="aprovarPlanoAcao('${av.id}')">Aprovar</button>
           <button class="btn btn-secondary btn-sm" onclick="rejeitarPlanoAcao('${av.id}')">Rejeitar</button>
         </div>
-      `
+      ` : `<span style="margin-right:auto; font-size:12px; color:var(--warning, #b45309); font-weight:600; display:flex; align-items:center; gap:4px">${ic('fileText', 13)}Plano de ação aguardando aprovação</span>`)
           : av.planoAcaoAnexo
-          ? `
+          ? (ehAdmin(currentUser.papel) ? `
         <div style="margin-right:auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap">
           <span style="font-size:12px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:4px">${ic('check', 13)}Plano de ação enviado</span>
           <button class="btn btn-primary btn-sm" onclick="marcarPlanoAcaoResolvido('${av.id}')">Marcar como resolvido</button>
         </div>
-      `
-          : `
+      ` : `<span style="margin-right:auto; font-size:12px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:4px">${ic('check', 13)}Plano de ação enviado</span>`)
+          : (ehAdmin(currentUser.papel) ? `
         <div style="margin-right:auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap">
           ${av.notificadoEm ? `<span style="font-size:12px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:4px">${ic('mail', 13)}Cobrado em ${new Date(av.notificadoEm).toLocaleDateString('pt-BR')}</span>` : ''}
           <button class="btn ${av.notificadoEm ? 'btn-secondary' : 'btn-primary'} btn-sm" onclick="notificarFornecedorNota('${av.id}')" style="display:inline-flex; align-items:center; gap:6px">${ic('mail', 13)}${av.notificadoEm ? 'Notificar novamente' : 'Notificar por e-mail'}</button>
           ${d.notifAvaliacaoModo === 'aprovacao' && (d.notifAvaliacaoSituacoes || ['reprovado']).includes(sit) ? `<button class="btn btn-primary btn-sm" onclick="aprovarEnviarNotificacaoAutomatica('${av.id}')" style="display:inline-flex; align-items:center; gap:6px">${ic('check', 13)}${av.notificadoEm ? 'Reenviar (HTML)' : 'Aprovar e enviar (HTML)'}</button>` : ''}
           <button class="btn btn-secondary btn-sm" onclick="marcarPlanoAcaoResolvido('${av.id}')">Marcar como resolvido</button>
         </div>
-      `) : ''}
+      ` : '') // avaliador: fornecedor ainda não enviou nada — não há ação nem status relevante pra mostrar aqui, isso é tarefa do admin
+      ) : ''}
       <button class="btn btn-secondary" onclick="window.print()">Imprimir</button>
       <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>
     </div>
