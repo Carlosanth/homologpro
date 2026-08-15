@@ -86,45 +86,75 @@ function renderConstrutorModeloRncHtml() {
   const prefill = _modeloRncEditandoInfo || {};
   return `
     ${_construtorModeloContexto === 'modal' ? `<h3 style="margin-bottom:10px">Editar modelo de RNC</h3>` : ''}
-    <div class="form-row three">
-      <div class="form-group"><label>Nome do modelo</label><input type="text" id="rnc-modelo-nome" value="${escapeHtml(prefill.nome || '')}" placeholder="Nome que identifica esse formulário para sua equipe"></div>
-      <div class="form-group"><label>Código do documento (opcional)</label><input type="text" id="rnc-modelo-codigo" value="${escapeHtml(prefill.codigo || '')}" placeholder="Se sua empresa usa um código interno de documento"></div>
-      <div class="form-group"><label>Revisão (opcional)</label><input type="text" id="rnc-modelo-revisao" value="${escapeHtml(prefill.revisao || '')}" placeholder="Se sua empresa controla versão/revisão do documento"></div>
+    <div style="background:#fff; color:#1a1a1a; border:1px solid var(--border-strong, #ccc); border-radius:4px; padding:20px; font-family:inherit">
+
+      <div style="font-size:13px; color:#999; font-style:italic; margin-bottom:10px">Nome da empresa (preenchido automaticamente)</div>
+
+      <div style="border:1px solid #999; border-radius:2px; padding:8px 10px; margin-bottom:16px">
+        <input type="text" id="rnc-modelo-nome" value="${escapeHtml(prefill.nome || '')}" placeholder="Nome que identifica esse formulário"
+          oninput="atualizarInfoModeloConstrucao('nome', this.value)"
+          style="border:none; outline:none; font-size:14px; font-weight:600; width:100%; padding:2px 0; background:transparent">
+        <div style="display:flex; gap:16px; margin-top:4px">
+          <input type="text" id="rnc-modelo-codigo" value="${escapeHtml(prefill.codigo || '')}" placeholder="Código (opcional)"
+            oninput="atualizarInfoModeloConstrucao('codigo', this.value)"
+            style="border:none; outline:none; font-size:11px; color:#666; width:150px; background:transparent">
+          <input type="text" id="rnc-modelo-revisao" value="${escapeHtml(prefill.revisao || '')}" placeholder="Revisão (opcional)"
+            oninput="atualizarInfoModeloConstrucao('revisao', this.value)"
+            style="border:none; outline:none; font-size:11px; color:#666; width:150px; background:transparent">
+        </div>
+      </div>
+
+      <table style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:16px; opacity:.55">
+        <tr style="background:#0A192F; color:#fff"><td style="padding:5px 6px">Nº RNC</td><td style="padding:5px 6px">Fornecedor</td><td style="padding:5px 6px">Nota fiscal</td><td style="padding:5px 6px">Data</td></tr>
+        <tr><td style="padding:5px 6px; border:1px solid #ddd" colspan="4">preenchido automaticamente ao vincular</td></tr>
+      </table>
+
+      <div id="rnc-secoes-lista">
+        ${_secoesRncEmConstrucao.map((sec, i) => renderSecaoRncHtml(sec, i)).join('')}
+      </div>
+      <button type="button" onclick="addSecaoRncConstrucao()"
+        style="width:100%; border:1px dashed #bbb; background:transparent; color:#888; font-size:12px; padding:8px; border-radius:2px; cursor:pointer; margin-top:4px">+ Adicionar seção</button>
     </div>
 
-    <div id="rnc-secoes-lista">
-      ${_secoesRncEmConstrucao.map((sec, i) => renderSecaoRncHtml(sec, i)).join('')}
-    </div>
-    <button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="addSecaoRncConstrucao()">+ Adicionar seção</button>
-    <div style="margin-top:10px; display:flex; gap:8px">
+    <div style="margin-top:14px; display:flex; gap:8px">
       <button class="btn btn-primary" onclick="salvarModeloRnc()">Salvar modelo</button>
       ${_construtorModeloContexto === 'modal' ? `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>` : ''}
     </div>
   `;
 }
 
+function atualizarInfoModeloConstrucao(campo, valor) {
+  if (!_modeloRncEditandoInfo) _modeloRncEditandoInfo = {};
+  _modeloRncEditandoInfo[campo] = valor;
+  // não re-renderiza — só guarda o valor, pra não perder o foco/cursor do input
+}
+
 function renderSecaoRncHtml(sec, i) {
   return `
-    <div class="card" style="margin:12px 0; padding:12px" data-secao-index="${i}">
-      <div class="form-row" style="grid-template-columns:2fr 2fr auto; align-items:flex-end">
-        <div class="form-group" style="margin:0">
-          <label>Título da seção</label>
-          <input type="text" class="rnc-sec-titulo" value="${sec.titulo || ''}" placeholder="O que essa parte do formulário descreve"
-            onchange="atualizarSecaoRncConstrucao(${i}, 'titulo', this.value)">
-        </div>
-        <div class="form-group" style="margin:0">
-          <label>Formato da seção</label>
-          <select class="rnc-sec-tipo" onchange="atualizarSecaoRncConstrucao(${i}, 'tipo', this.value)">
-            ${TIPOS_SECAO_RNC.map(t => `<option value="${t.valor}" ${sec.tipo === t.valor ? 'selected' : ''}>${t.label}</option>`).join('')}
-          </select>
-        </div>
-        <button type="button" class="btn btn-danger btn-sm" onclick="removerSecaoRncConstrucao(${i})">Excluir seção</button>
+    <div style="margin-bottom:14px" data-secao-index="${i}">
+      <div style="background:#ebeef0; padding:5px 8px; border-radius:2px; margin-bottom:8px; display:flex; align-items:center; gap:8px">
+        <input type="text" value="${escapeHtml(sec.titulo || '')}" placeholder="O que essa parte do formulário descreve"
+          oninput="atualizarSecaoRncConstrucaoSemRender(${i}, 'titulo', this.value)"
+          style="flex:1; border:none; outline:none; background:transparent; font-size:12px; font-weight:600; color:#1a1a1a">
+        <select onchange="atualizarSecaoRncConstrucao(${i}, 'tipo', this.value)"
+          style="font-size:10.5px; color:#666; border:1px solid #ccc; border-radius:2px; background:#fff; padding:1px 4px">
+          <option value="" ${!sec.tipo ? 'selected' : ''} disabled>Formato...</option>
+          ${TIPOS_SECAO_RNC.map(t => `<option value="${t.valor}" ${sec.tipo === t.valor ? 'selected' : ''}>${t.label}</option>`).join('')}
+        </select>
+        <button type="button" onclick="removerSecaoRncConstrucao(${i})" title="Excluir seção"
+          style="border:none; background:transparent; color:#c0392b; cursor:pointer; font-size:14px; line-height:1; padding:0 2px">×</button>
       </div>
 
-      <div style="margin-top:10px">
-        ${(sec.campos || []).map((campo, j) => renderCampoRncHtml(sec, i, campo, j)).join('')}
-      </div>
-      <button type="button" class="btn btn-secondary btn-sm" style="margin-top:6px" onclick="addCampoRncConstrucao(${i})">+ Adicionar campo</button>
+      ${!sec.tipo ? '<p style="font-size:11px; color:#aaa; padding:0 4px">Escolha o formato da seção pra começar a preencher as opções.</p>' : `
+        <div style="padding:0 4px">
+          ${(sec.campos || []).map((campo, j) => renderCampoRncHtml(sec, i, campo, j)).join('')}
+          <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px">
+            ${sec.tipo === 'campos_diversos' ? '' : `<span style="display:inline-block; width:11px; height:11px; border:1px solid #bbb; flex-shrink:0"></span>`}
+            <input type="text" placeholder="+ nova opção" onkeyup="if(event.key==='Enter') onNovaOpcaoRncConfirmar(this, ${i})" onblur="onNovaOpcaoRncConfirmar(this, ${i})"
+              style="border:none; border-bottom:1px dashed #ccc; outline:none; background:transparent; font-size:12.5px; color:#888; flex:1; padding:2px 0">
+          </div>
+        </div>
+      `}
     </div>
   `;
 }
@@ -132,24 +162,40 @@ function renderSecaoRncHtml(sec, i) {
 function renderCampoRncHtml(sec, secIndex, campo, campoIndex) {
   const precisaTipoValor = sec.tipo === 'campos_diversos';
   return `
-    <div class="form-row" style="grid-template-columns:${precisaTipoValor ? '2fr 1fr auto' : '1fr auto'}; align-items:flex-end; margin-bottom:6px">
-      <div class="form-group" style="margin:0">
-        <label>Rótulo do campo</label>
-        <input type="text" class="rnc-campo-label" value="${campo.label || ''}" placeholder="Como esse campo aparece no formulário"
-          onchange="atualizarCampoRncConstrucao(${secIndex}, ${campoIndex}, 'label', this.value)">
-      </div>
+    <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px">
+      ${precisaTipoValor ? '' : `<span style="display:inline-block; width:11px; height:11px; border:1px solid #555; flex-shrink:0"></span>`}
+      <input type="text" value="${escapeHtml(campo.label || '')}" placeholder="Como esse campo aparece no formulário"
+        oninput="atualizarCampoRncConstrucaoSemRender(${secIndex}, ${campoIndex}, 'label', this.value)"
+        style="flex:1; border:none; outline:none; background:transparent; font-size:12.5px; color:#1a1a1a; border-bottom:1px solid transparent" onfocus="this.style.borderBottomColor='#ccc'" onblur="this.style.borderBottomColor='transparent'">
       ${precisaTipoValor ? `
-      <div class="form-group" style="margin:0">
-        <label>Tipo de valor</label>
-        <select onchange="atualizarCampoRncConstrucao(${secIndex}, ${campoIndex}, 'tipo_campo', this.value)">
-          <option value="texto" ${campo.tipo_campo === 'texto' ? 'selected' : ''}>Texto livre</option>
+        <select onchange="atualizarCampoRncConstrucao(${secIndex}, ${campoIndex}, 'tipo_campo', this.value)"
+          style="font-size:10.5px; color:#666; border:1px solid #ccc; border-radius:2px; background:#fff; padding:1px 4px">
+          <option value="texto" ${campo.tipo_campo === 'texto' ? 'selected' : ''}>Texto</option>
           <option value="date" ${campo.tipo_campo === 'date' ? 'selected' : ''}>Data</option>
-          <option value="usuario_ref" ${campo.tipo_campo === 'usuario_ref' ? 'selected' : ''}>Responsável (usuário cadastrado)</option>
-        </select>
-      </div>` : ''}
-      <button type="button" class="btn btn-danger btn-sm" onclick="removerCampoRncConstrucao(${secIndex}, ${campoIndex})">Excluir</button>
+          <option value="usuario_ref" ${campo.tipo_campo === 'usuario_ref' ? 'selected' : ''}>Responsável</option>
+        </select>` : ''}
+      <button type="button" onclick="removerCampoRncConstrucao(${secIndex}, ${campoIndex})" title="Remover"
+        style="border:none; background:transparent; color:#c0392b; cursor:pointer; font-size:13px; line-height:1; padding:0 2px">×</button>
     </div>
   `;
+}
+
+// Confirma a nova opção ao apertar Enter ou ao sair do campo (blur) — cria o
+// campo de verdade e a linha "+ nova opção" reaparece em branco embaixo,
+// pronta pra continuar digitando, igual escrever direto na folha.
+function onNovaOpcaoRncConfirmar(inputEl, secIndex) {
+  const valor = inputEl.value.trim();
+  if (!valor) return;
+  inputEl.value = ''; // evita duplicar caso o blur dispare de novo durante a re-renderização
+  const sec = _secoesRncEmConstrucao[secIndex];
+  const tipoDefault = sec.tipo === 'campos_diversos' ? 'texto' : undefined;
+  sec.campos.push({ id: gerarIdCampoRnc(), label: valor, tipo_campo: tipoDefault });
+  rerenderConstrutorModeloRnc();
+  setTimeout(() => {
+    const secaoEl = document.querySelectorAll('[data-secao-index]')[secIndex];
+    const novoInput = secaoEl && secaoEl.querySelector('input[placeholder="+ nova opção"]');
+    if (novoInput) novoInput.focus();
+  }, 0);
 }
 
 function rerenderConstrutorModeloRnc() {
@@ -158,7 +204,7 @@ function rerenderConstrutorModeloRnc() {
 }
 
 function addSecaoRncConstrucao() {
-  _secoesRncEmConstrucao.push({ id: gerarIdSecaoRnc(), titulo: '', tipo: 'checkbox_grupo', campos: [] });
+  _secoesRncEmConstrucao.push({ id: gerarIdSecaoRnc(), titulo: '', tipo: '', campos: [] });
   rerenderConstrutorModeloRnc();
 }
 function removerSecaoRncConstrucao(i) {
@@ -168,6 +214,11 @@ function removerSecaoRncConstrucao(i) {
 function atualizarSecaoRncConstrucao(i, campo, valor) {
   _secoesRncEmConstrucao[i][campo] = valor;
   if (campo === 'tipo') rerenderConstrutorModeloRnc(); // muda os campos disponíveis (ex: tipo_campo só existe em campos_diversos)
+}
+// Versão usada no "oninput" do título da seção — não re-renderiza a cada
+// tecla, só guarda o valor, senão o input perde o foco a cada letra digitada.
+function atualizarSecaoRncConstrucaoSemRender(i, campo, valor) {
+  _secoesRncEmConstrucao[i][campo] = valor;
 }
 function addCampoRncConstrucao(secIndex) {
   const tipoDefault = _secoesRncEmConstrucao[secIndex].tipo === 'campos_diversos' ? 'texto' : undefined;
@@ -179,6 +230,10 @@ function removerCampoRncConstrucao(secIndex, campoIndex) {
   rerenderConstrutorModeloRnc();
 }
 function atualizarCampoRncConstrucao(secIndex, campoIndex, chave, valor) {
+  _secoesRncEmConstrucao[secIndex].campos[campoIndex][chave] = valor;
+}
+// Mesma ideia: usada no "oninput" do rótulo de um campo já existente, sem re-renderizar.
+function atualizarCampoRncConstrucaoSemRender(secIndex, campoIndex, chave, valor) {
   _secoesRncEmConstrucao[secIndex].campos[campoIndex][chave] = valor;
 }
 
