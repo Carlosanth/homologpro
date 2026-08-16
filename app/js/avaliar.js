@@ -1272,10 +1272,13 @@ async function salvarAvaliacaoProduto() {
   }
 
   // "Fotografia" dos critérios usados nesse lançamento — não quebra se
-  // o critério for editado/excluído depois.
+  // o critério for editado/excluído depois. Inclui "opcoes" (a régua, se o
+  // critério tiver uma) pra e-mail/PDF de uma NF antiga sempre mostrar a
+  // régua que valia na hora do lançamento, mesmo que o critério seja
+  // arquivado ou a régua ajustada depois num critério novo.
   const notasSnapshot = criteriosAtivos
     .filter(c => notasPorCriterio[c.id] !== undefined)
-    .map(c => ({ criterioId: c.id, nome: c.nome, peso: c.peso, nota: notasPorCriterio[c.id], motivo: motivosPorCriterio[c.id] || null }));
+    .map(c => ({ criterioId: c.id, nome: c.nome, peso: c.peso, nota: notasPorCriterio[c.id], motivo: motivosPorCriterio[c.id] || null, opcoes: c.opcoes || [] }));
 
   const { error } = await supabaseClient.from('avaliacoes_produto').insert({
     empresa_id: currentUser.empresaId,
@@ -1677,16 +1680,56 @@ function renderCriteriosProdutoLista() {
     wrap.innerHTML = '<div class="empty-state"><p>Nenhum critério cadastrado ainda. Adicione acima (ex: Nota Fiscal, Prazo, Quantidade, Condições).</p></div>';
     return;
   }
+  // "Já avaliado — travado" é só informativo: o trigger no banco
+  // (trg_bloquear_edicao_criterio_produto) já rejeita a edição de verdade,
+  // isso aqui só evita o clique morrer com um erro do Postgres na cara do
+  // usuário — critério nunca usado continua 100% editável, sem restrição.
+  const idsUsados = new Set();
+  (d.avaliacoesProduto || []).forEach(av => (av.notas || []).forEach(n => { if (n.criterioId) idsUsados.add(n.criterioId); }));
+
   wrap.innerHTML = `<table><thead><tr><th>Critério</th><th style="width:120px">Peso</th><th style="width:90px">Ativo</th><th style="width:100px">Régua</th><th></th></tr></thead><tbody>
-    ${d.criteriosProduto.map(c => `<tr>
-      <td style="font-weight:500">${c.nome}</td>
-      <td><input type="number" min="0" step="0.5" value="${c.peso}" style="width:80px" onchange="salvarPesoCriterioProduto('${c.id}', this.value)"></td>
+    ${d.criteriosProduto.map(c => {
+      const arquivado = !!c.arquivado_em;
+      const temAvaliacao = idsUsados.has(c.id);
+      return `<tr>
+      <td style="font-weight:500">${c.nome}
+        ${arquivado ? `<span class="badge" style="margin-left:6px; background:var(--text-muted); color:#fff">Arquivado</span>` : temAvaliacao ? `<span class="badge badge-accent" style="margin-left:6px">Já avaliado — travado</span>` : ''}
+      </td>
+      <td><input type="number" min="0" step="0.5" value="${c.peso}" style="width:80px" ${temAvaliacao ? 'disabled title="Critério já usado em avaliação — arquive e crie um novo pra mudar o peso"' : ''} onchange="salvarPesoCriterioProduto('${c.id}', this.value)"></td>
       <td><input type="checkbox" ${c.ativo ? 'checked' : ''} onchange="toggleCriterioProdutoAtivo('${c.id}', this.checked)"></td>
       <td>${(c.opcoes && c.opcoes.length) ? `<span style="color:var(--accent); font-weight:600">${c.opcoes.length} opções</span>` : '<span style="color:var(--text-muted)">Livre</span>'}</td>
-      <td><div class="actions"><button class="btn btn-secondary btn-sm" onclick="toggleReguaEditor('produto', '${c.id}')">Editar régua</button> <button class="btn btn-danger btn-sm" onclick="excluirCriterioProduto('${c.id}')">Excluir</button></div></td>
+      <td><div class="actions">
+        ${!temAvaliacao ? `<button class="btn btn-secondary btn-sm" onclick="toggleReguaEditor('produto', '${c.id}')">Editar régua</button>` : ''}
+        ${arquivado
+          ? `<button class="btn btn-secondary btn-sm" onclick="desarquivarCriterioProduto('${c.id}')">Desarquivar</button>`
+          : `<button class="btn btn-secondary btn-sm" onclick="arquivarCriterioProduto('${c.id}')">Arquivar</button>`}
+        ${!temAvaliacao ? `<button class="btn btn-danger btn-sm" onclick="excluirCriterioProduto('${c.id}')">Excluir</button>` : ''}
+      </div></td>
     </tr>
-    ${(window._reguaEmEdicaoTipo === 'produto' && window._reguaEmEdicaoId === c.id) ? `<tr><td colspan="5">${renderReguaEditorHtml('produto', c)}</td></tr>` : ''}`).join('')}
+    ${(window._reguaEmEdicaoTipo === 'produto' && window._reguaEmEdicaoId === c.id) ? `<tr><td colspan="5">${renderReguaEditorHtml('produto', c)}</td></tr>` : ''}`;
+    }).join('')}
   </tbody></table>`;
+}
+
+// Arquivar/desarquivar são simples UPDATE em "arquivado_em" — o trigger no
+// banco permite isso mesmo em critério já avaliado (só bloqueia mudança de
+// conteúdo: nome/peso/opções). Junto, desliga "ativo" pra sumir das 3 telas
+// de lançamento (novo/edição) sem precisar filtrar por arquivado_em nelas.
+async function arquivarCriterioProduto(id) {
+  if (!confirm('Arquivar este critério? Ele deixa de aparecer para novos lançamentos, mas continua existindo para avaliações já feitas.')) return;
+  const { error } = await supabaseClient.from('criterios_produto').update({ arquivado_em: new Date().toISOString(), ativo: false }).eq('id', id);
+  if (error) { toast('Erro ao arquivar: ' + error.message); return; }
+  addLog('criterio_produto_arquivado', `${currentUser.email} arquivou um critério de produto`);
+  await carregarCriteriosProduto();
+  renderCriteriosProdutoLista();
+}
+
+async function desarquivarCriterioProduto(id) {
+  const { error } = await supabaseClient.from('criterios_produto').update({ arquivado_em: null }).eq('id', id);
+  if (error) { toast('Erro ao desarquivar: ' + error.message); return; }
+  addLog('criterio_produto_desarquivado', `${currentUser.email} desarquivou um critério de produto`);
+  await carregarCriteriosProduto();
+  renderCriteriosProdutoLista();
 }
 
 // ---- Editor de régua (opções de texto + pontos) — compartilhado entre
