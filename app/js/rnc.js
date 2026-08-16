@@ -123,6 +123,11 @@ function renderConstrutorModeloRncHtml() {
         style="width:100%; border:1px dashed #bbb; background:transparent; color:#888; font-size:12px; padding:8px; border-radius:2px; cursor:pointer; margin-top:4px">+ Adicionar seção</button>
     </div>
 
+    <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; margin-top:12px; cursor:pointer">
+      <input type="checkbox" id="rnc-modelo-exigir-confirmacao" ${(prefill.exigirConfirmacao) ? 'checked' : ''}>
+      Exigir confirmação por e-mail do responsável (manda um link pra pessoa confirmar que foi ela)
+    </label>
+
     <div style="margin-top:14px; display:flex; gap:8px">
       <button class="btn btn-primary" onclick="salvarModeloRnc()">Salvar modelo</button>
       ${_construtorModeloContexto === 'modal' ? `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>` : ''}
@@ -276,9 +281,12 @@ async function salvarModeloRnc() {
     toast('Toda seção precisa de pelo menos um campo.'); return;
   }
 
+  const exigirConfirmacao = document.getElementById('rnc-modelo-exigir-confirmacao').checked;
+
   if (_modeloRncEditandoId) {
     const { error } = await supabaseClient.from('rnc_modelos').update({
       nome, codigo: codigo || null, revisao: revisao || null, secoes: _secoesRncEmConstrucao,
+      exigir_confirmacao_responsavel: exigirConfirmacao,
     }).eq('id', _modeloRncEditandoId);
     if (error) { toast('Erro ao salvar modelo: ' + error.message); return; }
     addLog('rnc_modelo_editado', `${currentUser.email} editou o modelo de RNC "${nome}"`);
@@ -287,6 +295,7 @@ async function salvarModeloRnc() {
       empresa_id: currentUser.empresaId,
       nome, codigo: codigo || null, revisao: revisao || null,
       secoes: _secoesRncEmConstrucao, ativo: true,
+      exigir_confirmacao_responsavel: exigirConfirmacao,
     });
     if (error) { toast('Erro ao salvar modelo: ' + error.message); return; }
     addLog('rnc_modelo_criado', `${currentUser.email} criou o modelo de RNC "${nome}"`);
@@ -309,7 +318,7 @@ function abrirEditarModeloRnc(modeloId) {
   if (!modelo) { toast('Modelo não encontrado.'); return; }
   _construtorModeloContexto = 'modal';
   _modeloRncEditandoId = modelo.id;
-  _modeloRncEditandoInfo = { nome: modelo.nome, codigo: modelo.codigo, revisao: modelo.revisao };
+  _modeloRncEditandoInfo = { nome: modelo.nome, codigo: modelo.codigo, revisao: modelo.revisao, exigirConfirmacao: modelo.exigir_confirmacao_responsavel };
   _secoesRncEmConstrucao = JSON.parse(JSON.stringify(modelo.secoes || []));
   openModal(renderConstrutorModeloRncHtml());
 }
@@ -529,6 +538,20 @@ function atualizarDadoRncSelecaoUnica(secaoId, campoId) {
   _rncDadosEmPreenchimento[campoId] = true;
 }
 
+// Se o modelo desse RNC exige confirmação do responsável, gera um token
+// único, grava e chama a Edge Function que manda o e-mail. Silencioso em
+// caso de erro — não trava o fluxo principal de salvar o RNC por causa disso.
+async function dispararConfirmacaoRncSeNecessario(rncSalvo, modelo) {
+  if (!modelo || !modelo.exigir_confirmacao_responsavel || !rncSalvo.responsavel_user_id) return;
+  const token = crypto.randomUUID();
+  const { error } = await supabaseClient.from('rncs').update({
+    confirmacao_token: token,
+    confirmacao_enviada_em: new Date().toISOString(),
+  }).eq('id', rncSalvo.id);
+  if (error) { console.error('Erro ao gerar token de confirmação do RNC:', error.message); return; }
+  supabaseClient.functions.invoke('enviar-confirmacao-rnc', { body: { rncId: rncSalvo.id } }).catch(() => {});
+}
+
 async function salvarRncVinculado() {
   const ctx = _rncVinculoCtx;
   const modelo = _rncModeloEmUso;
@@ -602,6 +625,7 @@ async function salvarRncVinculado() {
   }
 
   addLog('rnc_criado', `${currentUser.email} vinculou o RNC ${numeroSequencial} à NF ${ctx.numeroNf}`);
+  await dispararConfirmacaoRncSeNecessario(rncSalvo, modelo);
   closeModal();
   _rncVinculoCtx = null; _rncModeloEmUso = null; _rncDadosEmPreenchimento = {};
   await carregarConferencias();
@@ -645,6 +669,8 @@ async function salvarRncsPendentesAoLancarConferencia(conferencia, fornecedorId,
 
     if (error) { toast('Erro ao salvar RNC vinculado: ' + error.message); continue; }
     addLog('rnc_criado', `${currentUser.email} vinculou o RNC ${numeroSequencial} à NF ${numeroNf}`);
+    const modeloDesseRnc = (db().rncModelos || []).find(m => m.id === pendente.modeloId);
+    await dispararConfirmacaoRncSeNecessario(rncSalvo, modeloDesseRnc);
 
     // Marca, dentro do array de respostas da conferência, qual resposta ficou
     // vinculada a esse RNC — re-busca porque, com mais de um RNC pendente,
@@ -697,7 +723,12 @@ async function abrirVisualizarRnc(rncId) {
                 const valor = c.tipo_campo === 'usuario_ref'
                   ? ((usuarios.find(u => u.id === rnc.dados[c.id]) || {}).nome || '—')
                   : (rnc.dados[c.id] || '—');
-                return `<div><div style="font-size:10px; color:var(--text-muted)">${escapeHtml(rotuloCampoRnc(sec, c))}</div><div style="font-size:13px">${escapeHtml(String(valor))}</div></div>`;
+                const selo = (c.tipo_campo === 'usuario_ref' && rnc.confirmacao_token)
+                  ? (rnc.confirmacao_confirmada_em
+                      ? `<div style="font-size:10.5px; color:var(--success); margin-top:2px; display:flex; align-items:center; gap:4px">${ic('check', 11)}Confirmado em ${new Date(rnc.confirmacao_confirmada_em).toLocaleString('pt-BR')}</div>`
+                      : `<div style="font-size:10.5px; color:var(--warning, #b45309); margin-top:2px; display:flex; align-items:center; gap:4px">${ic('clock', 11)}Aguardando confirmação</div>`)
+                  : '';
+                return `<div><div style="font-size:10px; color:var(--text-muted)">${escapeHtml(rotuloCampoRnc(sec, c))}</div><div style="font-size:13px">${escapeHtml(String(valor))}</div>${selo}</div>`;
               }).join('')}
             </div>`
           : `<div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 12px">
@@ -800,6 +831,7 @@ async function gerarPDFRnc(rncId) {
 
     if (sec.tipo === 'campos_diversos') {
       const colLarguraCd = largura / 2;
+      let precisaLinhaExtra = false;
       sec.campos.forEach((campo, i) => {
         const col = i % 2;
         if (col === 0 && i > 0) y += 5.5;
@@ -811,7 +843,20 @@ async function gerarPDFRnc(rncId) {
         doc.setFontSize(8.5);
         const rotulo = rotuloCampoRnc(sec, campo);
         doc.text(rotulo ? `${rotulo}: ${valor}` : String(valor), x + 2, y);
+        if (campo.tipo_campo === 'usuario_ref' && rnc.confirmacao_token) {
+          precisaLinhaExtra = true;
+          doc.setFontSize(7);
+          if (rnc.confirmacao_confirmada_em) {
+            doc.setTextColor(22, 163, 74);
+            doc.text(`Confirmado em ${new Date(rnc.confirmacao_confirmada_em).toLocaleString('pt-BR')}`, x + 2, y + 3.5);
+          } else {
+            doc.setTextColor(180, 83, 9);
+            doc.text('Aguardando confirmação', x + 2, y + 3.5);
+          }
+          doc.setTextColor(0, 0, 0);
+        }
       });
+      if (precisaLinhaExtra) y += 3.5;
       y += 5.5;
     } else {
       // checkbox_grupo ou selecao_unica: desenha caixinha marcada/desmarcada em 2 colunas
