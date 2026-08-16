@@ -269,9 +269,18 @@ function atualizarCampoRncConstrucaoSemRender(secIndex, campoIndex, chave, valor
 }
 
 async function salvarModeloRnc() {
-  const nome = document.getElementById('rnc-modelo-nome').value.trim();
-  const codigo = document.getElementById('rnc-modelo-codigo').value.trim();
-  const revisao = document.getElementById('rnc-modelo-revisao').value.trim();
+  // Existe um segundo formulário com os MESMOS ids escondido na aba "Novo
+  // modelo de RNC" (renderizado sempre, só com display:none quando fechado)
+  // — se editar um modelo pelo modal, document.getElementById pegaria esse
+  // outro (vazio) em vez do que está no modal. Por isso escopamos a busca
+  // ao container certo conforme o contexto atual.
+  const container = _construtorModeloContexto === 'modal'
+    ? document.getElementById('modal-box')
+    : document.getElementById('novo-modelo-rnc-body');
+
+  const nome = container.querySelector('#rnc-modelo-nome').value.trim();
+  const codigo = container.querySelector('#rnc-modelo-codigo').value.trim();
+  const revisao = container.querySelector('#rnc-modelo-revisao').value.trim();
 
   if (!nome) { toast('Informe o nome do modelo.'); return; }
   if (!_secoesRncEmConstrucao.length || _secoesRncEmConstrucao.some(s => !s.titulo.trim())) {
@@ -281,7 +290,7 @@ async function salvarModeloRnc() {
     toast('Toda seção precisa de pelo menos um campo.'); return;
   }
 
-  const exigirConfirmacao = document.getElementById('rnc-modelo-exigir-confirmacao').checked;
+  const exigirConfirmacao = container.querySelector('#rnc-modelo-exigir-confirmacao').checked;
 
   if (_modeloRncEditandoId) {
     const { error } = await supabaseClient.from('rnc_modelos').update({
