@@ -64,6 +64,19 @@
 
   .ja-confirmado { display: flex; align-items: center; gap: 8px; color: var(--success); font-size: 13.5px; font-weight: 600; }
   .foot { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 24px; }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(10,25,47,.55); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+  .modal-overlay.active { display: flex; }
+  .modal-box { background: var(--surface); border-radius: 12px; max-width: 380px; width: 100%; padding: 24px; }
+  .modal-box h3 { font-size: 16px; color: var(--navy); margin-bottom: 4px; }
+  .modal-box .modal-sub { font-size: 12.5px; color: var(--text-muted); margin-bottom: 16px; }
+  .modal-box input[type="password"] { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; margin-bottom: 10px; }
+  .modal-box input[type="password"]:focus { outline: none; border-color: var(--accent); }
+  .modal-erro { font-size: 12.5px; color: var(--danger); margin-bottom: 10px; display: none; }
+  .modal-esqueci { font-size: 11.5px; color: var(--text-muted); background: var(--surface2); border-radius: 6px; padding: 8px 10px; margin-bottom: 16px; line-height: 1.5; }
+  .modal-acoes { display: flex; gap: 8px; justify-content: flex-end; }
+  .btn-secondary { background: var(--surface2); color: var(--text); }
+  .btn-secondary:hover { opacity: .85; }
 </style>
 </head>
 <body>
@@ -79,6 +92,20 @@
   <div class="foot" id="foot-copy"></div>
 </div>
 
+<div class="modal-overlay" id="modal-senha">
+  <div class="modal-box">
+    <h3>Confirmar com sua senha</h3>
+    <p class="modal-sub">Digite a senha que você usa pra entrar na plataforma HomologPro.</p>
+    <input type="password" id="input-senha" placeholder="Sua senha" autocomplete="current-password">
+    <div class="modal-erro" id="modal-erro"></div>
+    <div class="modal-esqueci" id="modal-esqueci"></div>
+    <div class="modal-acoes">
+      <button class="btn btn-secondary" id="btn-cancelar-senha" onclick="fecharModalSenha()">Cancelar</button>
+      <button class="btn btn-primary" id="btn-confirmar-senha" onclick="confirmarComSenha()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.0/dist/umd/supabase.js" integrity="sha384-3lSoufGjgosjqp3JDr/NReX3PjMd3SlC8wJ23CWFjB6DSFNf71I0DhcRTUm9MwgO" crossorigin="anonymous"></script>
 <script>
 // Mesma URL/chave pública já usadas no fornecedor-portal.html — troque aqui
@@ -90,11 +117,20 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_
 const SUPORTE_CONTATO = 'suporte@homologpro.com.br';
 const params = new URLSearchParams(window.location.search);
 const token = params.get('token');
+let dadosConfirmacao = null; // guarda responsavelEmail/adminSetor/adminEmail vindos de confirmar-rnc-dados
 
 function escapeHtml(s) {
   const d = document.createElement('div');
   d.textContent = s == null ? '' : String(s);
   return d.innerHTML;
+}
+
+function formatarValorCampo(campo, valor) {
+  if (campo.tipo_campo === 'date' && valor && /^\d{4}-\d{2}-\d{2}$/.test(valor)) {
+    const [ano, mes, dia] = valor.split('-');
+    return `${dia}/${mes}/${ano}`;
+  }
+  return String(valor);
 }
 
 function renderSecoes(secoes, dados) {
@@ -104,7 +140,7 @@ function renderSecoes(secoes, dados) {
       corpo = `<div class="secao-grid">${sec.campos.map(c => {
         const valor = dados[c.id] ?? '—';
         const rotulo = (c.label && c.label.trim()) ? c.label : '';
-        return `<div class="campo-texto">${rotulo ? `<div class="rotulo">${escapeHtml(rotulo)}</div>` : ''}<div class="valor">${escapeHtml(String(valor))}</div></div>`;
+        return `<div class="campo-texto">${rotulo ? `<div class="rotulo">${escapeHtml(rotulo)}</div>` : ''}<div class="valor">${escapeHtml(formatarValorCampo(c, valor))}</div></div>`;
       }).join('')}</div>`;
     } else {
       corpo = `<div class="secao-grid">${sec.campos.map(c => `
@@ -130,6 +166,7 @@ async function carregar() {
     return;
   }
 
+  dadosConfirmacao = data;
   const wrap = document.getElementById('conteudo');
   wrap.innerHTML = `
     <div class="eyebrow">Confirmação de responsabilidade</div>
@@ -153,24 +190,83 @@ async function carregar() {
         ? `<div class="ja-confirmado">✓ Você já confirmou este registro em ${new Date(data.confirmadoEm).toLocaleString('pt-BR')}.</div>`
         : `
           <p class="confirmar-pergunta">Ao confirmar, você declara que foi a pessoa responsável pelo que está descrito acima.</p>
-          <button class="btn btn-primary" id="btn-confirmar" onclick="confirmar()">Confirmo que fui eu</button>
+          <button class="btn btn-primary" id="btn-confirmar" onclick="abrirModalSenha()">Confirmo que fui eu</button>
         `}
     </div>
   `;
 }
 
-async function confirmar() {
-  const btn = document.getElementById('btn-confirmar');
-  btn.disabled = true;
-  btn.textContent = 'Confirmando...';
+function abrirModalSenha() {
+  document.getElementById('input-senha').value = '';
+  document.getElementById('modal-erro').style.display = 'none';
+  document.getElementById('modal-erro').textContent = '';
 
-  const { data, error } = await supabaseClient.functions.invoke('confirmar-rnc', { body: { token } });
+  const setor = dadosConfirmacao?.adminSetor;
+  const email = dadosConfirmacao?.adminEmail;
+  document.getElementById('modal-esqueci').textContent = (setor || email)
+    ? `Esqueceu a senha? Peça pro setor ${setor || 'responsável'}${email ? ` (${email})` : ''} redefinir em Usuários.`
+    : 'Esqueceu a senha? Peça pra um administrador redefinir em Usuários.';
 
-  if (error || !data || data.ok === false) {
-    document.getElementById('confirmar-box').innerHTML = `<div class="estado-erro">${(data && data.error) || 'Não foi possível confirmar agora. Tente novamente em instantes.'}</div>`;
+  document.getElementById('modal-senha').classList.add('active');
+  document.getElementById('input-senha').focus();
+}
+
+function fecharModalSenha() {
+  document.getElementById('modal-senha').classList.remove('active');
+}
+
+async function confirmarComSenha() {
+  const senha = document.getElementById('input-senha').value;
+  const erroEl = document.getElementById('modal-erro');
+  erroEl.style.display = 'none';
+
+  if (!senha) {
+    erroEl.textContent = 'Digite sua senha.';
+    erroEl.style.display = 'block';
     return;
   }
 
+  if (!dadosConfirmacao?.responsavelEmail) {
+    erroEl.textContent = 'Não foi possível identificar o responsável. Atualize a página e tente de novo.';
+    erroEl.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('btn-confirmar-senha');
+  btn.disabled = true;
+  btn.textContent = 'Confirmando...';
+
+  // O e-mail já veio da function (o usuário nunca digita e-mail nenhum) —
+  // só a senha é dele.
+  const { error: loginError } = await supabaseClient.auth.signInWithPassword({
+    email: dadosConfirmacao.responsavelEmail,
+    password: senha,
+  });
+
+  if (loginError) {
+    btn.disabled = false;
+    btn.textContent = 'Confirmar';
+    erroEl.textContent = 'Senha incorreta. Tente de novo.';
+    erroEl.style.display = 'block';
+    return;
+  }
+
+  const { data, error } = await supabaseClient.functions.invoke('confirmar-rnc', { body: { token } });
+
+  // Sessão só serve pra essa confirmação — encerra em seguida, não deixa a
+  // pessoa "logada" na página pública depois de sair.
+  await supabaseClient.auth.signOut();
+
+  btn.disabled = false;
+  btn.textContent = 'Confirmar';
+
+  if (error || !data || data.ok === false) {
+    erroEl.textContent = (data && data.error) || 'Não foi possível confirmar agora. Tente novamente em instantes.';
+    erroEl.style.display = 'block';
+    return;
+  }
+
+  fecharModalSenha();
   document.getElementById('conteudo').innerHTML = `
     <div class="estado-ok">
       <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
