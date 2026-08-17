@@ -237,6 +237,29 @@ async function renderAdConfig() {
       </div>`;
   }
 
+  // Barrinha de contagem regressiva até a próxima renovação — assume ciclo
+  // mensal (30 dias antes da próxima cobrança) já que hoje só existe
+  // faturamento mensal. Reaproveita o mesmo visual da .usage-bar.
+  function renovacaoBarraHtml() {
+    if (!empresaConfigCache.proxima_cobranca_em) return '';
+    const fim = new Date(empresaConfigCache.proxima_cobranca_em);
+    const inicio = new Date(fim);
+    inicio.setMonth(inicio.getMonth() - 1);
+    const agora = Date.now();
+    const duracaoTotal = fim.getTime() - inicio.getTime();
+    const decorrido = Math.min(duracaoTotal, Math.max(0, agora - inicio.getTime()));
+    const pct = duracaoTotal > 0 ? Math.round((decorrido / duracaoTotal) * 100) : 0;
+    const dias = Math.max(0, Math.ceil((fim.getTime() - agora) / 86400000));
+    return `
+      <div style="margin-bottom:10px">
+        <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-bottom:4px">
+          <span>Renova em ${dias} dia(s)</span>
+          <span>${fim.toLocaleDateString('pt-BR')}</span>
+        </div>
+        <div class="usage-bar"><div class="usage-bar-fill" style="width:${pct}%"></div></div>
+      </div>`;
+  }
+
   // Card do plano já assinado — no lugar de "Assinar" fica "CANCELAR"
   function cardAssinadoHtml(planoKey) {
     const { nome, preco, recomendado } = PLANOS_INFO[planoKey];
@@ -251,6 +274,7 @@ async function renderAdConfig() {
         ${recomendado ? '<span class="upgrade-card-tag">Recomendado</span>' : ''}
         <div style="font-weight:700; margin-bottom:4px">${nome}</div>
         <div style="font-size:19px; font-weight:700; color:var(--accent); margin-bottom:10px">${precoTextoPlano(preco)}<span style="font-size:11.5px; font-weight:400; color:var(--text-muted)">/mês</span></div>
+        ${isAdminMaster ? renovacaoBarraHtml() : ''}
         ${acoes}
       </div>`;
   }
@@ -276,13 +300,6 @@ async function renderAdConfig() {
     const ativoDesde = empresaConfigCache.plano_ativo_desde
       ? new Date(empresaConfigCache.plano_ativo_desde).toLocaleDateString('pt-BR') : '—';
 
-    let renovaTexto = '—';
-    if (empresaConfigCache.proxima_cobranca_em) {
-      const dataRenova = new Date(empresaConfigCache.proxima_cobranca_em);
-      const dias = Math.max(0, Math.ceil((dataRenova.getTime() - Date.now()) / 86400000));
-      renovaTexto = `${dataRenova.toLocaleDateString('pt-BR')} (em ${dias} dia(s))`;
-    }
-
     const ultimaAlteracao = empresaConfigCache.enterprise_composicao?.calculadoEm
       ? new Date(empresaConfigCache.enterprise_composicao.calculadoEm).toLocaleDateString('pt-BR') : null;
 
@@ -302,10 +319,10 @@ async function renderAdConfig() {
         <span class="upgrade-card-tag">Enterprise</span>
         <div style="font-weight:700; margin-bottom:4px">Enterprise</div>
         <div style="font-size:19px; font-weight:700; color:var(--accent); margin-bottom:10px">${valorTexto}<span style="font-size:11.5px; font-weight:400; color:var(--text-muted)">/mês</span></div>
-        <div style="font-size:11px; color:var(--text-muted); line-height:1.7; margin-bottom:10px">
-          Ativo desde ${ativoDesde}<br>
-          Renova em ${renovaTexto}${ultimaAlteracao ? `<br>Última alteração: ${ultimaAlteracao}` : ''}
+        <div style="font-size:11px; color:var(--text-muted); line-height:1.7; margin-bottom:6px">
+          Ativo desde ${ativoDesde}${ultimaAlteracao ? `<br>Última alteração: ${ultimaAlteracao}` : ''}
         </div>
+        ${isAdminMaster ? renovacaoBarraHtml() : ''}
         ${avisoReajuste}
         ${acoes}
       </div>`;
@@ -1145,6 +1162,7 @@ async function salvarMatriz() {
 
 
 async function salvarEmpresaAd() {
+  mostrarCarregando('Salvando...');
   const empresa = {};
   // "cnpj" fica no loop só pra PRESERVAR o valor ao salvar — salvarConfigEmpresa
   // substitui o objeto "empresa" inteiro (não faz merge profundo), então se
@@ -1155,7 +1173,7 @@ async function salvarEmpresaAd() {
     empresa[k] = document.getElementById('emp-' + k).value.trim();
   });
   const { error } = await salvarConfigEmpresa('empresa', empresa);
-  if (error) { toast('Erro ao salvar dados da empresa: ' + error.message); return; }
+  if (error) { esconderProgresso(); toast('Erro ao salvar dados da empresa: ' + error.message); return; }
 
   const setor = document.getElementById('emp-setor').value.trim();
 
@@ -1167,8 +1185,25 @@ async function salvarEmpresaAd() {
     empresaConfigCache.setor = setor;
   }
 
+  // Mesmo vínculo do lado de Usuários e acessos: o setor do Admin+
+  // (admin_master) é o mesmo campo — atualiza o profile dele junto pra não
+  // ficar dessincronizado.
+  const { data: adminMaster } = await supabaseClient
+    .from('profiles')
+    .select('id')
+    .eq('empresa_id', currentUser.empresaId)
+    .eq('papel', 'admin_master')
+    .maybeSingle();
+  if (adminMaster) {
+    const { error: profileErr } = await supabaseClient.from('profiles').update({ nome: setor }).eq('id', adminMaster.id);
+    if (!profileErr) {
+      const uLocal = db().usuarios.find(x => x.id === adminMaster.id);
+      if (uLocal) uLocal.nome = setor;
+    }
+  }
+
   addLog('empresa_atualizada', `${currentUser.email} atualizou os dados da empresa`);
-  toast('Dados da empresa salvos!');
+  mostrarSucesso('Dados da empresa salvos!');
 }
 
 async function salvarRetencaoAvaliacao() {

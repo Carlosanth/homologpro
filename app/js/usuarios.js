@@ -195,19 +195,21 @@ async function addUsuario() {
     : null;
 
   const btn = document.querySelector('#ad-page-usuarios .btn-primary');
-  if (btn) { btn.disabled = true; btn.textContent = 'Criando...'; }
+  if (btn) btn.disabled = true;
+  mostrarCarregando('Criando usuário...');
 
   const { data, error } = await supabaseClient.functions.invoke('admin-criar-usuario', {
     body: { nome, email, senha, papel, permissoesModulos, responsavel },
   });
 
-  if (btn) { btn.disabled = false; btn.textContent = 'Criar usuário'; }
+  if (btn) btn.disabled = false;
 
   // supabase-js devolve erro de Edge Function em error.context; a mensagem
   // "de negócio" (ex: "já existe") vem no corpo (data.error) quando o status
   // não é 2xx.
   if (error || (data && data.ok === false)) {
     const msg = (data && data.error) || error?.message || 'Erro ao criar usuário.';
+    esconderProgresso();
     toast(msg);
     return;
   }
@@ -220,7 +222,7 @@ async function addUsuario() {
   document.querySelectorAll('#nu-permissoes-wrap .nu-modulo-check').forEach(c => c.checked = true);
   await carregarUsuarios();
   renderAdUsuarios();
-  toast('Usuário criado!');
+  mostrarSucesso('Usuário criado!');
 }
 
 function resetSenha(id) {
@@ -299,6 +301,14 @@ async function confirmarEditarSetorResponsavel(id) {
     .eq('id', id);
 
   if (error) { toast('Erro ao salvar: ' + error.message); return; }
+
+  // O setor do Admin+ (admin_master) é o mesmo que aparece em Configurações
+  // → Minha Empresa (usado na assinatura dos e-mails automáticos) — mantém
+  // os dois sincronizados pra não pedir a mesma coisa duas vezes.
+  if (u.papel === 'admin_master') {
+    const { error: empresaErr } = await supabaseClient.from('empresas').update({ setor: novoSetor }).eq('id', currentUser.empresaId);
+    if (!empresaErr) empresaConfigCache.setor = novoSetor;
+  }
 
   addLog('usuario_editado', `${currentUser.email} alterou o cadastro do usuário ${u.email} — setor: "${novoSetor}", responsável: "${novoResponsavel || '—'}"`);
   u.nome = novoSetor;

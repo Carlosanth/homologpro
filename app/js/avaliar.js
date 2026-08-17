@@ -1232,6 +1232,8 @@ async function salvarAvaliacaoProduto() {
   if (acimaDoPeso) { toast('Tem critério com nota acima do peso máximo permitido — corrija antes de salvar.'); return; }
   if (motivoFaltando) { toast('Informe o motivo dos critérios que ficaram abaixo do peso máximo.'); return; }
 
+  mostrarCarregando('Salvando lançamento...');
+
   const notaBase = calcularNotaGeralProduto(notasPorCriterio, criteriosAtivos);
 
   // Só cadastra o fornecedor de verdade AGORA, depois de tudo validado —
@@ -1242,7 +1244,7 @@ async function salvarAvaliacaoProduto() {
       empresa_id: currentUser.empresaId, nome: nomeFornecedor, cnpj: formatarCNPJ(estado.cnpj),
       tipo: 'produto', ativo: true, diverso: true, campos_custom: {},
     }).select().single();
-    if (errForn) { toast('Erro ao cadastrar fornecedor: ' + errForn.message); return; }
+    if (errForn) { esconderProgresso(); toast('Erro ao cadastrar fornecedor: ' + errForn.message); return; }
     fornecedorId = novoForn.id;
     await carregarFornecedores();
   }
@@ -1268,7 +1270,7 @@ async function salvarAvaliacaoProduto() {
   if (ehPiorFaixa) {
     const justEl = document.getElementById('lp-justificativa-input');
     justificativaConceito = justEl ? justEl.value.trim() : '';
-    if (!justificativaConceito) { toast(`Indique o motivo do conceito "${faixa.nome}" antes de salvar.`); return; }
+    if (!justificativaConceito) { esconderProgresso(); toast(`Indique o motivo do conceito "${faixa.nome}" antes de salvar.`); return; }
   }
 
   // "Fotografia" dos critérios usados nesse lançamento — não quebra se
@@ -1298,13 +1300,13 @@ async function salvarAvaliacaoProduto() {
     justificativa: justificativaConceito || null,
   });
 
-  if (error) { toast('Erro ao salvar lançamento: ' + error.message); return; }
+  if (error) { esconderProgresso(); toast('Erro ao salvar lançamento: ' + error.message); return; }
 
   addLog('avaliacao_produto_lancada', `${currentUser.email} lançou NF ${numeroNf || '(sem número)'} do fornecedor "${nomeFornecedor}" — nota ${notaGeral.toFixed(1)} (${faixa ? faixa.nome : '—'})`);
 
   await carregarAvaliacoesProduto();
   renderAvaliarProdutoTab();
-  toast('Nota fiscal lançada!');
+  mostrarSucesso('Nota fiscal lançada!');
 }
 
 // ---- Fornecedores avaliados (histórico / conceito do período) ----
