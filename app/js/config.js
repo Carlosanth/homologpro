@@ -651,19 +651,6 @@ async function renderAdConfig() {
         </div>
       </div>
 
-      <div class="card" style="margin-bottom:0">
-        <div class="card-title"><span>Período avaliado${infoTip('Use isso se a avaliação do mês é sempre sobre o serviço prestado em mês(es) anterior(es) — ex: avaliar em Agosto o serviço prestado em Julho. Informe quantos meses de defasagem. Aparece pro avaliador e no e-mail do fornecedor. Deixe 0 se a avaliação é sempre sobre o mês corrente.')}</span></div>
-        <p class="cobranca-card-sub">Meses de defasagem do serviço prestado.</p>
-
-        <div class="form-group" style="margin-bottom:0">
-          <label>Meses antes</label>
-          <div class="input-suffix-group">
-            <input type="number" class="no-spinner" id="cfg-periodo-avaliado-meses" min="0" max="12" step="1" value="${d.periodoAvaliadoMesesAntes || 0}">
-            <span>meses</span>
-          </div>
-        </div>
-      </div>
-
       <div class="card" style="margin-bottom:0; grid-column:span 2">
         <div class="card-title"><span>Notificação de avaliação${infoTip('Controla como o fornecedor é avisado quando uma avaliação de serviço é reprovada ou parcialmente aprovada. O botão manual (que abre seu cliente de e-mail) continua disponível em qualquer modo.')}</span></div>
         <p class="cobranca-card-sub">Como o fornecedor é avisado da nota.</p>
@@ -829,8 +816,6 @@ async function salvarConfigCobrancaTudo() {
   const lembreteAtivo = document.getElementById('cfg-lembrete-ativo').checked;
   const lembreteFrequencia = document.getElementById('cfg-lembrete-frequencia').value;
 
-  const periodoMeses = parseInt(document.getElementById('cfg-periodo-avaliado-meses').value, 10) || 0;
-
   const notifModo = document.getElementById('cfg-notif-avaliacao-modo').value;
   const notifIntervaloRaw = parseInt(document.getElementById('cfg-notif-avaliacao-intervalo').value, 10);
   const notifIntervalo = Number.isFinite(notifIntervaloRaw) ? notifIntervaloRaw : 24;
@@ -846,7 +831,6 @@ async function salvarConfigCobrancaTudo() {
     plano_acao_cobranca_frequencia: planoAcaoFrequencia,
     lembrete_avaliador_ativo: lembreteAtivo,
     lembrete_avaliador_frequencia: lembreteFrequencia,
-    periodo_avaliado_meses_antes: periodoMeses,
     notif_avaliacao_modo: notifModo,
     notif_avaliacao_intervalo_horas: notifIntervalo,
     notif_avaliacao_situacoes: notifSituacoes,

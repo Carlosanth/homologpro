@@ -155,7 +155,7 @@ function db() {
     logs: logsCache,
     empresa: empresaConfigCache.config.empresa || {},
     textos: migrarTextos(empresaConfigCache.config.textos),
-    camposGlobais: load('ap_campos_globais') || [],
+    camposGlobais: empresaConfigCache.config.camposGlobaisPadrao || [],
     camposFornecedorCustom: empresaConfigCache.campos_fornecedor_custom,
     colunasFornecedorVisiveis: empresaConfigCache.colunas_fornecedor_visiveis,
     tiposDocumento: empresaConfigCache.tipos_documento,
@@ -877,6 +877,10 @@ async function carregarAvaliacoes() {
       travado: av.bloqueada,
       liberadoEdicao: av.liberado_edicao,
       notificadoEm: av.notificado_em || null,
+      // Congelado no momento do envio — usado pra mostrar o prazo que
+      // valia NA ÉPOCA (ver enviarAvaliacao em avaliar.js). Editar o
+      // formulário depois não muda mais o que já foi avaliado.
+      formularioSnapshot: av.formulario_snapshot || null,
       planoAcaoPrazo: av.plano_acao_prazo || null,
       planoAcaoAnexo: av.plano_acao_anexo || null,
       planoAcaoStatus: av.plano_acao_status || null,
@@ -1090,6 +1094,16 @@ function buscarConferencia(fornecedorId, numeroNf) {
   if (!fornecedorId || !numeroNf) return null;
   const nfNormalizada = numeroNf.trim().toLowerCase();
   return conferenciasCache.find(c => c.fornecedorId === fornecedorId && c.numeroNf.trim().toLowerCase() === nfNormalizada) || null;
+}
+
+// Espelho de buscarConferencia, pro sentido contrário: acha a avaliação de
+// produto (se existir) da mesma NF + fornecedor — usado pela Conferência pra
+// puxar/travar critérios de mesmo nome que já foram avaliados, e pra travar
+// lançamento duplicado dos dois lados.
+function buscarAvaliacaoProduto(fornecedorId, numeroNf) {
+  if (!fornecedorId || !numeroNf) return null;
+  const nfNormalizada = numeroNf.trim().toLowerCase();
+  return avaliacoesProdutoCache.find(a => a.fornecedorId === fornecedorId && a.numeroNf.trim().toLowerCase() === nfNormalizada) || null;
 }
 
 // Nome de quem fez a conferência, pra mostrar no lugar do e-mail (mais

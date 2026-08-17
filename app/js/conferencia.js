@@ -113,9 +113,10 @@ function renderLancarConferenciaTab() {
           <input type="text" id="cf-nome-fornecedor" placeholder="Busque o CNPJ primeiro" disabled>
           <div id="cf-status-fornecedor" style="margin-top:6px; font-size:11px"></div>
         </div>
-        <div class="form-group"><label>Nº da Nota Fiscal</label><input type="text" id="cf-nf" placeholder="Ex: 117743"></div>
+        <div class="form-group"><label>Nº da Nota Fiscal</label><input type="text" id="cf-nf" placeholder="Ex: 117743" onblur="aplicarAvaliacaoVinculada()"></div>
         <div class="form-group"><label>Data</label><input type="date" id="cf-data" value="${hoje.toISOString().slice(0,10)}"></div>
       </div>
+      <div id="cf-avaliacao-info"></div>
       <p style="font-size:12px; font-weight:600; color:var(--text-sec); margin:14px 0 8px">Critérios</p>
       <div class="form-row three" id="cf-criterios">
         ${criteriosAtivos.filter(c => c.tipo !== 'faixa' && !(c.tipo === 'nota' && c.opcoes && c.opcoes.length)).map(c => {
@@ -496,6 +497,92 @@ function verificarNotaConferenciaAbaixoPeso(inp) {
   }
 }
 
+// Espelho de aplicarConferenciaVinculada (avaliar.js), no sentido contrário:
+// se o Avaliar já foi feito primeiro pra essa NF+fornecedor, trava aqui os
+// critérios de Conferência que tiverem o MESMO NOME de um critério já
+// respondido lá no Avaliar Produto — usando a nota que já foi dada lá.
+// Critérios sem par de mesmo nome no Avaliar continuam livres normalmente.
+function aplicarAvaliacaoVinculada() {
+  const estado = window._fornecedorConferencia;
+  const numeroNf = document.getElementById('cf-nf').value.trim();
+  window._avaliacaoVinculada = null;
+
+  // Limpa qualquer trava anterior (ex: usuário trocou a NF depois de já ter linkado uma).
+  document.querySelectorAll('.cf-resposta-input[data-tipo="nota"]').forEach(inp => {
+    if (!inp.dataset.travadoAvaliacao) return;
+    inp.disabled = false;
+    inp.value = '';
+    delete inp.dataset.travadoAvaliacao;
+    delete inp.dataset.avaliadoPor;
+    delete inp.dataset.motivo;
+    const critId = inp.dataset.criterioId;
+    const motivoWrap = document.getElementById(`cf-motivo-wrap-${critId}`);
+    if (motivoWrap) motivoWrap.innerHTML = '';
+    const closedBox = document.getElementById(`lp-select-closed-${critId}`);
+    const labelEl = document.getElementById(`lp-select-label-${critId}`);
+    if (closedBox) {
+      closedBox.onclick = () => toggleLpSelectDropdown(critId);
+      closedBox.style.cursor = 'pointer';
+      closedBox.style.opacity = '1';
+      closedBox.style.background = 'var(--surface)';
+    }
+    if (labelEl) { labelEl.textContent = 'Selecione uma opção'; labelEl.style.color = 'var(--text-muted)'; }
+  });
+  const infoBox = document.getElementById('cf-avaliacao-info');
+  if (infoBox) infoBox.innerHTML = '';
+
+  if (!estado || !estado.id || !numeroNf) return;
+  const avaliacao = buscarAvaliacaoProduto(estado.id, numeroNf);
+  if (!avaliacao) return;
+
+  window._avaliacaoVinculada = avaliacao;
+  const avaliadoPor = avaliacao.enviadoPorNome || avaliacao.enviadoPorEmail || '—';
+  let algumCasou = false;
+
+  avaliacao.notas.forEach(n => {
+    const nomeNormalizado = normalizarNomeCriterio(n.nome);
+    const inp = Array.from(document.querySelectorAll('.cf-resposta-input[data-tipo="nota"]')).find(
+      el => normalizarNomeCriterio(el.dataset.criterioNome) === nomeNormalizado
+    );
+    if (!inp) return;
+
+    algumCasou = true;
+    inp.value = n.nota;
+    inp.disabled = true;
+    inp.dataset.travadoAvaliacao = '1';
+    inp.dataset.avaliadoPor = avaliadoPor;
+    inp.dataset.motivo = n.motivo || '';
+
+    const critId = inp.dataset.criterioId;
+    const motivoWrap = document.getElementById(`cf-motivo-wrap-${critId}`);
+    if (motivoWrap) {
+      motivoWrap.innerHTML = `<div style="margin-top:6px; font-size:11px; color:var(--text-sec)">Já avaliado por <b>${escapeHtml(avaliadoPor)}</b>${n.motivo ? ` — Motivo: ${escapeHtml(n.motivo)}` : ''}</div>`;
+    }
+
+    // Régua (opções): trava a caixinha fechada e atualiza o rótulo.
+    const closedBox = document.getElementById(`lp-select-closed-${critId}`);
+    const labelEl = document.getElementById(`lp-select-label-${critId}`);
+    if (closedBox) {
+      closedBox.onclick = null;
+      closedBox.style.cursor = 'not-allowed';
+      closedBox.style.opacity = '0.7';
+      closedBox.style.background = 'var(--surface2)';
+    }
+    if (labelEl) {
+      const opcaoTexto = n.opcoes?.find(op => op.pontos === n.nota)?.label;
+      labelEl.textContent = opcaoTexto ? `${opcaoTexto} (${n.nota}P)` : `${n.nota}P (já avaliado)`;
+      labelEl.style.color = 'var(--text)';
+    }
+  });
+
+  if (infoBox && algumCasou) {
+    infoBox.innerHTML = `<div style="margin:10px 0; padding:8px 12px; background:var(--surface2); border-radius:8px; font-size:12px; display:flex; align-items:center; gap:6px">
+      ${ic('check', 13)} Avaliação encontrada pra essa NF (por ${escapeHtml(avaliadoPor)}) — critérios de mesmo nome foram preenchidos automaticamente.
+    </div>`;
+  }
+  if (typeof renderBotoesSalvarConferencia === 'function') renderBotoesSalvarConferencia();
+}
+
 async function salvarConferencia() {
   const d = db();
   const estado = window._fornecedorConferencia;
@@ -505,6 +592,13 @@ async function salvarConferencia() {
   if (!estado || (!estado.id && !estado.novo)) { toast('Busque o CNPJ do fornecedor antes de conferir.'); return; }
   if (!data) { toast('Informe a data.'); return; }
   if (!numeroNf) { toast('Informe o número da nota fiscal.'); return; }
+
+  // Fornecedor já existe? Então já dá pra checar se essa NF já foi conferida
+  // antes de mexer em mais nada. Fornecedor "novo" nunca tem conferência prévia.
+  if (estado.id && buscarConferencia(estado.id, numeroNf)) {
+    toast('Conferência já feita para esse fornecedor/nota fiscal.');
+    return;
+  }
 
   let nomeFornecedor = estado.id
     ? (d.fornecedores.find(f => f.id === estado.id)?.nome || '')
@@ -532,9 +626,14 @@ async function salvarConferencia() {
       const limite = criterio.peso || 10;
       if (valor > limite) { acimaDoPeso = true; return; }
       if (valor < limite) {
-        const motivoInp = document.querySelector(`.cf-nota-motivo[data-criterio-id="${criterio.id}"]`);
-        motivo = motivoInp ? motivoInp.value.trim() : '';
-        if (!motivo) { faltando = true; toast(`Informe o motivo de "${criterio.nome}" ter ficado abaixo do peso máximo (${limite}).`); return; }
+        if (inp.dataset.travadoAvaliacao) {
+          // Motivo já foi escrito lá no Avaliar — vem junto no dataset.
+          motivo = inp.dataset.motivo || '';
+        } else {
+          const motivoInp = document.querySelector(`.cf-nota-motivo[data-criterio-id="${criterio.id}"]`);
+          motivo = motivoInp ? motivoInp.value.trim() : '';
+          if (!motivo) { faltando = true; toast(`Informe o motivo de "${criterio.nome}" ter ficado abaixo do peso máximo (${limite}).`); return; }
+        }
       }
     }
     descontoTotal += desconto;

@@ -143,7 +143,7 @@ function renderAdFornecedores() {
           <div class="form-group"><label>Setor</label><input type="text" id="nf-setor" placeholder="Ex: Qualidade"></div>
         </div>
         <div class="form-row" style="grid-template-columns:1fr 1fr 1fr 1fr">
-          <div class="form-group"><label>E-mail</label><input type="email" id="nf-email" placeholder="contato@fornecedor.com"></div>
+          <div class="form-group"><label>E-mail</label><input type="email" id="nf-email" placeholder="contato@fornecedor.com"><small style="color:var(--text-muted); font-size:12px;">Pode adicionar até 3 e-mails, separados por ";"</small></div>
           <div class="form-group"><label>Telefone</label><input type="text" id="nf-telefone" placeholder="(00) 00000-0000" oninput="this.value = formatarTelefone(this.value)"></div>
           <div class="form-group"><label>Endereço</label><input type="text" id="nf-endereco" placeholder="Rua, número, cidade/UF"></div>
           <div class="form-group"><label>Criticidade</label>
@@ -289,6 +289,32 @@ function formatarTelefone(valor) {
   else if (v.length > 2) v = v.replace(/^(\d{2})(\d{1,4}).*/, '($1) $2');
   else if (v.length > 0) v = v.replace(/^(\d{1,2}).*/, '($1');
   return v;
+}
+
+// Valida o campo de e-mail do fornecedor, que aceita até LIMITE_EMAILS_FORNECEDOR
+// endereços separados por ";" ou "," (mesmo formato que o backend —
+// parseEmails() em cobranca-automatica-documentos e cobranca-plano-acao-pendente
+// — já lê). Campo vazio é válido (e-mail é opcional).
+// Retorna { ok, invalidos, excedeuLimite }.
+const REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const LIMITE_EMAILS_FORNECEDOR = 3;
+function validarEmailFornecedor(valor) {
+  const bruto = (valor || '').trim();
+  if (!bruto) return { ok: true, invalidos: [], excedeuLimite: false };
+  const partes = bruto.split(/[;,]/).map(e => e.trim()).filter(e => e.length > 0);
+  const invalidos = partes.filter(e => !REGEX_EMAIL.test(e));
+  const excedeuLimite = partes.length > LIMITE_EMAILS_FORNECEDOR;
+  return { ok: invalidos.length === 0 && !excedeuLimite, invalidos, excedeuLimite };
+}
+
+// Valida o campo de telefone do fornecedor. Aceita um único número, já
+// formatado pela máscara de formatarTelefone() — (00) 0000-0000 ou
+// (00) 00000-0000 — e confere se o total de dígitos bate (DDD + 8 ou 9
+// dígitos). Campo vazio é válido (telefone é opcional).
+function validarTelefoneFornecedor(valor) {
+  const digitos = (valor || '').replace(/\D/g, '');
+  if (!digitos) return true;
+  return digitos.length === 10 || digitos.length === 11;
 }
 
 function metaItemHTML(iconeSvg, texto, mono) {
@@ -1047,6 +1073,12 @@ async function addFornecedorAd() {
   const cnpj = document.getElementById('nf-cnpj').value.trim();
   const criticidade = document.getElementById('nf-criticidade').value;
   if (!nome) { toast('Informe o nome do fornecedor.'); return; }
+
+  const validacaoEmail = validarEmailFornecedor(email);
+  if (validacaoEmail.excedeuLimite) { toast(`Você pode adicionar até ${LIMITE_EMAILS_FORNECEDOR} e-mails.`); return; }
+  if (!validacaoEmail.ok) { toast(`E-mail inválido: ${validacaoEmail.invalidos.join(', ')}`); return; }
+  if (!validarTelefoneFornecedor(telefone)) { toast('Telefone inválido — confira o DDD e o número.'); return; }
+
   const d = db();
 
   if (d.limiteFornecedores !== null && d.fornecedores.length >= d.limiteFornecedores) {
@@ -1088,7 +1120,7 @@ function abrirEdicaoFornecedor(id) {
       <div class="form-group"><label>Setor</label><input type="text" id="ef-setor" value="${escapeHtml(f.setor)}"></div>
     </div>
     <div class="form-row" style="margin-bottom:10px; grid-template-columns:1fr 1fr 1fr">
-      <div class="form-group"><label>E-mail</label><input type="email" id="ef-email" value="${escapeHtml(f.email)}"></div>
+      <div class="form-group"><label>E-mail</label><input type="email" id="ef-email" value="${escapeHtml(f.email)}"><small style="color:var(--text-muted); font-size:12px;">Pode adicionar até 3 e-mails, separados por ";"</small></div>
       <div class="form-group"><label>Telefone</label><input type="text" id="ef-telefone" value="${escapeHtml(f.telefone)}" oninput="this.value = formatarTelefone(this.value)"></div>
       <div class="form-group"><label>CNPJ</label><input type="text" id="ef-cnpj" value="${escapeHtml(f.cnpj)}" oninput="this.value = formatarCNPJ(this.value)"></div>
     </div>
@@ -1115,6 +1147,14 @@ async function salvarEdicaoFornecedor(id) {
   if (!f) return;
   const nome = document.getElementById('ef-nome').value.trim();
   if (!nome) { toast('Informe o nome do fornecedor.'); return; }
+
+  const emailEdit = document.getElementById('ef-email').value.trim();
+  const telefoneEdit = document.getElementById('ef-telefone').value.trim();
+  const validacaoEmailEdit = validarEmailFornecedor(emailEdit);
+  if (validacaoEmailEdit.excedeuLimite) { toast(`Você pode adicionar até ${LIMITE_EMAILS_FORNECEDOR} e-mails.`); return; }
+  if (!validacaoEmailEdit.ok) { toast(`E-mail inválido: ${validacaoEmailEdit.invalidos.join(', ')}`); return; }
+  if (!validarTelefoneFornecedor(telefoneEdit)) { toast('Telefone inválido — confira o DDD e o número.'); return; }
+
   const extras = f.extras || {};
   d.camposFornecedorCustom.forEach(c => {
     const el = document.getElementById('ef-extra-' + c.chave);
@@ -1125,8 +1165,8 @@ async function salvarEdicaoFornecedor(id) {
     nome,
     tipo: document.getElementById('ef-tipo').value,
     setor: document.getElementById('ef-setor').value.trim(),
-    email: document.getElementById('ef-email').value.trim(),
-    telefone: document.getElementById('ef-telefone').value.trim(),
+    email: emailEdit,
+    telefone: telefoneEdit,
     endereco: document.getElementById('ef-endereco').value.trim(),
     cnpj: document.getElementById('ef-cnpj').value.trim(),
     criticidade: document.getElementById('ef-criticidade').value,

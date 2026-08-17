@@ -223,11 +223,18 @@ function renderAvFormularios() {
       : '';
 
     let prazoLinha = '';
-    if (form.prazoEntregaDia) {
+    // Formulário já enviado: usa o prazo (dias úteis) CONGELADO no momento
+    // do envio, não o valor atual do formulário — se o admin mudar depois,
+    // essa avaliação já feita não deve mudar de prazo. Pendente: usa o
+    // valor ao vivo, porque ainda não foi enviado.
+    const diasUteisEfetivo = jaPreenchido
+      ? (jaPreenchido.formularioSnapshot?.prazoEntregaDia ?? form.prazoEntregaDia)
+      : form.prazoEntregaDia;
+    if (diasUteisEfetivo) {
       const hoje = new Date();
-      const prazoFinal = prazoFinalDiasUteis(hoje.getFullYear(), hoje.getMonth(), form.prazoEntregaDia);
+      const prazoFinal = prazoFinalDiasUteis(hoje.getFullYear(), hoje.getMonth(), diasUteisEfetivo);
       const atrasado = hoje > prazoFinal && !jaPreenchido;
-      prazoLinha = `<span style="color:${atrasado ? 'var(--danger)' : 'var(--text-muted)'}">Prazo: até ${fmtDataSimples(prazoFinal.toISOString().slice(0,10))} (${form.prazoEntregaDia} dias úteis)${atrasado ? ' — atrasado' : ''}</span>`;
+      prazoLinha = `<span style="color:${atrasado ? 'var(--danger)' : 'var(--text-muted)'}">Prazo: até ${fmtDataSimples(prazoFinal.toISOString().slice(0,10))} (${diasUteisEfetivo} dias úteis)${atrasado ? ' — atrasado' : ''}</span>`;
     }
 
     const podeAbrirCard = !jaPreenchido || foiLiberado;
@@ -493,6 +500,10 @@ async function enviarAvaliacao() {
       tipo: form.tipo || null,
       criterios: form.criterios,
       descricaoAvaliado: form.descricaoAvaliado || null,
+      // Congela o prazo (em dias úteis) que valia nesse envio — se o admin
+      // mudar o prazo do formulário depois, essa avaliação já enviada
+      // continua mostrando o prazo de quando foi feita, não o novo.
+      prazoEntregaDia: form.prazoEntregaDia || null,
     },
     fornecedor_id: assoc.fornecedorId,
     usuario_id: currentUser.id,
@@ -1185,8 +1196,8 @@ function atualizarPreviaNotaProduto() {
       if (!justWrap.querySelector('textarea')) {
         justWrap.innerHTML = `
           <div class="form-group" style="margin-top:14px">
-            <label style="color:var(--danger)">Motivo do conceito "${faixa.nome}" (obrigatório)</label>
-            <textarea id="lp-justificativa-input" rows="3" placeholder="O que precisa melhorar para uma nota melhor na próxima nota fiscal..." style="border-color:var(--danger-border)"></textarea>
+            <label>Observações</label>
+            <textarea id="lp-justificativa-input" rows="3" placeholder="Alguma observação sobre esse lançamento (opcional)..."></textarea>
           </div>`;
       }
     } else {
@@ -1203,6 +1214,14 @@ async function salvarAvaliacaoProduto() {
 
   if (!estado || (!estado.id && !estado.novo)) { toast('Busque o CNPJ do fornecedor antes de lançar.'); return; }
   if (!data) { toast('Informe a data.'); return; }
+  if (!numeroNf) { toast('Informe o número da nota fiscal.'); return; }
+
+  // Fornecedor já existe? Então já dá pra checar se essa NF já foi avaliada
+  // antes de mexer em mais nada. Fornecedor "novo" nunca tem avaliação prévia.
+  if (estado.id && buscarAvaliacaoProduto(estado.id, numeroNf)) {
+    toast('Essa nota fiscal já foi avaliada para esse fornecedor.');
+    return;
+  }
 
   let nomeFornecedor = estado.id
     ? (d.fornecedores.find(f => f.id === estado.id)?.nome || '')
@@ -1267,16 +1286,14 @@ async function salvarAvaliacaoProduto() {
   // como ocorrência — só desconta de fato se o interruptor estiver ligado.
   const contaOcorrencia = !!(d.descontoOcorrenciaAtivo && notaGeral < 10);
 
-  // Se o conceito calculado for o pior da lista de faixas (ex: "Ruim"),
-  // a melhoria esperada é obrigatória — mesmo padrão já usado na avaliação
-  // de serviço pra "reprovado".
+  // Motivo do conceito virou "Observações" — não é mais obrigatório
+  // (só um campo livre pra quem quiser registrar algo, sem travar o salvar).
   const piorFaixa = [...d.faixasConceitoProduto].sort((a, b) => a.de - b.de)[0];
   const ehPiorFaixa = faixa && piorFaixa && faixa.nome === piorFaixa.nome;
   let justificativaConceito = '';
   if (ehPiorFaixa) {
     const justEl = document.getElementById('lp-justificativa-input');
     justificativaConceito = justEl ? justEl.value.trim() : '';
-    if (!justificativaConceito) { esconderProgresso(); toast(`Indique o motivo do conceito "${faixa.nome}" antes de salvar.`); return; }
   }
 
   // "Fotografia" dos critérios usados nesse lançamento — não quebra se
@@ -1410,7 +1427,7 @@ function verDetalheAvaliacaoProduto(id) {
     ` : ''}
     ${av.justificativa ? `
       <div style="margin-top:12px; padding:10px 12px; background:var(--surface2); border-radius:8px">
-        <p style="font-size:12px; font-weight:600; margin-bottom:4px">Motivo do conceito "${escapeHtml(av.conceito)}"</p>
+        <p style="font-size:12px; font-weight:600; margin-bottom:4px">Observações</p>
         <p style="font-size:12px">${escapeHtml(av.justificativa)}</p>
       </div>
     ` : ''}

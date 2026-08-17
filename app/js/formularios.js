@@ -8,10 +8,27 @@ function renderAdFormularios() {
       <button class="tab active" onclick="showFormTabAd('catalogo', this)">Catálogo</button>
       <button class="tab" onclick="showFormTabAd('criar', this)">Criar formulário</button>
       <button class="tab" id="tab-btn-associar" onclick="showFormTabAd('associar', this)">Associar a e-mail</button>
-      <button class="tab" onclick="showFormTabAd('campos', this)">Campos institucionais</button>
     </div>
 
     <div id="form-tab-catalogo" class="form-tab-ad">
+      <div class="card">
+        <div class="card-title"><span>Regras gerais de prazo e período</span></div>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px">Valem pra todos os formulários de uma vez — não é configuração de um formulário específico.</p>
+
+        <div class="cobranca-field-row" style="grid-template-columns:1fr 1fr; margin-bottom:0">
+          <div class="form-group" style="margin-bottom:0">
+            <label>Período avaliado${infoTip('Use isso se a avaliação do mês é sempre sobre o serviço prestado em mês(es) anterior(es) — ex: avaliar em Agosto o serviço prestado em Julho. Informe quantos meses de defasagem. Aparece pro avaliador e no e-mail do fornecedor. Deixe 0 se a avaliação é sempre sobre o mês corrente.')}</label>
+            <div class="input-suffix-group">
+              <input type="number" class="no-spinner" id="fm-periodo-avaliado-meses" min="0" max="12" step="1" value="${d.periodoAvaliadoMesesAntes || 0}">
+              <span>meses</span>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:0; display:flex; align-items:end">
+            <button class="btn btn-primary" onclick="salvarPeriodoAvaliadoFormularios()">Salvar</button>
+          </div>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-title">
           <span>Catálogo de formulários</span>
@@ -20,8 +37,11 @@ function renderAdFormularios() {
           </div>
         </div>
         <div id="lote-actions" style="display:none; margin-bottom:14px; padding:12px 14px; background:var(--accent-bg); border-radius:8px; align-items:center; gap:10px; flex-wrap:wrap">
-          <span style="font-size:12px; color:#1d4ed8">Selecione os formulários abaixo e defina a nova data:</span>
-          <input type="date" id="lote-data" style="width:160px; padding:6px 8px">
+          <span style="font-size:12px; color:#1d4ed8">Selecione os formulários abaixo e defina o novo prazo:</span>
+          <div class="input-suffix-group" style="max-width:110px">
+            <input type="number" class="no-spinner" id="lote-dias-uteis" min="1" max="99" step="1" placeholder="Ex: 10">
+            <span>dias úteis</span>
+          </div>
           <button class="btn btn-primary btn-sm" onclick="aplicarPrazoLote()">Aplicar aos selecionados</button>
         </div>
         <div id="formularios-catalogo"></div>
@@ -42,7 +62,7 @@ function renderAdFormularios() {
           <div></div>
         </div>
 
-        <p style="font-size:12px; font-weight:600; color:var(--text-sec); margin:6px 0 8px">Campos institucionais deste formulário</p>
+        <p style="font-size:12px; font-weight:600; color:var(--text-sec); margin:6px 0 8px">Campos institucionais deste formulário${infoTip('Os campos que você deixar preenchidos aqui viram automaticamente o padrão pros próximos formulários que você criar — não precisa cadastrar em outro lugar. Editar um formulário já existente não muda esse padrão, só afeta ele mesmo.')}</p>
         <div id="nfm-campos-extras" style="margin-bottom:16px"></div>
 
         <div id="nfm-criterios"></div>
@@ -79,28 +99,26 @@ function renderAdFormularios() {
         <div id="assoc-lista"></div>
       </div>
     </div>
-
-    <div id="form-tab-campos" class="form-tab-ad" style="display:none">
-      <div class="card">
-        <div class="card-title">Campos institucionais globais</div>
-        <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px">Esses campos aparecem por padrão em todo formulário novo (ex: Código do documento, Revisões). Você pode sempre editar o valor de um campo específico dentro de cada formulário.</p>
-        <div id="campos-globais-lista"></div>
-        <div style="display:flex; gap:8px; margin-top:12px; align-items:flex-end">
-          <div class="form-group" style="flex:1"><input type="text" id="cg-label" placeholder="Nome do campo (ex: Código)"></div>
-          <div class="form-group" style="flex:1"><input type="text" id="cg-valor" placeholder="Valor padrão (ex: Numero do documento)"></div>
-          <button class="btn btn-primary btn-sm" onclick="addCampoGlobal()">+ Adicionar</button>
-        </div>
-      </div>
-    </div>
   `;
   renderAssocLista();
   renderFormulariosCatalogo();
-  renderCamposGlobaisLista();
   window._criterioBuilder = [];
   window._camposExtrasBuilder = db().camposGlobais.map(c => ({ ...c }));
   window._editandoFormularioId = null;
   renderCriteriosBuilder();
   renderCamposExtrasBuilder();
+}
+
+async function salvarPeriodoAvaliadoFormularios() {
+  const meses = parseInt(document.getElementById('fm-periodo-avaliado-meses').value, 10) || 0;
+  mostrarCarregando('Salvando...');
+
+  const { error } = await supabaseClient.from('empresas').update({ periodo_avaliado_meses_antes: meses }).eq('id', currentUser.empresaId);
+  if (error) { esconderProgresso(); toast('Erro ao salvar: ' + error.message); return; }
+
+  empresaConfigCache.periodo_avaliado_meses_antes = meses;
+  addLog('config_periodo_avaliado', `${currentUser.email} mudou o período avaliado para ${meses} mês(es) antes`);
+  mostrarSucesso('Salvo!');
 }
 
 function showFormTabAd(tab, btn) {
@@ -110,51 +128,12 @@ function showFormTabAd(tab, btn) {
   btn.classList.add('active');
 }
 
-// ---- Campos institucionais globais ----
-function renderCamposGlobaisLista() {
-  const d = db();
-  const wrap = document.getElementById('campos-globais-lista');
-  if (!wrap) return;
-  if (!d.camposGlobais.length) { wrap.innerHTML = '<p style="font-size:12px; color:var(--text-muted)">Nenhum campo global definido.</p>'; return; }
-  wrap.innerHTML = d.camposGlobais.map((c, i) => `
-    <div style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px">
-      <span style="font-weight:500; min-width:140px">${c.label}</span>
-      <span style="color:var(--text-muted); flex:1">${c.valor}</span>
-      <button class="btn btn-danger btn-sm" onclick="removeCampoGlobal(${i})">Remover</button>
-    </div>
-  `).join('');
-}
-
-function addCampoGlobal() {
-  const label = document.getElementById('cg-label').value.trim();
-  const valor = document.getElementById('cg-valor').value.trim();
-  if (!label) { toast('Informe o nome do campo.'); return; }
-  const d = db();
-  d.camposGlobais.push({ chave: 'cg' + Date.now(), label, valor });
-  save('ap_campos_globais', d.camposGlobais);
-  addLog('campo_global_criado', `${currentUser.email} criou o campo institucional global "${label}"`);
-  document.getElementById('cg-label').value = '';
-  document.getElementById('cg-valor').value = '';
-  renderCamposGlobaisLista();
-  toast('Campo adicionado.');
-}
-
-function removeCampoGlobal(i) {
-  const d = db();
-  const c = d.camposGlobais[i];
-  if (!confirm(`Remover o campo "${c.label}"? Isso não altera formulários já criados.`)) return;
-  d.camposGlobais.splice(i, 1);
-  save('ap_campos_globais', d.camposGlobais);
-  addLog('campo_global_removido', `${currentUser.email} removeu o campo institucional global "${c.label}"`);
-  renderCamposGlobaisLista();
-}
-
 // ---- Campos extras por formulário (builder) ----
 function renderCamposExtrasBuilder() {
   const wrap = document.getElementById('nfm-campos-extras');
   if (!wrap) return;
   if (!window._camposExtrasBuilder.length) {
-    wrap.innerHTML = '<p style="font-size:12px; color:var(--text-muted)">Nenhum campo institucional. Adicione em "Campos institucionais" ou inclua um específico abaixo.</p>';
+    wrap.innerHTML = '<p style="font-size:12px; color:var(--text-muted)">Nenhum campo institucional ainda — adicione abaixo.</p>';
   } else {
     wrap.innerHTML = window._camposExtrasBuilder.map((c, i) => `
       <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px">
@@ -164,7 +143,7 @@ function renderCamposExtrasBuilder() {
       </div>
     `).join('');
   }
-  wrap.innerHTML += `<button class="btn btn-secondary btn-sm" onclick="addCampoExtraBuilder()" style="margin-top:4px">+ Campo específico deste formulário</button>`;
+  wrap.innerHTML += `<button class="btn btn-secondary btn-sm" onclick="addCampoExtraBuilder()" style="margin-top:4px">+ Campo institucional</button>`;
 }
 
 function addCampoExtraBuilder() {
@@ -184,20 +163,26 @@ function toggleModoLote() {
   renderFormulariosCatalogo();
 }
 
-function aplicarPrazoLote() {
-  const novaData = document.getElementById('lote-data').value;
-  if (!novaData) { toast('Selecione uma data.'); return; }
+async function aplicarPrazoLote() {
+  const diasUteis = parseInt(document.getElementById('lote-dias-uteis').value, 10);
+  if (!diasUteis || diasUteis < 1) { toast('Informe quantos dias úteis.'); return; }
   const checks = document.querySelectorAll('.lote-check:checked');
   if (!checks.length) { toast('Selecione ao menos um formulário.'); return; }
+  const ids = Array.from(checks).map(chk => chk.value);
+
+  mostrarCarregando('Atualizando prazo...');
+
+  const { error } = await supabaseClient.from('formularios').update({ prazo_entrega_dia: diasUteis }).in('id', ids);
+  if (error) { esconderProgresso(); toast('Erro ao atualizar: ' + error.message); return; }
+
   const d = db();
-  let count = 0;
-  checks.forEach(chk => {
-    const f = d.formularios.find(x => x.id === chk.value);
-    if (f) { f.prazoEntrega = novaData; count++; }
+  ids.forEach(id => {
+    const f = d.formularios.find(x => x.id === id);
+    if (f) f.prazoEntregaDia = diasUteis;
   });
-  save('ap_formularios', d.formularios);
-  addLog('prazo_lote_atualizado', `${currentUser.email} atualizou o prazo de entrega para ${novaData} em ${count} formulário(s)`);
-  toast(`Prazo atualizado em ${count} formulário(s).`);
+
+  addLog('prazo_lote_atualizado', `${currentUser.email} atualizou o prazo de entrega para ${diasUteis} dias úteis em ${ids.length} formulário(s)`);
+  mostrarSucesso(`Prazo atualizado em ${ids.length} formulário(s).`);
   window._modoLote = false;
   document.getElementById('lote-actions').style.display = 'none';
   document.getElementById('btn-lote-toggle').textContent = 'Atualizar prazo em lote';
@@ -373,6 +358,14 @@ async function salvarNovoFormulario() {
     const { error } = await supabaseClient.from('formularios').insert({ ...payload, empresa_id: currentUser.empresaId });
     if (error) { toast('Erro ao criar formulário: ' + error.message); return; }
     addLog('formulario_criado', `${currentUser.email} criou o formulário "${nome}" (setor: ${setor}, ${criterios.length} critérios)`);
+
+    // Memoriza os campos institucionais usados aqui como o novo padrão pros
+    // PRÓXIMOS formulários criados — só ao criar, nunca ao editar um já
+    // existente (editar um formulário específico não deve mudar o padrão
+    // global sem querer).
+    const { error: padraoErr } = await salvarConfigEmpresa('camposGlobaisPadrao', camposExtras);
+    if (padraoErr) console.error('Erro ao memorizar padrão de campos institucionais:', padraoErr.message);
+
     toast('Formulário criado! Agora associe a um e-mail na aba "Associar a e-mail".');
   }
 
