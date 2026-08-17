@@ -163,7 +163,7 @@ function renderLancarConferenciaTab() {
       </div>
       ${criteriosAtivos.filter(c => c.tipo === 'faixa').map(c => `
         <div class="form-group" style="margin-top:10px">
-          <label>${c.nome} <span style="color:var(--text-muted); font-weight:400">(desconta ${c.desconto_se_nao} se fora da faixa)</span></label>
+          <label>${c.nome} <span style="color:var(--text-muted); font-weight:400">(opcional — desconta ${c.desconto_se_nao} se fora da faixa)</span></label>
           <div class="form-row three">
             <div><span style="font-size:11px; color:var(--text-muted)">Recomendada mín. (${c.unidade})</span>
               <input type="number" step="0.1" class="cf-faixa-min" data-criterio-id="${c.id}"></div>
@@ -544,9 +544,19 @@ async function salvarConferencia() {
   if (acimaDoPeso) { toast('Tem critério com nota acima do limite máximo permitido — corrija antes de salvar.'); return; }
 
   criteriosAtivos.filter(c => c.tipo === 'faixa').forEach(c => {
-    const min = parseFloat(document.querySelector(`.cf-faixa-min[data-criterio-id="${c.id}"]`)?.value);
-    const max = parseFloat(document.querySelector(`.cf-faixa-max[data-criterio-id="${c.id}"]`)?.value);
-    const recebida = parseFloat(document.querySelector(`.cf-faixa-recebida[data-criterio-id="${c.id}"]`)?.value);
+    const minRaw = document.querySelector(`.cf-faixa-min[data-criterio-id="${c.id}"]`)?.value;
+    const maxRaw = document.querySelector(`.cf-faixa-max[data-criterio-id="${c.id}"]`)?.value;
+    const recebidaRaw = document.querySelector(`.cf-faixa-recebida[data-criterio-id="${c.id}"]`)?.value;
+
+    // Nem toda entrega tem esse tipo de conferência (ex: nem sempre dá pra
+    // medir temperatura) — se os 3 campos ficaram em branco, pula esse
+    // critério de vez: não bloqueia o salvamento e não entra nem no resumo
+    // do Avaliar nem no histórico de conferências.
+    if (!minRaw && !maxRaw && !recebidaRaw) return;
+
+    const min = parseFloat(minRaw);
+    const max = parseFloat(maxRaw);
+    const recebida = parseFloat(recebidaRaw);
     if (isNaN(min) || isNaN(max) || isNaN(recebida)) { faltando = true; return; }
 
     const dentro = recebida >= min && recebida <= max;
@@ -577,13 +587,15 @@ async function salvarConferencia() {
     return;
   }
 
+  mostrarCarregando('Salvando conferência...');
+
   let fornecedorId = estado.id;
   if (!fornecedorId) {
     const { data: novoForn, error: errForn } = await supabaseClient.from('fornecedores').insert({
       empresa_id: currentUser.empresaId, nome: nomeFornecedor, cnpj: formatarCNPJ(estado.cnpj),
       tipo: 'produto', ativo: true, diverso: true, campos_custom: {},
     }).select().single();
-    if (errForn) { toast('Erro ao cadastrar fornecedor: ' + errForn.message); return; }
+    if (errForn) { esconderProgresso(); toast('Erro ao cadastrar fornecedor: ' + errForn.message); return; }
     fornecedorId = novoForn.id;
     await carregarFornecedores();
   }
@@ -599,14 +611,14 @@ async function salvarConferencia() {
     enviado_por_email: currentUser.email,
   }).select().single();
 
-  if (error) { toast('Erro ao salvar conferência: ' + error.message); return; }
+  if (error) { esconderProgresso(); toast('Erro ao salvar conferência: ' + error.message); return; }
 
   if (typeof salvarRncsPendentesAoLancarConferencia === 'function' && Object.keys(_rncsPendentesLancamento || {}).length) {
     await salvarRncsPendentesAoLancarConferencia(conferenciaSalva, fornecedorId, numeroNf);
   }
 
   addLog('conferencia_lancada', `${currentUser.email} lançou conferência da NF ${numeroNf} do fornecedor "${nomeFornecedor}"`);
-  toast('Conferência salva!');
+  mostrarSucesso('Conferência salva!');
   await carregarConferencias();
   renderLancarConferenciaTab();
 }

@@ -574,7 +574,7 @@ async function renderAdConfig() {
       <div class="cobranca-cards">
 
       <div class="card" style="margin-bottom:0">
-        <div class="card-title"><span>Cobrança de documentos${infoTip('Quando ligado, o sistema manda sozinho o e-mail de "documento vencendo/vencido" pro fornecedor. Só vale pra documentos de Fornecedores com e-mail cadastrado.')}</span></div>
+        <div class="card-title"><span>Cobrança de documentos${infoTip('Quando ligado, o sistema envia automaticamente um e-mail avisando o fornecedor quando um documento dele está vencendo ou já venceu. Só funciona para fornecedores com e-mail cadastrado.')}</span></div>
         <p class="cobranca-card-sub">Avisa o fornecedor quando um documento tá vencendo.</p>
 
         <div class="cobranca-toggle-row">
@@ -585,7 +585,7 @@ async function renderAdConfig() {
           </label>
         </div>
 
-        <div class="cobranca-field-row" style="grid-template-columns:1fr 90px">
+        <div class="cobranca-field-row" style="grid-template-columns:1fr auto">
           <div class="form-group" style="margin-bottom:0">
             <label>Frequência</label>
             <select id="cfg-cobranca-frequencia">
@@ -596,16 +596,17 @@ async function renderAdConfig() {
             </select>
           </div>
           <div class="form-group" style="margin-bottom:0">
-            <label>Tolerância${infoTip('Se um documento continuar vencido por mais tempo que isso (em meses), mesmo já cobrado, você recebe um aviso à parte — e-mail + alerta no dashboard. Não bloqueia nada, é só um alerta de atenção.')}</label>
-            <input type="number" id="cfg-cobranca-tolerancia" min="1" step="1" value="${d.toleranciaDocumentosMeses}">
+            <label>Tolerância${infoTip('Isso não afeta o aviso que o fornecedor recebe — é um alarme só pra você: se um documento continuar vencido por mais tempo do que o número de meses definido aqui, mesmo já tendo sido cobrado, você recebe um aviso separado (e-mail + alerta no dashboard) chamando atenção pra esse caso específico.')}</label>
+            <div class="input-suffix-group">
+              <input type="number" class="no-spinner" id="cfg-cobranca-tolerancia" min="1" step="1" value="${d.toleranciaDocumentosMeses}">
+              <span>meses</span>
+            </div>
           </div>
         </div>
-
-        <button class="btn btn-primary btn-block" onclick="salvarConfigCobrancaAutomatica()">Salvar</button>
       </div>
 
       <div class="card" style="margin-bottom:0">
-        <div class="card-title"><span>Cobrança de plano de ação${infoTip('Quando ligado, o sistema manda sozinho um lembrete pro fornecedor que ainda não enviou o plano de ação de uma avaliação reprovada — reenviando os mesmos critérios/nota, com um selo amarelo de "lembrete" no lugar do vermelho. Para de cobrar quando você marcar como resolvido em Avaliações Recebidas.')}</span></div>
+        <div class="card-title"><span>Cobrança de plano de ação${infoTip('Quando ligado, o sistema envia lembretes automáticos ao fornecedor que ainda não enviou o plano de ação de uma avaliação reprovada. Os lembretes param sozinhos assim que você marcar o plano como resolvido, em Avaliações Recebidas.')}</span></div>
         <p class="cobranca-card-sub">Avisa o fornecedor que ainda não mandou o plano de ação.</p>
 
         <div class="cobranca-toggle-row">
@@ -616,22 +617,19 @@ async function renderAdConfig() {
           </label>
         </div>
 
-        <div style="display:flex; gap:8px; align-items:end">
-          <div class="form-group" style="margin-bottom:0; flex:1">
-            <label>Frequência (após o vencimento do prazo)</label>
-            <select id="cfg-plano-acao-cobranca-frequencia">
-              <option value="diaria" ${d.planoAcaoCobrancaFrequencia === 'diaria' ? 'selected' : ''}>Todo dia</option>
-              <option value="2dias" ${d.planoAcaoCobrancaFrequencia === '2dias' ? 'selected' : ''}>A cada 2 dias</option>
-              <option value="5dias" ${d.planoAcaoCobrancaFrequencia === '5dias' ? 'selected' : ''}>A cada 5 dias</option>
-              <option value="semanal" ${d.planoAcaoCobrancaFrequencia === 'semanal' ? 'selected' : ''}>1x/semana</option>
-            </select>
-          </div>
-          <button class="btn btn-primary" onclick="salvarConfigCobrancaPlanoAcao()">Salvar</button>
+        <div class="form-group" style="margin-bottom:0">
+          <label>Frequência (após o vencimento do prazo)</label>
+          <select id="cfg-plano-acao-cobranca-frequencia">
+            <option value="diaria" ${d.planoAcaoCobrancaFrequencia === 'diaria' ? 'selected' : ''}>Todo dia</option>
+            <option value="2dias" ${d.planoAcaoCobrancaFrequencia === '2dias' ? 'selected' : ''}>A cada 2 dias</option>
+            <option value="5dias" ${d.planoAcaoCobrancaFrequencia === '5dias' ? 'selected' : ''}>A cada 5 dias</option>
+            <option value="semanal" ${d.planoAcaoCobrancaFrequencia === 'semanal' ? 'selected' : ''}>1x/semana</option>
+          </select>
         </div>
       </div>
 
       <div class="card" style="margin-bottom:0">
-        <div class="card-title"><span>Lembrete pros avaliadores${infoTip('Manda e-mail sozinho pro avaliador quando ele tem avaliação pendente/atrasada, com o link de acesso. Você também pode disparar manualmente em Usuários → "Enviar lembrete pra todos os pendentes".')}</span></div>
+        <div class="card-title"><span>Lembrete pros avaliadores${infoTip('Quando ligado, envia um e-mail automático ao avaliador que tem avaliação pendente ou atrasada, com o link de acesso. Você também pode disparar na hora, a qualquer momento, em Usuários → "Enviar lembrete pra todos os pendentes".')}</span></div>
         <p class="cobranca-card-sub">Avisa quando tem avaliação pendente.</p>
 
         <div class="cobranca-toggle-row">
@@ -642,30 +640,27 @@ async function renderAdConfig() {
           </label>
         </div>
 
-        <div style="display:flex; gap:8px; align-items:end">
-          <div class="form-group" style="margin-bottom:0; flex:1">
-            <label>Frequência</label>
-            <select id="cfg-lembrete-frequencia">
-              <option value="chave" ${d.lembreteAvaliadorFrequencia === 'chave' ? 'selected' : ''}>Só 2x</option>
-              <option value="2dias" ${d.lembreteAvaliadorFrequencia === '2dias' ? 'selected' : ''}>A cada 2 dias</option>
-              <option value="semanal" ${d.lembreteAvaliadorFrequencia === 'semanal' ? 'selected' : ''}>1x/semana</option>
-              <option value="diaria" ${d.lembreteAvaliadorFrequencia === 'diaria' ? 'selected' : ''}>Todo dia</option>
-            </select>
-          </div>
-          <button class="btn btn-primary" onclick="salvarConfigLembreteAvaliador()">Salvar</button>
+        <div class="form-group" style="margin-bottom:0">
+          <label>Frequência</label>
+          <select id="cfg-lembrete-frequencia">
+            <option value="chave" ${d.lembreteAvaliadorFrequencia === 'chave' ? 'selected' : ''}>Só 2x</option>
+            <option value="2dias" ${d.lembreteAvaliadorFrequencia === '2dias' ? 'selected' : ''}>A cada 2 dias</option>
+            <option value="semanal" ${d.lembreteAvaliadorFrequencia === 'semanal' ? 'selected' : ''}>1x/semana</option>
+            <option value="diaria" ${d.lembreteAvaliadorFrequencia === 'diaria' ? 'selected' : ''}>Todo dia</option>
+          </select>
         </div>
       </div>
 
       <div class="card" style="margin-bottom:0">
-        <div class="card-title"><span>Período avaliado${infoTip('Se a avaliação do mês é sempre referente ao serviço prestado no(s) mês(es) anterior(es) — ex: avaliar em Agosto o serviço de Julho — informe quantos meses de defasagem. Aparece pro avaliador e no e-mail do fornecedor. Deixe 0 se é sempre do mês corrente.')}</span></div>
+        <div class="card-title"><span>Período avaliado${infoTip('Use isso se a avaliação do mês é sempre sobre o serviço prestado em mês(es) anterior(es) — ex: avaliar em Agosto o serviço prestado em Julho. Informe quantos meses de defasagem. Aparece pro avaliador e no e-mail do fornecedor. Deixe 0 se a avaliação é sempre sobre o mês corrente.')}</span></div>
         <p class="cobranca-card-sub">Meses de defasagem do serviço prestado.</p>
 
-        <div style="display:flex; gap:8px; align-items:end">
-          <div class="form-group" style="margin-bottom:0; flex:1">
-            <label>Meses antes</label>
-            <input type="number" id="cfg-periodo-avaliado-meses" min="0" max="12" step="1" value="${d.periodoAvaliadoMesesAntes || 0}">
+        <div class="form-group" style="margin-bottom:0">
+          <label>Meses antes</label>
+          <div class="input-suffix-group">
+            <input type="number" class="no-spinner" id="cfg-periodo-avaliado-meses" min="0" max="12" step="1" value="${d.periodoAvaliadoMesesAntes || 0}">
+            <span>meses</span>
           </div>
-          <button class="btn btn-primary" onclick="salvarConfigPeriodoAvaliado()">Salvar</button>
         </div>
       </div>
 
@@ -700,12 +695,10 @@ async function renderAdConfig() {
             </div>
           </div>
         </div>
-
-        <button class="btn btn-primary" onclick="salvarConfigNotifAvaliacao()">Salvar</button>
       </div>
 
       <div class="card" style="margin-bottom:0">
-        <div class="card-title"><span>Notificações internas${infoTip('Quando ligado, os admins marcados como "recebe notificação" (em Usuários) recebem um e-mail na hora — sem esperar cron — assim que um fornecedor envia documento, ou um avaliador conclui uma avaliação.')}</span></div>
+        <div class="card-title"><span>Notificações internas${infoTip('Quando ligado, os admins marcados como "recebe notificação" (em Usuários) recebem um e-mail imediato assim que um fornecedor envia um documento ou um avaliador conclui uma avaliação — sem esperar o próximo horário da rotina automática do sistema.')}</span></div>
         <p class="cobranca-card-sub">Avisa admins na hora.</p>
 
         <div class="cobranca-toggle-row" style="margin-bottom:0">
@@ -715,9 +708,13 @@ async function renderAdConfig() {
             <span class="switch-slider"></span>
           </label>
         </div>
-        <button class="btn btn-primary btn-block" style="margin-top:14px" onclick="salvarConfigNotificacaoAtividade()">Salvar</button>
       </div>
 
+      </div>
+
+      <div class="cobranca-save-bar">
+        <span>As alterações desta aba só valem depois de salvar.</span>
+        <button class="btn btn-primary" id="cobranca-save-btn" onclick="salvarConfigCobrancaTudo()">Salvar alterações</button>
       </div>
     </div>
 
@@ -817,41 +814,53 @@ function showConfigTabAd(tab, btn) {
   btn.classList.add('active');
 }
 
-async function salvarConfigCobrancaAutomatica() {
-  const ativa = document.getElementById('cfg-cobranca-ativa').checked;
-  const frequencia = document.getElementById('cfg-cobranca-frequencia').value;
+async function salvarConfigCobrancaTudo() {
+  const btn = document.getElementById('cobranca-save-btn');
+  if (btn) btn.disabled = true;
+  mostrarCarregando('Salvando...');
+
+  const cobrancaAtiva = document.getElementById('cfg-cobranca-ativa').checked;
+  const cobrancaFrequencia = document.getElementById('cfg-cobranca-frequencia').value;
   const tolerancia = parseInt(document.getElementById('cfg-cobranca-tolerancia').value, 10) || 6;
 
-  const { error } = await supabaseClient.from('empresas').update({
-    cobranca_automatica_ativa: ativa,
-    cobranca_automatica_frequencia: frequencia,
+  const planoAcaoAtiva = document.getElementById('cfg-plano-acao-cobranca-ativa').checked;
+  const planoAcaoFrequencia = document.getElementById('cfg-plano-acao-cobranca-frequencia').value;
+
+  const lembreteAtivo = document.getElementById('cfg-lembrete-ativo').checked;
+  const lembreteFrequencia = document.getElementById('cfg-lembrete-frequencia').value;
+
+  const periodoMeses = parseInt(document.getElementById('cfg-periodo-avaliado-meses').value, 10) || 0;
+
+  const notifModo = document.getElementById('cfg-notif-avaliacao-modo').value;
+  const notifIntervaloRaw = parseInt(document.getElementById('cfg-notif-avaliacao-intervalo').value, 10);
+  const notifIntervalo = Number.isFinite(notifIntervaloRaw) ? notifIntervaloRaw : 24;
+  const notifSituacoes = Array.from(document.querySelectorAll('#cfg-notif-situacoes-chips .notif-sit-chip.active')).map(el => el.dataset.sit);
+
+  const notifAtividadeAtivo = document.getElementById('cfg-notif-atividade-ativo').checked;
+
+  const payload = {
+    cobranca_automatica_ativa: cobrancaAtiva,
+    cobranca_automatica_frequencia: cobrancaFrequencia,
     tolerancia_documentos_meses: tolerancia,
-  }).eq('id', currentUser.empresaId);
+    plano_acao_cobranca_ativa: planoAcaoAtiva,
+    plano_acao_cobranca_frequencia: planoAcaoFrequencia,
+    lembrete_avaliador_ativo: lembreteAtivo,
+    lembrete_avaliador_frequencia: lembreteFrequencia,
+    periodo_avaliado_meses_antes: periodoMeses,
+    notif_avaliacao_modo: notifModo,
+    notif_avaliacao_intervalo_horas: notifIntervalo,
+    notif_avaliacao_situacoes: notifSituacoes,
+    notificar_atividade_ativo: notifAtividadeAtivo,
+  };
 
-  if (error) { toast('Erro ao salvar: ' + error.message); return; }
+  const { error } = await supabaseClient.from('empresas').update(payload).eq('id', currentUser.empresaId);
 
-  empresaConfigCache.cobranca_automatica_ativa = ativa;
-  empresaConfigCache.cobranca_automatica_frequencia = frequencia;
-  empresaConfigCache.tolerancia_documentos_meses = tolerancia;
-  addLog('config_cobranca_automatica', `${currentUser.email} ${ativa ? 'ativou' : 'desativou'} a cobrança automática (frequência: ${frequencia}, tolerância: ${tolerancia} meses)`);
-  toast('Configuração salva!');
-}
+  if (btn) btn.disabled = false;
+  if (error) { esconderProgresso(); toast('Erro ao salvar: ' + error.message); return; }
 
-async function salvarConfigCobrancaPlanoAcao() {
-  const ativa = document.getElementById('cfg-plano-acao-cobranca-ativa').checked;
-  const frequencia = document.getElementById('cfg-plano-acao-cobranca-frequencia').value;
-
-  const { error } = await supabaseClient.from('empresas').update({
-    plano_acao_cobranca_ativa: ativa,
-    plano_acao_cobranca_frequencia: frequencia,
-  }).eq('id', currentUser.empresaId);
-
-  if (error) { toast('Erro ao salvar: ' + error.message); return; }
-
-  empresaConfigCache.plano_acao_cobranca_ativa = ativa;
-  empresaConfigCache.plano_acao_cobranca_frequencia = frequencia;
-  addLog('config_cobranca_plano_acao', `${currentUser.email} ${ativa ? 'ativou' : 'desativou'} a cobrança automática de plano de ação (frequência: ${frequencia})`);
-  toast('Configuração salva!');
+  Object.assign(empresaConfigCache, payload);
+  addLog('config_cobranca_automatica', `${currentUser.email} atualizou as configurações de cobrança e notificação automática`);
+  mostrarSucesso('Alterações salvas!');
 }
 
 async function assinarPlano(plano) {
@@ -987,73 +996,8 @@ async function cancelarSolicitacaoExclusao() {
   renderAdConfig();
 }
 
-async function salvarConfigLembreteAvaliador() {
-  const ativo = document.getElementById('cfg-lembrete-ativo').checked;
-  const frequencia = document.getElementById('cfg-lembrete-frequencia').value;
-
-  const { error } = await supabaseClient.from('empresas').update({
-    lembrete_avaliador_ativo: ativo,
-    lembrete_avaliador_frequencia: frequencia,
-  }).eq('id', currentUser.empresaId);
-
-  if (error) { toast('Erro ao salvar: ' + error.message); return; }
-
-  empresaConfigCache.lembrete_avaliador_ativo = ativo;
-  empresaConfigCache.lembrete_avaliador_frequencia = frequencia;
-  addLog('config_lembrete_avaliador', `${currentUser.email} ${ativo ? 'ativou' : 'desativou'} o lembrete automático dos avaliadores (frequência: ${frequencia})`);
-  toast('Configuração salva!');
-}
-
-async function salvarConfigPeriodoAvaliado() {
-  const meses = parseInt(document.getElementById('cfg-periodo-avaliado-meses').value, 10) || 0;
-
-  const { error } = await supabaseClient.from('empresas').update({
-    periodo_avaliado_meses_antes: meses,
-  }).eq('id', currentUser.empresaId);
-
-  if (error) { toast('Erro ao salvar: ' + error.message); return; }
-
-  empresaConfigCache.periodo_avaliado_meses_antes = meses;
-  addLog('config_periodo_avaliado', `${currentUser.email} mudou o período avaliado para ${meses} mês(es) antes`);
-  toast('Configuração salva!');
-}
-
 function toggleChipSituacao(el) {
   el.classList.toggle('active');
-}
-
-async function salvarConfigNotifAvaliacao() {
-  const modo = document.getElementById('cfg-notif-avaliacao-modo').value;
-  const intervalo = parseInt(document.getElementById('cfg-notif-avaliacao-intervalo').value, 10);
-  const situacoes = Array.from(document.querySelectorAll('#cfg-notif-situacoes-chips .notif-sit-chip.active')).map(el => el.dataset.sit);
-
-  const { error } = await supabaseClient.from('empresas').update({
-    notif_avaliacao_modo: modo,
-    notif_avaliacao_intervalo_horas: Number.isFinite(intervalo) ? intervalo : 24,
-    notif_avaliacao_situacoes: situacoes,
-  }).eq('id', currentUser.empresaId);
-
-  if (error) { toast('Erro ao salvar: ' + error.message); return; }
-
-  empresaConfigCache.notif_avaliacao_modo = modo;
-  empresaConfigCache.notif_avaliacao_intervalo_horas = intervalo;
-  empresaConfigCache.notif_avaliacao_situacoes = situacoes;
-  addLog('config_notif_avaliacao', `${currentUser.email} mudou o modo de notificação automática de avaliação para "${modo}"${modo === 'automatico' ? ` (${intervalo}h)` : ''} — situações: ${situacoes.join(', ') || 'nenhuma'}`);
-  toast('Configuração salva!');
-}
-
-async function salvarConfigNotificacaoAtividade() {
-  const ativo = document.getElementById('cfg-notif-atividade-ativo').checked;
-
-  const { error } = await supabaseClient.from('empresas').update({
-    notificar_atividade_ativo: ativo,
-  }).eq('id', currentUser.empresaId);
-
-  if (error) { toast('Erro ao salvar: ' + error.message); return; }
-
-  empresaConfigCache.notificar_atividade_ativo = ativo;
-  addLog('config_notificacao_atividade', `${currentUser.email} ${ativo ? 'ativou' : 'desativou'} a notificação de atualizações por e-mail`);
-  toast('Configuração salva!');
 }
 
 // ============ LIXEIRA (soft delete de documentos/fornecedores) ============

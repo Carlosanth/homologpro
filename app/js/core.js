@@ -1092,6 +1092,17 @@ function buscarConferencia(fornecedorId, numeroNf) {
   return conferenciasCache.find(c => c.fornecedorId === fornecedorId && c.numeroNf.trim().toLowerCase() === nfNormalizada) || null;
 }
 
+// Nome de quem fez a conferência, pra mostrar no lugar do e-mail (mais
+// legível pro admin). "responsavel" é o nome da pessoa (profiles.nome na
+// verdade guarda o "Setor" — ver Usuários e acessos). Cai pro setor, e
+// por fim pro e-mail, se a pessoa não tiver responsável cadastrado ou já
+// tiver sido excluída.
+function nomeConferente(conferencia) {
+  if (!conferencia) return '—';
+  const usuario = db().usuarios.find(u => u.id === conferencia.usuarioId);
+  return (usuario && (usuario.responsavel || usuario.nome)) || conferencia.enviadoPorEmail || '—';
+}
+
 // Busca os documentos de fornecedores da empresa (metadado — o arquivo em
 // si mora no Supabase Storage, aqui só o caminho pra buscar quando precisar).
 async function carregarDocumentos() {

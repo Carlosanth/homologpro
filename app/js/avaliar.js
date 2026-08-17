@@ -1092,7 +1092,7 @@ function aplicarConferenciaVinculada() {
         inp.value = r.valor;
         inp.disabled = true;
         inp.dataset.travadoConferencia = '1';
-        inp.dataset.conferidoPor = conferencia.enviadoPorEmail || '';
+        inp.dataset.conferidoPor = nomeConferente(conferencia);
         inp.dataset.motivo = r.motivo || '';
         const critId = inp.dataset.criterioId;
         const motivoInpRegua = document.querySelector(`.lp-motivo-input[data-criterio-id="${critId}"]`);
@@ -1100,7 +1100,7 @@ function aplicarConferenciaVinculada() {
         const icone = document.getElementById(`lp-conf-icone-${critId}`);
         if (icone) {
           icone.innerHTML = ic('alertTriangle', 14);
-          icone.title = `Já conferido por ${conferencia.enviadoPorEmail || 'alguém do módulo Conferência'} — clique para detalhes`;
+          icone.title = `Já conferido por ${nomeConferente(conferencia)} — clique para detalhes`;
           icone.style.cursor = 'pointer';
           icone.onclick = () => toggleInfoConferenciaCriterio(critId);
         }
@@ -1116,7 +1116,13 @@ function aplicarConferenciaVinculada() {
           closedBox.style.background = 'var(--surface2)';
         }
         if (labelEl) {
-          labelEl.textContent = r.motivo ? `${r.motivo} (${r.valor}P)` : `${r.valor}P (já conferido)`;
+          const critProduto = db().criteriosProduto.find(x => x.id === critId);
+          const opcaoTexto = critProduto?.opcoes?.find(op => op.pontos === r.valor)?.label;
+          labelEl.textContent = r.motivo
+            ? `${r.motivo} (${r.valor}P)`
+            : opcaoTexto
+              ? `${opcaoTexto} (${r.valor}P)`
+              : `${r.valor}P (já conferido)`;
           labelEl.style.color = 'var(--text)';
         }
         verificarNotaProdutoLimites(inp);
@@ -1131,7 +1137,7 @@ function aplicarConferenciaVinculada() {
   const infoPartes = [...infoTextos, ...infoFaixas];
   if (infoBox) {
     infoBox.innerHTML = `<div style="margin:10px 0; padding:8px 12px; background:var(--surface2); border-radius:8px; font-size:12px; display:flex; align-items:center; gap:6px; flex-wrap:wrap">
-      ${ic('check', 13)} Conferência encontrada pra essa NF (por ${conferencia.enviadoPorEmail || '—'})${infoPartes.length ? ' — ' + infoPartes.join(' · ') : ''}${conferencia.descontoTotal > 0 ? ` — <span style="color:var(--danger)">desconto de ${conferencia.descontoTotal} ponto(s) será somado na nota</span>` : ''}
+      ${ic('check', 13)} Conferência encontrada pra essa NF (por ${nomeConferente(conferencia)})${infoPartes.length ? ' — ' + infoPartes.join(' · ') : ''}${conferencia.descontoTotal > 0 ? ` — <span style="color:var(--danger)">desconto de ${conferencia.descontoTotal} ponto(s) será somado na nota</span>` : ''}
     </div>`;
   }
   atualizarPreviaNotaProduto();
