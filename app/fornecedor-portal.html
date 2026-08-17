@@ -450,6 +450,7 @@ function renderDocumentos(documentos, pendentesIds, planoAcaoPendente) {
 
 // ---------- Plano de ação: modal de detalhe + upload ----------
 function abrirModalPlanoAcao(pa) {
+  window._paAtual = pa;
   const criteriosHtml = (pa.criterios || []).map(c => `
     <div class="modal-crit">
       <div><b>${c.nome}</b> — ${c.nota} de ${c.peso}</div>
@@ -457,6 +458,9 @@ function abrirModalPlanoAcao(pa) {
     </div>
   `).join('');
   const descontosHtml = (pa.descontos || []).map(d => `<div class="modal-crit">${d.motivo}: desconto de ${d.valor} ponto(s)</div>`).join('');
+  // Botão só aparece se algum critério tiver régua (opções) — sem isso não
+  // tem "ficha completa" nenhuma pra mostrar além do que já está na tela.
+  const temRegua = (pa.criterios || []).some(c => c.opcoes && c.opcoes.length);
 
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
@@ -469,6 +473,7 @@ function abrirModalPlanoAcao(pa) {
       ${criteriosHtml}
       ${descontosHtml}
       ${pa.justificativa ? `<div class="modal-crit"><b>Observações</b><br>${pa.justificativa}</div>` : ''}
+      ${temRegua ? `<button class="ver-arquivo-link" style="background:none; border:none; padding:0; margin-top:10px; cursor:pointer; font-size:13px" onclick="abrirPopupCriteriosCompletos()">${ICON_EYE} Ver critérios completos</button>` : ''}
 
       <label class="dropzone-label" style="margin-top:18px">Anexar plano de ação</label>
       <div class="dropzone" id="pa-filedrop" onclick="document.getElementById('pa-arquivo').click()">
@@ -483,6 +488,54 @@ function abrirModalPlanoAcao(pa) {
     </div>
   `;
   document.body.appendChild(overlay);
+}
+
+// Pop-up com a ficha completa (todos os critérios avaliados, com a régua
+// inteira de cada um quando existir) — separado do modal principal do plano
+// de ação, pra não poluir a tela padrão com informação que a maioria das
+// pessoas não precisa ver toda vez, só quando querem conferir tudo.
+function abrirPopupCriteriosCompletos() {
+  const pa = window._paAtual;
+  if (!pa) return;
+
+  const linhaCriterio = c => {
+    if (!c.opcoes || !c.opcoes.length) {
+      return `<div class="modal-crit">
+        <div><b>${c.nome}</b> — ${c.nota} de ${c.peso}</div>
+        ${c.motivo ? `<div class="motivo">${c.motivo}</div>` : ''}
+      </div>`;
+    }
+    const escolhida = c.opcoes.find(o => Math.abs(o.pontos - c.nota) < 0.01);
+    const opcoesHtml = c.opcoes.map(o => {
+      const sel = escolhida && o.label === escolhida.label && Math.abs(o.pontos - escolhida.pontos) < 0.01;
+      return `<div style="display:flex; justify-content:space-between; padding:4px 0; font-size:13px; ${sel ? 'font-weight:700; color:var(--accent, #175cd3)' : 'color:var(--text-muted)'}">
+        <span>${sel ? '●' : '○'} ${o.label}</span><span>${o.pontos.toFixed(1)}P</span>
+      </div>`;
+    }).join('');
+    return `<div class="modal-crit">
+      <div style="margin-bottom:6px"><b>${c.nome}</b> — ${c.nota} de ${c.peso}</div>
+      ${opcoesHtml}
+    </div>`;
+  };
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'pa-criterios-overlay';
+  overlay.innerHTML = `
+    <div class="modal-card">
+      <button class="modal-close" onclick="fecharPopupCriteriosCompletos()">&times;</button>
+      <h3>Critérios completos</h3>
+      <p class="modal-sub">${pa.titulo}</p>
+      ${(pa.criterios || []).map(linhaCriterio).join('')}
+      <button class="btn-submit" style="margin-top:16px" onclick="fecharPopupCriteriosCompletos()">Fechar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function fecharPopupCriteriosCompletos() {
+  const overlay = document.getElementById('pa-criterios-overlay');
+  if (overlay) overlay.remove();
 }
 
 function fecharModalPlanoAcao() {
