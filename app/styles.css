@@ -1109,19 +1109,26 @@ body {
 }
 
 .input-suffix-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  position: relative;
+  display: inline-block;
+  width: 100%;
+  max-width: 130px;
 }
 .input-suffix-group input {
-  width: 64px;
-  text-align: center;
-  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding-right: 52px;
+  text-align: left;
 }
 .input-suffix-group span {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
   font-size: 12.5px;
   color: var(--text-muted);
   white-space: nowrap;
+  pointer-events: none;
 }
 
 /* Barra flutuante única de "Salvar alterações" pra aba Cobrança
