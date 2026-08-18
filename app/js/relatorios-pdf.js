@@ -69,30 +69,36 @@ function gerarRelatorioAd() {
   let m = mesIni, a = anoIni;
   while (a < anoFim || (a === anoFim && m <= mesFim)) { periodos.push(`${a}-${m}`); m++; if (m > 12) { m = 1; a++; } }
 
-  const resultados = d.fornecedores.map(f => {
-    // Fornecedor de Produto: notas vêm da tabela de lançamentos de nota fiscal (avaliacoesProduto).
-    if (f.tipo === 'produto') {
-      const avsP = d.avaliacoesProduto.filter(av => av.fornecedorId === f.id && periodos.includes(periodoDeData(av.data)));
-      if (!avsP.length) return null;
+  const resultados = d.fornecedores.flatMap(f => {
+    const linhas = [];
+    // Fornecedor de Produto: qualquer fornecedor com lançamento de nota fiscal no
+    // período entra aqui, independente do "tipo" cadastrado — o cadastro pode
+    // estar como "serviço" e mesmo assim ter avaliação de produto lançada (a
+    // busca por CNPJ do Avaliar Produto não trava por tipo), então não dá pra
+    // confiar só no f.tipo pra decidir se o fornecedor aparece no relatório.
+    const avsP = d.avaliacoesProduto.filter(av => av.fornecedorId === f.id && periodos.includes(periodoDeData(av.data)));
+    if (avsP.length) {
       const media = avsP.reduce((s, av) => s + av.notaGeral, 0) / avsP.length;
       const sit = getSituacao(media);
       const avaliadorIds = [...new Set(avsP.map(av => av.usuarioId).filter(Boolean))];
-      return { ...f, media, sit, meses: avsP.length, totalMeses: periodos.length, avaliadorIds };
+      linhas.push({ ...f, id: `${f.id}__produto`, tipo: 'produto', media, sit, meses: avsP.length, totalMeses: periodos.length, avaliadorIds });
     }
-    // Fornecedor de Serviço: notas vêm da tabela de avaliações normais.
+    // Fornecedor de Serviço: mesma lógica, mas pelas avaliações normais.
     const avs = d.avaliacoes.filter(av => av.fornecedorId === f.id && periodos.includes(av.periodo) && !av.semServico);
-    if (!avs.length) return null;
-    const media = avs.reduce((s, av) => s + av.nota, 0) / avs.length;
-    const sit = getSituacao(media);
-    const avaliadorIds = [...new Set(avs.map(av => av.usuarioId).filter(Boolean))];
-    const formularioIdsUsados = [...new Set(avs.map(av => av.formularioId).filter(Boolean))];
-    const descricaoAvaliado = formularioIdsUsados
-      .map(fid => d.formularios.find(fm => fm.id === fid))
-      .map(fm => fm && fm.descricaoAvaliado)
-      .filter(Boolean)
-      .join(', ');
-    return { ...f, media, sit, meses: avs.length, totalMeses: periodos.length, avaliadorIds, descricaoAvaliado };
-  }).filter(Boolean);
+    if (avs.length) {
+      const media = avs.reduce((s, av) => s + av.nota, 0) / avs.length;
+      const sit = getSituacao(media);
+      const avaliadorIds = [...new Set(avs.map(av => av.usuarioId).filter(Boolean))];
+      const formularioIdsUsados = [...new Set(avs.map(av => av.formularioId).filter(Boolean))];
+      const descricaoAvaliado = formularioIdsUsados
+        .map(fid => d.formularios.find(fm => fm.id === fid))
+        .map(fm => fm && fm.descricaoAvaliado)
+        .filter(Boolean)
+        .join(', ');
+      linhas.push({ ...f, id: `${f.id}__servico`, tipo: 'servico', media, sit, meses: avs.length, totalMeses: periodos.length, avaliadorIds, descricaoAvaliado });
+    }
+    return linhas;
+  });
 
   const periodoLabel = `${MESES[mesIni]}/${anoIni}` + (mesIni === mesFim && anoIni === anoFim ? '' : ` a ${MESES[mesFim]}/${anoFim}`);
   const wrap = document.getElementById('relatorio-resultado-ad');
@@ -256,8 +262,7 @@ async function gerarPDFsAd(resultados, periodo) {
     const zip = new JSZip();
     resultados.forEach(r => {
       const pdf = gerarPDFDoc(r, periodo);
-      const sit = { certificado: 'Certificado', aprovado: 'Aprovado', parcial: 'Parcialmente_Aprovado', reprovado: 'Reprovado' }[r.sit];
-      zip.file(`${sit}_${r.nome.replace(/[^a-zA-Z0-9À-ÿ ]/g,'_')}.pdf`, pdf);
+      zip.file(nomeArquivoDoc(r), pdf);
     });
     const blob = await zip.generateAsync({ type: 'blob' });
     const url = URL.createObjectURL(blob);
@@ -272,7 +277,8 @@ async function gerarPDFsAd(resultados, periodo) {
 
 function nomeArquivoDoc(r) {
   const sit = { certificado: 'Certificado', aprovado: 'Aprovado', parcial: 'Parcialmente_Aprovado', reprovado: 'Reprovado' }[r.sit];
-  return `${sit}_${r.nome.replace(/[^a-zA-Z0-9À-ÿ ]/g,'_')}.pdf`;
+  const tipoTag = r.tipo === 'produto' ? 'Produto' : 'Servico';
+  return `${sit}_${tipoTag}_${r.nome.replace(/[^a-zA-Z0-9À-ÿ ]/g,'_')}.pdf`;
 }
 
 function baixarPDFIndividual(fornecedorId) {
