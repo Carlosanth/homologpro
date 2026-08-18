@@ -381,6 +381,29 @@ async function renderAdConfig() {
       </div>`;
   }
 
+  // Só aparece quando a empresa já cancelou a renovação da assinatura ou já
+  // confirmou a exclusão da conta (mesma condição conferida de novo no
+  // servidor, pela Edge Function solicitar-exportacao-dados).
+  let cardExportacaoDadosHtml = '';
+  if (isAdminMaster) {
+    const podeExportar = !!empresaConfigCache.exclusao_confirmada_em
+      || !!empresaConfigCache.renovacao_cancelada_em
+      || ['bloqueada', 'exclusao_agendada'].includes(empresaConfigCache.status);
+
+    if (podeExportar) {
+      cardExportacaoDadosHtml = `
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title">Exportar meus dados</div>
+          <p style="font-size:12px; color:var(--text-sec); margin-bottom:14px">
+            Baixe uma cópia completa de tudo que sua empresa tem na plataforma — fornecedores, avaliações, RNCs, documentos e notas fiscais — antes que sua conta seja encerrada.
+          </p>
+          <div id="exportacao-dados-conteudo">
+            <button class="btn btn-secondary btn-block" onclick="solicitarExportacaoDados()">Exportar meus dados</button>
+          </div>
+        </div>`;
+    }
+  }
+
   document.getElementById('ad-page-config').innerHTML = `
     <div class="page-header"><div><h2>Configurações</h2><p>Matriz de qualificação, layout dos documentos e dados da empresa</p></div></div>
 
@@ -767,6 +790,8 @@ async function renderAdConfig() {
 
         ${zonaRiscoHtml}
 
+        ${cardExportacaoDadosHtml}
+
         ${notasFiscaisCardHtml(notasFiscaisCliente || [])}
 
       </div>
@@ -978,6 +1003,75 @@ async function cancelarSolicitacaoExclusao() {
     : 'Exclusão cancelada. Sua assinatura já tinha encerrado — assine de novo quando quiser reativar o acesso.');
   await carregarEmpresaConfig();
   renderAdConfig();
+}
+
+// Dispara a exportação (a Edge Function monta a planilha na hora e levanta
+// a lista de arquivos) e já entra no acompanhamento de progresso, que fica
+// perguntando pro banco a cada 5s até a exportação terminar (processada em
+// lotes pelo cron processar-exportacoes-pendentes).
+async function solicitarExportacaoDados() {
+  const container = document.getElementById('exportacao-dados-conteudo');
+  if (!container) return;
+  container.innerHTML = `<div style="font-size:13px; color:var(--text-muted)">Iniciando exportação...</div>`;
+
+  const { data, error } = await supabaseClient.functions.invoke('solicitar-exportacao-dados', { body: {} });
+
+  if (error || !data || data.ok === false) {
+    container.innerHTML = `
+      <div style="font-size:13px; color:var(--danger)">${escapeHtml((data && data.error) || 'Não foi possível iniciar a exportação agora.')}</div>
+      <button class="btn btn-secondary" style="margin-top:8px" onclick="solicitarExportacaoDados()">Tentar de novo</button>`;
+    return;
+  }
+
+  acompanharExportacao(data.exportacaoId);
+}
+
+let _pollExportacaoInterval = null;
+
+async function acompanharExportacao(exportacaoId) {
+  if (_pollExportacaoInterval) clearInterval(_pollExportacaoInterval);
+
+  async function atualizar() {
+    const container = document.getElementById('exportacao-dados-conteudo');
+    if (!container) { clearInterval(_pollExportacaoInterval); return; } // saiu da tela de Config
+
+    const { data: exp, error } = await supabaseClient
+      .from('exportacoes_dados')
+      .select('status, total_arquivos, arquivos_processados, erro')
+      .eq('id', exportacaoId)
+      .single();
+
+    if (error || !exp) return; // tenta de novo no próximo tick
+
+    if (exp.status === 'erro') {
+      clearInterval(_pollExportacaoInterval);
+      container.innerHTML = `
+        <div style="font-size:13px; color:var(--danger)">Ocorreu um erro na exportação${exp.erro ? ': ' + escapeHtml(exp.erro) : '.'}</div>
+        <button class="btn btn-secondary" style="margin-top:8px" onclick="solicitarExportacaoDados()">Tentar de novo</button>`;
+      return;
+    }
+
+    if (exp.status === 'concluido') {
+      clearInterval(_pollExportacaoInterval);
+      container.innerHTML = `<div style="font-size:13px; color:var(--success)">✓ Exportação pronta — enviamos o link de download pro seu e-mail.</div>`;
+      return;
+    }
+
+    const total = exp.total_arquivos || 0;
+    const feitos = exp.arquivos_processados || 0;
+    const percentual = total > 0 ? Math.round((feitos / total) * 100) : 0;
+
+    container.innerHTML = `
+      <div style="font-size:13px; color:var(--text-muted); margin-bottom:6px">
+        Exportando... ${total > 0 ? `${feitos} de ${total} arquivos processados` : 'preparando os dados'}
+      </div>
+      <div style="background:var(--surface2); border-radius:6px; height:6px; overflow:hidden">
+        <div style="background:var(--accent); height:100%; width:${percentual}%; transition:width .3s"></div>
+      </div>`;
+  }
+
+  await atualizar();
+  _pollExportacaoInterval = setInterval(atualizar, 5000);
 }
 
 function toggleChipSituacao(el) {
