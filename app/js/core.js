@@ -188,7 +188,7 @@ function db() {
     periodoAvaliadoMesesAntes: empresaConfigCache.periodo_avaliado_meses_antes || 0,
     planoAcaoCobrancaAtiva: empresaConfigCache.plano_acao_cobranca_ativa || false,
     planoAcaoCobrancaFrequencia: empresaConfigCache.plano_acao_cobranca_frequencia || 'diaria',
-    notificarAtividadeAtivo: empresaConfigCache.notificar_atividade_ativo,
+    notificacoesPausadasAte: empresaConfigCache.notificacoes_pausadas_ate || null,
     criteriosConferencia: criteriosConferenciaCache,
     rncModelos: rncModelosCache,
     conferencias: conferenciasCache,
@@ -925,7 +925,7 @@ async function carregarEmpresaConfig() {
 
   const { data, error } = await supabaseClient
     .from('empresas')
-    .select('nome, setor, campos_fornecedor_custom, colunas_fornecedor_visiveis, tipos_documento, faixas_conceito_produto, desconto_ocorrencia_ativo, valor_desconto_ocorrencia, anos_retencao_avaliacao, config, status, plano, trial_termina_em, limite_fornecedores, limite_admins, cobranca_automatica_ativa, cobranca_automatica_frequencia, tolerancia_documentos_meses, lembrete_avaliador_ativo, lembrete_avaliador_frequencia, notificar_atividade_ativo, notif_avaliacao_modo, notif_avaliacao_intervalo_horas, notif_avaliacao_situacoes, periodo_avaliado_meses_antes, plano_acao_cobranca_ativa, plano_acao_cobranca_frequencia, valor_mensal_atual, plano_ativo_desde, proxima_cobranca_em, proximo_valor_mensal, proximo_reajuste_em, enterprise_composicao, desconto_doc_vencido_ativo, valor_desconto_doc_vencido, conferencia_cabecalho, exclusao_confirmada_em, exclusao_agendada_para')
+    .select('nome, setor, campos_fornecedor_custom, colunas_fornecedor_visiveis, tipos_documento, faixas_conceito_produto, desconto_ocorrencia_ativo, valor_desconto_ocorrencia, anos_retencao_avaliacao, config, status, plano, trial_termina_em, limite_fornecedores, limite_admins, cobranca_automatica_ativa, cobranca_automatica_frequencia, tolerancia_documentos_meses, lembrete_avaliador_ativo, lembrete_avaliador_frequencia, notificacoes_pausadas_ate, notif_avaliacao_modo, notif_avaliacao_intervalo_horas, notif_avaliacao_situacoes, periodo_avaliado_meses_antes, plano_acao_cobranca_ativa, plano_acao_cobranca_frequencia, valor_mensal_atual, plano_ativo_desde, proxima_cobranca_em, proximo_valor_mensal, proximo_reajuste_em, enterprise_composicao, desconto_doc_vencido_ativo, valor_desconto_doc_vencido, conferencia_cabecalho, exclusao_confirmada_em, exclusao_agendada_para, renovacao_cancelada_em')
     .eq('id', currentUser.empresaId)
     .single();
 
@@ -954,7 +954,7 @@ async function carregarEmpresaConfig() {
     tolerancia_documentos_meses: data.tolerancia_documentos_meses ?? 6,
     lembrete_avaliador_ativo: !!data.lembrete_avaliador_ativo,
     lembrete_avaliador_frequencia: data.lembrete_avaliador_frequencia || 'chave',
-    notificar_atividade_ativo: !!data.notificar_atividade_ativo,
+    notificacoes_pausadas_ate: data.notificacoes_pausadas_ate || null,
     notif_avaliacao_modo: data.notif_avaliacao_modo || 'desligado',
     notif_avaliacao_intervalo_horas: data.notif_avaliacao_intervalo_horas ?? 24,
     notif_avaliacao_situacoes: data.notif_avaliacao_situacoes || ['reprovado'],
@@ -971,6 +971,7 @@ async function carregarEmpresaConfig() {
     valor_desconto_doc_vencido: data.valor_desconto_doc_vencido ?? 1,
     conferencia_cabecalho: data.conferencia_cabecalho || [],
     exclusao_confirmada_em: data.exclusao_confirmada_em || null,
+    renovacao_cancelada_em: data.renovacao_cancelada_em || null,
     exclusao_agendada_para: data.exclusao_agendada_para || null,
   };
 }

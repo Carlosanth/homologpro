@@ -707,19 +707,6 @@ async function renderAdConfig() {
         </div>
       </div>
 
-      <div class="card" style="margin-bottom:0">
-        <div class="card-title"><span>Notificações internas${infoTip('Quando ligado, os admins marcados como "recebe notificação" (em Usuários) recebem um e-mail imediato assim que um fornecedor envia um documento ou um avaliador conclui uma avaliação — sem esperar o próximo horário da rotina automática do sistema.')}</span></div>
-        <p class="cobranca-card-sub">Avisa admins na hora.</p>
-
-        <div class="cobranca-toggle-row" style="margin-bottom:0">
-          <span>Ativar</span>
-          <label class="switch">
-            <input type="checkbox" id="cfg-notif-atividade-ativo" ${d.notificarAtividadeAtivo ? 'checked' : ''}>
-            <span class="switch-slider"></span>
-          </label>
-        </div>
-      </div>
-
       </div>
 
       <div class="cobranca-save-bar">
@@ -846,8 +833,6 @@ async function salvarConfigCobrancaTudo() {
   const notifIntervalo = Number.isFinite(notifIntervaloRaw) ? notifIntervaloRaw : 24;
   const notifSituacoes = Array.from(document.querySelectorAll('#cfg-notif-situacoes-chips .notif-sit-chip.active')).map(el => el.dataset.sit);
 
-  const notifAtividadeAtivo = document.getElementById('cfg-notif-atividade-ativo').checked;
-
   const payload = {
     cobranca_automatica_ativa: cobrancaAtiva,
     cobranca_automatica_frequencia: cobrancaFrequencia,
@@ -859,7 +844,6 @@ async function salvarConfigCobrancaTudo() {
     notif_avaliacao_modo: notifModo,
     notif_avaliacao_intervalo_horas: notifIntervalo,
     notif_avaliacao_situacoes: notifSituacoes,
-    notificar_atividade_ativo: notifAtividadeAtivo,
   };
 
   const { error } = await supabaseClient.from('empresas').update(payload).eq('id', currentUser.empresaId);

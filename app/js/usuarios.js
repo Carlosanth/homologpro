@@ -1,10 +1,83 @@
 // ============ USUÁRIOS E ACESSOS ============
+
+// Card de "Notificações internas" — antes era um liga/desliga permanente
+// dentro de Configurações > Cobrança automática, meio escondido e
+// redundante com o "recebe notificação" de cada usuário aqui embaixo.
+// Virou uma pausa temporária: por padrão sempre ativo (quem recebe já é
+// controlado pelo checkbox de cada usuário), com uma opção de silenciar
+// por um tempo em vez de ter que desmarcar usuário por usuário.
+function renderCardNotificacoesInternas(d) {
+  const pausadaAte = d.notificacoesPausadasAte ? new Date(d.notificacoesPausadasAte) : null;
+  const pausadaAgora = pausadaAte && pausadaAte > new Date();
+  const indefinida = pausadaAte && (pausadaAte.getFullYear() - new Date().getFullYear() > 5);
+
+  if (pausadaAgora) {
+    return `
+    <div class="card">
+      <div class="card-title"><span>Notificações internas</span></div>
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px">
+        <p style="font-size:13px; color:var(--text-muted); margin:0">
+          ${ic('alertTriangle', 13)} Pausadas ${indefinida ? 'até você reativar' : `até ${fmtData(d.notificacoesPausadasAte)}`} — fornecedor enviar documento ou plano de ação não vai avisar ninguém enquanto isso.
+        </p>
+        <button class="btn btn-primary btn-sm" onclick="reativarNotificacoesInternas()">Reativar agora</button>
+      </div>
+    </div>`;
+  }
+
+  return `
+    <div class="card">
+      <div class="card-title"><span>Notificações internas${infoTip('Assim que um fornecedor envia um documento ou responde um plano de ação, os admins marcados como "recebe notificação" (abaixo) recebem um e-mail na hora. Fica sempre ativo por padrão — use a pausa só se precisar de silêncio temporário, por exemplo se estiver importando muitos dados de uma vez.')}</span></div>
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px">
+        <p style="font-size:13px; color:var(--text-muted); margin:0">Ativas — avisando quem está marcado como "recebe notificação" abaixo.</p>
+        <div style="display:flex; align-items:center; gap:8px">
+          <select id="notif-pausa-duracao" style="width:auto">
+            <option value="60">Por 1 hora</option>
+            <option value="240">Por 4 horas</option>
+            <option value="1440">Por 24 horas</option>
+            <option value="indefinido">Até eu reativar</option>
+          </select>
+          <button class="btn btn-secondary btn-sm" onclick="pausarNotificacoesInternas()">Pausar</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function pausarNotificacoesInternas() {
+  const escolha = document.getElementById('notif-pausa-duracao').value;
+  const pausarAte = escolha === 'indefinido'
+    ? new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000) // "indefinido" = daqui a 100 anos, só o botão "Reativar agora" acaba com isso antes
+    : new Date(Date.now() + parseInt(escolha, 10) * 60 * 1000);
+
+  mostrarCarregando('Pausando...');
+  const { error } = await supabaseClient.from('empresas').update({ notificacoes_pausadas_ate: pausarAte.toISOString() }).eq('id', currentUser.empresaId);
+  if (error) { esconderProgresso(); toast('Erro ao pausar: ' + error.message); return; }
+
+  empresaConfigCache.notificacoes_pausadas_ate = pausarAte.toISOString();
+  addLog('notificacoes_internas_pausadas', `${currentUser.email} pausou as notificações internas ${escolha === 'indefinido' ? 'até reativar manualmente' : `por ${escolha} minutos`}`);
+  mostrarSucesso('Pausado!');
+  renderAdUsuarios();
+}
+
+async function reativarNotificacoesInternas() {
+  mostrarCarregando('Reativando...');
+  const { error } = await supabaseClient.from('empresas').update({ notificacoes_pausadas_ate: null }).eq('id', currentUser.empresaId);
+  if (error) { esconderProgresso(); toast('Erro ao reativar: ' + error.message); return; }
+
+  empresaConfigCache.notificacoes_pausadas_ate = null;
+  addLog('notificacoes_internas_reativadas', `${currentUser.email} reativou as notificações internas`);
+  mostrarSucesso('Reativado!');
+  renderAdUsuarios();
+}
+
 function renderAdUsuarios() {
   const d = db();
   const totalAvaliadoresPendentes = d.usuarios.filter(u => u.papel === 'avaliador' && u.ativo && contarPendentesAvaliador(d, u.id).pendentes > 0).length;
 
   document.getElementById('ad-page-usuarios').innerHTML = `
     <div class="page-header"><div><h2>Usuários e acessos</h2><p>Quem pode acessar o sistema. Apenas admins podem criar ou alterar senhas.</p></div></div>
+
+    ${renderCardNotificacoesInternas(d)}
+
     <div class="card">
       <div class="card-title">Novo usuário</div>
       <div class="form-row three">
