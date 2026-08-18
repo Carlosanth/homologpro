@@ -1,6 +1,6 @@
 // relatorios-pdf.js
-// versão: 01
-// última atualização: 18/08/2026 07:50
+// versão: 02
+// última atualização: 18/08/2026 20:20
 
 // ============ RELATÓRIO & PDFs ============
 // ---------- RELATÓRIO & PDFs ----------
@@ -60,7 +60,104 @@ function periodoDeData(dataStr) {
   return `${parseInt(ano, 10)}-${parseInt(mes, 10)}`;
 }
 
-function gerarRelatorioAd() {
+// ---- Desconto por documentação vencida, calculado por período ----
+// Substitui o antigo desconto fixo "por lançamento de NF". Agora, no
+// fechamento do período (aqui, na geração do relatório/certificado/carta),
+// olhamos o HISTÓRICO de validade de cada documento do fornecedor
+// (documentos_historico_validade) e calculamos quantos dias, dentro do
+// período selecionado, o fornecedor ficou com pelo menos um documento
+// vencido — a mesma regra "um dia vencido conta uma vez só, não importa
+// quantos documentos estejam vencidos" que já valia no desconto antigo.
+
+function _diaUTC(valor) {
+  // Normaliza qualquer data (string "YYYY-MM-DD", timestamptz, ou Date) pro
+  // início do dia em UTC, só pra poder somar/subtrair em dias sem sustos de
+  // fuso horário.
+  const d = valor instanceof Date ? valor : new Date(valor);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
+function _somaDias(dataUTC, dias) {
+  return new Date(dataUTC.getTime() + dias * 86400000);
+}
+
+// Busca o histórico de validade de todos os documentos da empresa de uma
+// vez (mais barato que ficar consultando fornecedor a fornecedor) e agrupa
+// por fornecedor, já em segmentos ordenados por data.
+async function _buscarHistoricoValidadePorFornecedor() {
+  const { data, error } = await supabaseClient
+    .from('documentos_historico_validade')
+    .select('documento_id, fornecedor_id, validade_nova, alterado_em')
+    .eq('empresa_id', currentUser.empresaId)
+    .order('alterado_em', { ascending: true });
+
+  if (error) {
+    console.error('Erro ao carregar histórico de validade:', error.message);
+    return {};
+  }
+
+  const porFornecedor = {};
+  (data || []).forEach(row => {
+    if (!porFornecedor[row.fornecedor_id]) porFornecedor[row.fornecedor_id] = {};
+    const porDoc = porFornecedor[row.fornecedor_id];
+    if (!porDoc[row.documento_id]) porDoc[row.documento_id] = [];
+    porDoc[row.documento_id].push({ validade: row.validade_nova, desde: new Date(row.alterado_em) });
+  });
+  return porFornecedor;
+}
+
+// Dado o histórico de um fornecedor (já agrupado por documento) e um
+// período [periodoIni, periodoFim] (Date, em dia UTC), retorna quantos dias
+// desse período o fornecedor ficou com PELO MENOS UM documento vencido.
+function _diasComDocumentoVencidoNoPeriodo(historicoPorDoc, periodoIni, periodoFim) {
+  if (!historicoPorDoc || periodoFim < periodoIni) return 0;
+  const agora = _diaUTC(new Date());
+  const fimReal = periodoFim > agora ? agora : periodoFim; // não conta dias no futuro
+
+  // Junta os intervalos "vencido" de todos os documentos do fornecedor.
+  const intervalos = [];
+  Object.values(historicoPorDoc).forEach(registros => {
+    for (let i = 0; i < registros.length; i++) {
+      const segIni = _diaUTC(registros[i].desde);
+      const segFim = i + 1 < registros.length ? _diaUTC(registros[i + 1].desde) : _somaDias(fimReal, 1);
+      if (!registros[i].validade) continue; // documento sem validade cadastrada — não conta
+      const vencidoDesde = _somaDias(_diaUTC(registros[i].validade), 1); // primeiro dia já vencido
+      const ini = vencidoDesde > segIni ? vencidoDesde : segIni;
+      const fim = segFim;
+      // recorta pro período que estamos calculando
+      const iniRecortado = ini > periodoIni ? ini : periodoIni;
+      const fimRecortado = fim < _somaDias(fimReal, 1) ? fim : _somaDias(fimReal, 1);
+      if (iniRecortado < fimRecortado) intervalos.push([iniRecortado.getTime(), fimRecortado.getTime()]);
+    }
+  });
+  if (!intervalos.length) return 0;
+
+  // Une os intervalos (união) e soma os dias cobertos.
+  intervalos.sort((a, b) => a[0] - b[0]);
+  let totalMs = 0;
+  let [curIni, curFim] = intervalos[0];
+  for (let i = 1; i < intervalos.length; i++) {
+    const [ini, fim] = intervalos[i];
+    if (ini <= curFim) { if (fim > curFim) curFim = fim; }
+    else { totalMs += curFim - curIni; curIni = ini; curFim = fim; }
+  }
+  totalMs += curFim - curIni;
+  return Math.round(totalMs / 86400000);
+}
+
+// Calcula o desconto (em pontos) pra um fornecedor num período, já
+// aplicando intervalo em dias e teto configurados.
+function _calcularDescontoDocVencido(d, historicoPorFornecedor, fornecedorId, periodoIni, periodoFim) {
+  const dias = _diasComDocumentoVencidoNoPeriodo(historicoPorFornecedor[fornecedorId], periodoIni, periodoFim);
+  if (!dias) return { dias: 0, desconto: 0 };
+  const intervalo = d.descontoDocVencidoDiasIntervalo || 15;
+  const intervalosCompletos = Math.floor(dias / intervalo);
+  let desconto = intervalosCompletos * d.valorDescontoDocVencido;
+  if (d.descontoDocVencidoMax != null) desconto = Math.min(desconto, d.descontoDocVencidoMax);
+  return { dias, desconto };
+}
+
+async function gerarRelatorioAd() {
   const mesIni = parseInt(document.getElementById('rel-mes-ini').value);
   const anoIni = parseInt(document.getElementById('rel-ano-ini').value);
   const mesFim = parseInt(document.getElementById('rel-mes-fim').value);
@@ -73,6 +170,13 @@ function gerarRelatorioAd() {
   let m = mesIni, a = anoIni;
   while (a < anoFim || (a === anoFim && m <= mesFim)) { periodos.push(`${a}-${m}`); m++; if (m > 12) { m = 1; a++; } }
 
+  const periodoIniUTC = new Date(Date.UTC(anoIni, mesIni - 1, 1));
+  const periodoFimUTC = new Date(Date.UTC(anoFim, mesFim, 0)); // último dia do mês final
+
+  const descontoAtivo = d.descontoDocVencidoAtivo;
+  const aplicaEm = d.descontoDocVencidoAplicaEm || 'produto';
+  const historicoPorFornecedor = descontoAtivo ? await _buscarHistoricoValidadePorFornecedor() : {};
+
   const resultados = d.fornecedores.flatMap(f => {
     const linhas = [];
     // Fornecedor de Produto: qualquer fornecedor com lançamento de nota fiscal no
@@ -82,16 +186,20 @@ function gerarRelatorioAd() {
     // confiar só no f.tipo pra decidir se o fornecedor aparece no relatório.
     const avsP = d.avaliacoesProduto.filter(av => av.fornecedorId === f.id && periodos.includes(periodoDeData(av.data)));
     if (avsP.length) {
-      const media = avsP.reduce((s, av) => s + av.notaGeral, 0) / avsP.length;
-      const sit = getSituacao(media);
+      let media = avsP.reduce((s, av) => s + av.notaGeral, 0) / avsP.length;
       const avaliadorIds = [...new Set(avsP.map(av => av.usuarioId).filter(Boolean))];
-      linhas.push({ ...f, id: `${f.id}__produto`, tipo: 'produto', media, sit, meses: avsP.length, totalMeses: periodos.length, avaliadorIds });
+      let descontoDocVencido = null;
+      if (descontoAtivo && (aplicaEm === 'produto' || aplicaEm === 'ambos')) {
+        const { dias, desconto } = _calcularDescontoDocVencido(d, historicoPorFornecedor, f.id, periodoIniUTC, periodoFimUTC);
+        if (desconto > 0) { descontoDocVencido = { dias, desconto }; media = Math.max(0, media - desconto); }
+      }
+      const sit = getSituacao(media);
+      linhas.push({ ...f, id: `${f.id}__produto`, tipo: 'produto', media, sit, meses: avsP.length, totalMeses: periodos.length, avaliadorIds, descontoDocVencido });
     }
     // Fornecedor de Serviço: mesma lógica, mas pelas avaliações normais.
     const avs = d.avaliacoes.filter(av => av.fornecedorId === f.id && periodos.includes(av.periodo) && !av.semServico);
     if (avs.length) {
-      const media = avs.reduce((s, av) => s + av.nota, 0) / avs.length;
-      const sit = getSituacao(media);
+      let media = avs.reduce((s, av) => s + av.nota, 0) / avs.length;
       const avaliadorIds = [...new Set(avs.map(av => av.usuarioId).filter(Boolean))];
       const formularioIdsUsados = [...new Set(avs.map(av => av.formularioId).filter(Boolean))];
       const descricaoAvaliado = formularioIdsUsados
@@ -99,7 +207,13 @@ function gerarRelatorioAd() {
         .map(fm => fm && fm.descricaoAvaliado)
         .filter(Boolean)
         .join(', ');
-      linhas.push({ ...f, id: `${f.id}__servico`, tipo: 'servico', media, sit, meses: avs.length, totalMeses: periodos.length, avaliadorIds, descricaoAvaliado });
+      let descontoDocVencido = null;
+      if (descontoAtivo && (aplicaEm === 'servico' || aplicaEm === 'ambos')) {
+        const { dias, desconto } = _calcularDescontoDocVencido(d, historicoPorFornecedor, f.id, periodoIniUTC, periodoFimUTC);
+        if (desconto > 0) { descontoDocVencido = { dias, desconto }; media = Math.max(0, media - desconto); }
+      }
+      const sit = getSituacao(media);
+      linhas.push({ ...f, id: `${f.id}__servico`, tipo: 'servico', media, sit, meses: avs.length, totalMeses: periodos.length, avaliadorIds, descricaoAvaliado, descontoDocVencido });
     }
     return linhas;
   });
@@ -124,7 +238,7 @@ function gerarRelatorioAd() {
           ${resultados.map(r => `<tr>
             <td style="font-weight:500">${r.nome}</td>
             <td><span class="tag-${r.tipo}">${r.tipo === 'produto' ? 'Produto' : 'Serviço'}</span></td>
-            <td style="text-align:center; font-weight:600">${r.media.toFixed(1)}</td>
+            <td style="text-align:center; font-weight:600">${r.media.toFixed(1)}${r.descontoDocVencido ? `<div style="font-weight:400; font-size:11px; color:var(--danger)" title="${r.descontoDocVencido.dias} dia(s) com documentação vencida no período">-${r.descontoDocVencido.desconto.toFixed(1)} doc. vencida</div>` : ''}</td>
             <td style="text-align:center; color:var(--text-muted)">${r.meses}/${r.totalMeses}</td>
             <td>${badgeSit(r.sit)}</td>
             <td><div class="actions">

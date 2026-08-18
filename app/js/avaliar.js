@@ -1,6 +1,6 @@
 // avaliar.js
-// versão: 01
-// última atualização: 18/08/2026 07:50
+// versão: 02
+// última atualização: 18/08/2026 20:20
 
 // ============ AVALIAR: preenchimento de avaliação (avaliador) + avaliação de produto (admin) ============
 // ============ SHELL DO AVALIADOR ============
@@ -900,13 +900,7 @@ async function buscarFornecedorPorCnpj() {
     window._fornecedorLancamento = { id: existente.id, cnpj: cnpjLimpo, novo: false };
     nomeInput.value = existente.nome;
     nomeInput.disabled = true;
-    const vencido = fornecedorTemDocumentoVencido(existente.id);
-    const avisoVencido = vencido
-      ? (d.descontoDocVencidoAtivo
-          ? ` &nbsp;<span style="color:var(--danger); font-weight:600; display:inline-flex; align-items:center; gap:4px">${ic('alertTriangle', 13)}Documentação vencida (-${d.valorDescontoDocVencido} ponto(s))</span>`
-          : ` &nbsp;<span style="color:var(--danger); font-weight:600; display:inline-flex; align-items:center; gap:4px">${ic('alertTriangle', 13)}Documentação vencida</span>`)
-      : '';
-    statusEl.innerHTML = '<span style="color:var(--accent); font-weight:600; display:inline-flex; align-items:center; gap:4px">' + ic('check', 13) + 'Já cadastrado</span>' + avisoVencido;
+    statusEl.innerHTML = '<span style="color:var(--accent); font-weight:600; display:inline-flex; align-items:center; gap:4px">' + ic('check', 13) + 'Já cadastrado</span>';
     atualizarPreviaNotaProduto();
     return;
   }
@@ -1162,10 +1156,10 @@ function calcularDescontoExtraProduto(fornecedorId) {
   const d = db();
   const detalhe = [];
   let total = 0;
-  if (d.descontoDocVencidoAtivo && fornecedorId && fornecedorTemDocumentoVencido(fornecedorId)) {
-    detalhe.push({ motivo: 'Documentação vencida', valor: d.valorDescontoDocVencido });
-    total += d.valorDescontoDocVencido;
-  }
+  // Desconto por documentação vencida NÃO entra mais aqui — ele saiu do
+  // lançamento individual e passou a ser calculado no fechamento do
+  // período (ver relatorios-pdf.js, _calcularDescontoDocVencido), com base
+  // no histórico de validade e no intervalo/teto configurados.
   if (window._conferenciaVinculada && window._conferenciaVinculada.descontoTotal > 0) {
     detalhe.push({ motivo: 'Conferência de recebimento', valor: window._conferenciaVinculada.descontoTotal });
     total += window._conferenciaVinculada.descontoTotal;
@@ -1944,13 +1938,27 @@ function renderFaixasConceitoTab() {
     </div>
     <div class="card">
       <div class="card-title">Desconto por documentação vencida</div>
-      <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px">Desligado por padrão. Se ligar, todo lançamento de um fornecedor que tenha QUALQUER documento vencido desconta o valor abaixo (uma vez só, não importa quantos documentos estejam vencidos).</p>
+      <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px">Desligado por padrão. Se ligar, o desconto NÃO é mais aplicado lançamento a lançamento — ele é calculado no fechamento do período (mesmo período usado pra gerar certificado/carta), com base em quantos dias o documento ficou vencido dentro daquele período.</p>
       <div style="display:flex; align-items:center; gap:10px; margin-bottom:${d.descontoDocVencidoAtivo ? '14px' : '0'}">
         <input type="checkbox" id="desconto-doc-ativo" ${d.descontoDocVencidoAtivo ? 'checked' : ''} onchange="toggleDescontoDocVencidoVisibilidade()">
         <label style="margin:0">Descontar por documentação vencida</label>
       </div>
-      <div id="desconto-doc-valor-wrap" style="display:${d.descontoDocVencidoAtivo ? 'flex' : 'none'}; gap:10px; align-items:flex-end">
-        <div class="form-group" style="margin:0; max-width:160px"><label>Valor do desconto</label><input type="number" step="0.1" min="0" id="desconto-doc-valor" value="${d.valorDescontoDocVencido}"></div>
+      <div id="desconto-doc-valor-wrap" style="display:${d.descontoDocVencidoAtivo ? 'block' : 'none'}">
+        <div class="form-row" style="grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px">
+          <div class="form-group" style="margin:0"><label>Desconta quanto</label><input type="number" step="0.1" min="0" id="desconto-doc-valor" value="${d.valorDescontoDocVencido}"></div>
+          <div class="form-group" style="margin:0"><label>A cada quantos dias vencido</label><input type="number" step="1" min="1" id="desconto-doc-dias" value="${d.descontoDocVencidoDiasIntervalo}"></div>
+        </div>
+        <p style="font-size:11px; color:var(--text-muted); margin:-4px 0 10px">Ex.: -${d.valorDescontoDocVencido} a cada ${d.descontoDocVencidoDiasIntervalo} dias vencido. Só conta intervalos completos (${d.descontoDocVencidoDiasIntervalo} dias vencido = 1 vez; ${d.descontoDocVencidoDiasIntervalo * 2 - 1} dias = ainda 1 vez).</p>
+        <div class="form-row" style="grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px">
+          <div class="form-group" style="margin:0"><label>Desconto máximo (opcional)</label><input type="number" step="0.1" min="0" id="desconto-doc-max" placeholder="Sem teto" value="${d.descontoDocVencidoMax ?? ''}"></div>
+          <div class="form-group" style="margin:0"><label>Aplica em</label>
+            <select id="desconto-doc-aplica-em">
+              <option value="produto" ${d.descontoDocVencidoAplicaEm === 'produto' ? 'selected' : ''}>Produto</option>
+              <option value="servico" ${d.descontoDocVencidoAplicaEm === 'servico' ? 'selected' : ''}>Serviço</option>
+              <option value="ambos" ${d.descontoDocVencidoAplicaEm === 'ambos' ? 'selected' : ''}>Ambos</option>
+            </select>
+          </div>
+        </div>
         <button class="btn btn-primary" onclick="salvarDescontoDocVencido()">Salvar</button>
       </div>
     </div>
@@ -1959,22 +1967,36 @@ function renderFaixasConceitoTab() {
 
 function toggleDescontoDocVencidoVisibilidade() {
   const ativo = document.getElementById('desconto-doc-ativo').checked;
-  document.getElementById('desconto-doc-valor-wrap').style.display = ativo ? 'flex' : 'none';
+  document.getElementById('desconto-doc-valor-wrap').style.display = ativo ? 'block' : 'none';
   salvarDescontoDocVencido();
 }
 
 async function salvarDescontoDocVencido() {
   const ativo = document.getElementById('desconto-doc-ativo').checked;
   const valorInput = document.getElementById('desconto-doc-valor');
+  const diasInput = document.getElementById('desconto-doc-dias');
+  const maxInput = document.getElementById('desconto-doc-max');
+  const aplicaEmSelect = document.getElementById('desconto-doc-aplica-em');
+
   const valor = valorInput ? (parseFloat(valorInput.value) || 0) : db().valorDescontoDocVencido;
+  const dias = diasInput ? (parseInt(diasInput.value) || 15) : db().descontoDocVencidoDiasIntervalo;
+  const max = maxInput && maxInput.value !== '' ? (parseFloat(maxInput.value) || 0) : null;
+  const aplicaEm = aplicaEmSelect ? aplicaEmSelect.value : db().descontoDocVencidoAplicaEm;
 
   const { error } = await supabaseClient.from('empresas').update({
-    desconto_doc_vencido_ativo: ativo, valor_desconto_doc_vencido: valor,
+    desconto_doc_vencido_ativo: ativo,
+    valor_desconto_doc_vencido: valor,
+    desconto_doc_vencido_dias_intervalo: dias,
+    desconto_doc_vencido_max: max,
+    desconto_doc_vencido_aplica_em: aplicaEm,
   }).eq('id', currentUser.empresaId);
   if (error) { toast('Erro ao salvar configuração: ' + error.message); return; }
 
   empresaConfigCache.desconto_doc_vencido_ativo = ativo;
   empresaConfigCache.valor_desconto_doc_vencido = valor;
+  empresaConfigCache.desconto_doc_vencido_dias_intervalo = dias;
+  empresaConfigCache.desconto_doc_vencido_max = max;
+  empresaConfigCache.desconto_doc_vencido_aplica_em = aplicaEm;
   addLog('desconto_doc_vencido_atualizado', `${currentUser.email} ${ativo ? 'ligou' : 'desligou'} o desconto por documentação vencida`);
   toast('Configuração salva!');
 }

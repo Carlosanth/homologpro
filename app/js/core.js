@@ -1,6 +1,6 @@
 // core.js
-// versão: 01
-// última atualização: 18/08/2026 07:50
+// versão: 02
+// última atualização: 18/08/2026 20:20
 
 // ============ CORE: estado global, persistência, sessão/login, shell de navegação ============
 
@@ -198,6 +198,9 @@ function db() {
     conferencias: conferenciasCache,
     descontoDocVencidoAtivo: empresaConfigCache.desconto_doc_vencido_ativo,
     valorDescontoDocVencido: empresaConfigCache.valor_desconto_doc_vencido ?? 1,
+    descontoDocVencidoDiasIntervalo: empresaConfigCache.desconto_doc_vencido_dias_intervalo ?? 15,
+    descontoDocVencidoMax: empresaConfigCache.desconto_doc_vencido_max ?? null,
+    descontoDocVencidoAplicaEm: empresaConfigCache.desconto_doc_vencido_aplica_em || 'produto',
     conferenciaCabecalho: empresaConfigCache.conferencia_cabecalho || [],
   };
 }
