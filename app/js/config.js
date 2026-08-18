@@ -1129,12 +1129,26 @@ async function restaurarDaLixeira(tabela, id) {
 
 // Helper compartilhado: mescla uma chave dentro de empresas.config (jsonb)
 // sem sobrescrever as outras chaves que já estão lá.
-async function salvarConfigEmpresa(chave, valor) {
-  const novoConfig = { ...empresaConfigCache.config, [chave]: valor };
-  const { error } = await supabaseClient.from('empresas').update({ config: novoConfig }).eq('id', currentUser.empresaId);
-  if (error) return { error };
-  empresaConfigCache.config = novoConfig;
-  return { error: null };
+// Salva uma chave da config da empresa (layout, textos, matriz, fontesCustom, etc).
+// Enfileirada: se duas chamadas dispararem quase juntas (ex: sair do campo de
+// texto — que salva sozinho no blur — e clicar em "Salvar Layout" logo em
+// seguida), cada uma monta o novoConfig em cima do cache local, e SEM fila as
+// duas liam o mesmo cache "antigo" ao mesmo tempo; a que terminasse de salvar
+// por último sobrescrevia a config inteira e apagava a mudança da outra (perda
+// silenciosa — nenhuma das duas chamadas dava erro). Com a fila, a segunda só
+// começa a montar seu novoConfig depois que a primeira já atualizou o cache.
+let _filaSalvarConfigEmpresa = Promise.resolve();
+function salvarConfigEmpresa(chave, valor) {
+  const proxima = _filaSalvarConfigEmpresa.then(async () => {
+    const novoConfig = { ...empresaConfigCache.config, [chave]: valor };
+    const { error } = await supabaseClient.from('empresas').update({ config: novoConfig }).eq('id', currentUser.empresaId);
+    if (error) return { error };
+    empresaConfigCache.config = novoConfig;
+    return { error: null };
+  });
+  // Nunca deixa um erro travar a fila pras chamadas seguintes.
+  _filaSalvarConfigEmpresa = proxima.then(() => {}, () => {});
+  return proxima;
 }
 
 function toggleFaixaMatriz(chave, ativo) {
