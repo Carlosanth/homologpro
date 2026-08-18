@@ -1,3 +1,7 @@
+// usuarios.js
+// versão: 01
+// última atualização: 18/08/2026 07:50
+
 // ============ USUÁRIOS E ACESSOS ============
 
 // Card de "Notificações internas" — antes era um liga/desliga permanente

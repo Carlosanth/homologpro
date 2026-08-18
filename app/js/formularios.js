@@ -1,3 +1,7 @@
+// formularios.js
+// versão: 01
+// última atualização: 18/08/2026 07:50
+
 // ============ FORMULÁRIOS ============
 function renderAdFormularios() {
   const d = db();

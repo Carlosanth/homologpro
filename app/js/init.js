@@ -1,3 +1,7 @@
+// init.js
+// versão: 01
+// última atualização: 18/08/2026 07:50
+
 // ============ INIT: dispara depois que todos os outros arquivos já carregaram ============
 // ============ INIT ============
 

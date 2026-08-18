@@ -1,3 +1,7 @@
+// dashboard.js
+// versão: 01
+// última atualização: 18/08/2026 07:50
+
 // ============ DASHBOARD ============
 // Cada bloco só aparece se o admin tiver acesso ao módulo relacionado
 // (admin_master sempre vê tudo — temAcessoModulo() já trata isso).

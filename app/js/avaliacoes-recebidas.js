@@ -1,3 +1,7 @@
+// avaliacoes-recebidas.js
+// versão: 01
+// última atualização: 18/08/2026 07:50
+
 // ============ AVALIAÇÕES RECEBIDAS ============
 let _abaAvaliacoesAdAtual = 'todas';
 

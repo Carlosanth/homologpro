@@ -1,3 +1,7 @@
+// rnc.js
+// versão: 01
+// última atualização: 18/08/2026 07:50
+
 // ============ MÓDULO RNC (Registro de Não Conformidade) ============
 // Cada empresa monta o próprio modelo de RNC (seções + campos) — nasce vazio,
 // sem nenhum modelo pré-cadastrado. O RNC não tem lógica de desconto própria:

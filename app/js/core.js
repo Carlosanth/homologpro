@@ -1,3 +1,7 @@
+// core.js
+// versão: 01
+// última atualização: 18/08/2026 07:50
+
 // ============ CORE: estado global, persistência, sessão/login, shell de navegação ============
 
 // Escapa texto que vem de dados (nome de fornecedor, unidade, log de auditoria etc.)

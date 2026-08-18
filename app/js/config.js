@@ -1,3 +1,7 @@
+// config.js
+// versão: 01
+// última atualização: 18/08/2026 07:50
+
 // ============ PLANOS PADRÃO (Essencial/Profissional) — vem do Supabase ============
 // Fonte única de verdade: tabela planos_config (migration 009). Antes o
 // preço ficava hardcoded aqui — isso já tinha causado desincronia com o

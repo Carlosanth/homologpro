@@ -1,3 +1,7 @@
+// r2-client.js
+// versão: 01
+// última atualização: 18/08/2026 07:50
+
 // app/js/r2-client.js
 //
 // Substitui todo uso de "supabaseClient.storage.from(bucket)..." — agora

@@ -1,3 +1,7 @@
+// avaliar.js
+// versão: 01
+// última atualização: 18/08/2026 07:50
+
 // ============ AVALIAR: preenchimento de avaliação (avaliador) + avaliação de produto (admin) ============
 // ============ SHELL DO AVALIADOR ============
 // Mesma lógica de renderAvFormularios, só que genérica pra qualquer

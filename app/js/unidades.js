@@ -1,3 +1,7 @@
+// unidades.js
+// versão: 01
+// última atualização: 18/08/2026 07:50
+
 // ============ MEUS DOCUMENTOS (unidades da própria empresa) ============
 // Mesma lógica de arquivo de documento do módulo Fornecedores (validade,
 // aviso de vencimento customizável, upload), só que pra guardar documentação

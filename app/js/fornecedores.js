@@ -1,3 +1,7 @@
+// fornecedores.js
+// versão: 01
+// última atualização: 18/08/2026 07:50
+
 // ============ FORNECEDORES ============
 // ---------- ÍCONES (mesmo estilo lucide/outline usado no menu lateral) ----------
 const SUP_ICON_PATHS = {

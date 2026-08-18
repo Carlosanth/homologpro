@@ -1,3 +1,7 @@
+// conferencia.js
+// versão: 01
+// última atualização: 18/08/2026 07:50
+
 // ============ MÓDULO CONFERÊNCIA ============
 // Formulário separado do de Avaliar Produto — pensado pra quem só confere
 // uma PARTE do recebimento (ex: almoxarifado conferindo temperatura,
