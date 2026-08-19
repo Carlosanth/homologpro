@@ -1,6 +1,6 @@
 // relatorios-pdf.js
-// versão: 02
-// última atualização: 18/08/2026 20:20
+// versão: 03
+// última atualização: 19/08/2026 06:21
 
 // ============ RELATÓRIO & PDFs ============
 // ---------- RELATÓRIO & PDFs ----------
@@ -228,14 +228,18 @@ async function gerarRelatorioAd() {
 
   _ultimosResultadosAd = resultados;
   _ultimoPeriodoAd = periodoLabel;
+  _selecionadosEmailAd.clear();
 
   wrap.innerHTML = `
     <div class="card">
       <div class="card-title">Resultados — ${periodoLabel}</div>
       <table>
-        <thead><tr><th>Fornecedor</th><th>Tipo</th><th style="text-align:center">Média</th><th style="text-align:center">Avaliações</th><th>Situação</th><th style="text-align:right">Ações</th></tr></thead>
+        <thead><tr>
+          <th style="width:32px"><input type="checkbox" id="chk-selecionar-todos-ad" onchange="toggleSelecionarTodosAd(this.checked)"></th>
+          <th>Fornecedor</th><th>Tipo</th><th style="text-align:center">Média</th><th style="text-align:center">Avaliações</th><th>Situação</th><th style="text-align:right">Ações</th></tr></thead>
         <tbody>
           ${resultados.map(r => `<tr>
+            <td><input type="checkbox" class="chk-selecionar-ad" data-id="${r.id}" onchange="toggleSelecaoEnvioAd('${r.id}', this.checked)"></td>
             <td style="font-weight:500">${r.nome}</td>
             <td><span class="tag-${r.tipo}">${r.tipo === 'produto' ? 'Produto' : 'Serviço'}</span></td>
             <td style="text-align:center; font-weight:600">${r.media.toFixed(1)}${r.descontoDocVencido ? `<div style="font-weight:400; font-size:11px; color:var(--danger)" title="${r.descontoDocVencido.dias} dia(s) com documentação vencida no período">-${r.descontoDocVencido.desconto.toFixed(1)} doc. vencida</div>` : ''}</td>
@@ -243,7 +247,6 @@ async function gerarRelatorioAd() {
             <td>${badgeSit(r.sit)}</td>
             <td><div class="actions">
               <button class="btn btn-secondary btn-sm" onclick="baixarPDFIndividual('${r.id}')" title="Gerar apenas o PDF deste fornecedor" style="display:inline-flex; align-items:center; gap:6px">${ic('fileText', 13)}PDF</button>
-              <button class="btn btn-secondary btn-sm" onclick="enviarCertificadoEmail('${r.id}')" title="Baixa o PDF e abre seu cliente de e-mail" style="display:inline-flex; align-items:center; gap:6px">${ic('mail', 13)}E-mail</button>
             </div></td>
           </tr>`).join('')}
         </tbody>
@@ -251,9 +254,91 @@ async function gerarRelatorioAd() {
       <div style="display:flex; justify-content:flex-end; margin-top:18px; gap:10px">
         <button class="btn btn-secondary" onclick='exportarExcelAd(${JSON.stringify(resultados).replace(/'/g,"&apos;")}, "${periodoLabel}")'>Exportar Excel</button>
         <button class="btn btn-success" onclick='gerarPDFsAd(${JSON.stringify(resultados).replace(/'/g,"&apos;")}, "${periodoLabel}")' style="display:inline-flex; align-items:center; gap:6px">${ic('fileText', 13)}Gerar PDFs (ZIP)</button>
+        <button class="btn btn-primary" id="btn-enviar-selecionados-ad" onclick="enviarSelecionadosEmailAd()" disabled style="display:inline-flex; align-items:center; gap:6px">${ic('mail', 13)}Enviar selecionados</button>
       </div>
     </div>
   `;
+}
+
+// ---- Seleção + envio em lote por e-mail (com PDF anexado de verdade, via Resend) ----
+const _selecionadosEmailAd = new Set();
+
+function toggleSelecaoEnvioAd(fornecedorId, marcado) {
+  if (marcado) _selecionadosEmailAd.add(fornecedorId); else _selecionadosEmailAd.delete(fornecedorId);
+  const todosChk = document.getElementById('chk-selecionar-todos-ad');
+  if (todosChk) todosChk.checked = _ultimosResultadosAd.length > 0 && _selecionadosEmailAd.size === _ultimosResultadosAd.length;
+  atualizarBotaoEnviarSelecionadosAd();
+}
+
+function toggleSelecionarTodosAd(marcado) {
+  _selecionadosEmailAd.clear();
+  if (marcado) _ultimosResultadosAd.forEach(r => _selecionadosEmailAd.add(r.id));
+  document.querySelectorAll('.chk-selecionar-ad').forEach(chk => { chk.checked = marcado; });
+  atualizarBotaoEnviarSelecionadosAd();
+}
+
+function atualizarBotaoEnviarSelecionadosAd() {
+  const btn = document.getElementById('btn-enviar-selecionados-ad');
+  if (!btn) return;
+  const n = _selecionadosEmailAd.size;
+  btn.disabled = n === 0;
+  btn.innerHTML = `${ic('mail', 13)}Enviar selecionados${n ? ` (${n})` : ''}`;
+}
+
+// Converte o Uint8Array do PDF (retorno de gerarPDFDoc) pra base64, em pedaços,
+// pra não estourar o limite de argumentos do String.fromCharCode com PDFs grandes.
+function _uint8ParaBase64(bytes) {
+  let binary = '';
+  const chunk = 8192;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+async function enviarSelecionadosEmailAd() {
+  const ids = Array.from(_selecionadosEmailAd);
+  if (!ids.length) return;
+  const btn = document.getElementById('btn-enviar-selecionados-ad');
+  const linhas = ids.map(id => _ultimosResultadosAd.find(r => r.id === id)).filter(Boolean);
+  const semEmail = linhas.filter(r => !r.email);
+  const comEmail = linhas.filter(r => r.email);
+
+  if (!comEmail.length) { toast('Nenhum dos selecionados tem e-mail cadastrado.'); return; }
+
+  let enviados = 0, falhas = 0;
+  for (let i = 0; i < comEmail.length; i++) {
+    const r = comEmail[i];
+    if (btn) btn.innerHTML = `Enviando ${i + 1} de ${comEmail.length}...`;
+    try {
+      const pdf = gerarPDFDoc(r, _ultimoPeriodoAd);
+      const pdfBase64 = _uint8ParaBase64(new Uint8Array(pdf));
+      const { data, error } = await supabaseClient.functions.invoke('enviar-certificado-pdf-email', {
+        body: {
+          fornecedorId: r.id.replace(/__produto$|__servico$/, ''),
+          tipo: r.tipo,
+          periodoLabel: _ultimoPeriodoAd,
+          sit: r.sit,
+          subtitulo: getSubtituloDoc(r.sit),
+          tituloDoc: getTituloDoc(r.sit),
+          media: r.media,
+          pdfBase64,
+          pdfNomeArquivo: nomeArquivoDoc(r),
+          avaliadorIds: r.avaliadorIds || [],
+        },
+      });
+      if (error || !data || data.ok === false) { falhas++; } else { enviados++; }
+    } catch (e) { falhas++; }
+  }
+
+  addLog('certificados_enviados_lote', `${currentUser.email} enviou ${enviados} certificado(s)/carta(s) por e-mail referente ao período ${_ultimoPeriodoAd}`);
+
+  const partes = [`${enviados} enviado(s)`];
+  if (semEmail.length) partes.push(`${semEmail.length} pulado(s) por falta de e-mail`);
+  if (falhas) partes.push(`${falhas} falhou(aram)`);
+  toast(partes.join(', ') + '.');
+
+  atualizarBotaoEnviarSelecionadosAd();
 }
 
 function aplicarTexto(template, fornecedor, nota, periodo, empresa, avaliado) {
@@ -487,21 +572,6 @@ function montarCcNotificacao(d, ...usuarioIds) {
     if (u && u.recebe_copia_avaliacao && u.email) emails.add(u.email);
   });
   return Array.from(emails).join(',');
-}
-
-function enviarCertificadoEmail(fornecedorId) {
-  const r = _ultimosResultadosAd.find(x => x.id === fornecedorId);
-  if (!r) { toast('Gere o relatório novamente antes de enviar.'); return; }
-  if (!r.email) { toast(`"${r.nome}" não tem e-mail cadastrado. Adicione em Fornecedores › Editar.`); return; }
-  baixarPDFIndividual(fornecedorId);
-  const d = db();
-  const empNome = d.nomeEmpresa || 'Empresa';
-  const titulo = getTituloDoc(r.sit);
-  const assunto = `${titulo} — ${r.nome} (${_ultimoPeriodoAd})`;
-  const corpo = `Olá,\n\nSegue referente à avaliação de fornecedores do período ${_ultimoPeriodoAd}: ${titulo.toLowerCase()}.\n\nO arquivo PDF foi baixado automaticamente nesta página (${nomeArquivoDoc(r)}) — por favor, anexe-o a este e-mail antes de enviar.\n\nAtenciosamente,\n${empNome}`;
-  const link = `mailto:${encodeURIComponent(r.email)}?cc=${encodeURIComponent(montarCcNotificacao(d, r.avaliadorIds))}&subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
-  addLog('email_certificado_enviado', `${currentUser.email} abriu o cliente de e-mail para enviar o documento de "${r.nome}"`);
-  setTimeout(() => { window.location.href = link; }, 350);
 }
 
 function saudacaoPorHorario() {
