@@ -117,6 +117,7 @@ function renderEmpresasPlataforma(listaFiltrada) {
             <div class="emp-id">
               <div class="nome">
                 ${emp.nome} ${badgeStatusHTML(emp.status)}
+                ${emp.status === 'cancelada' && emp.cancelada_em ? `<span class="badge-tempo-cancelada${ehCanceladaHaMaisDeUmAno(emp) ? ' antiga' : ''}">cancelada ${formatarTempoDesde(emp.cancelada_em)}</span>` : ''}
                 <span onclick="abrirModalDetalhesEmpresa('${emp.id}')" title="Ver detalhes completos" class="info-ico">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
                 </span>
@@ -893,6 +894,8 @@ function renderKPIsPlataforma() {
     new Date(e.trial_termina_em) >= agora && new Date(e.trial_termina_em) <= em7dias
   ).length;
 
+  const canceladasAntigas = empresasCachePlataforma.filter(ehCanceladaHaMaisDeUmAno);
+
   document.getElementById('kpi-ativas').textContent = ativas.length;
   document.getElementById('kpi-ativas-sub').textContent = `de ${empresasCachePlataforma.length} empresa(s) no total`;
   document.getElementById('kpi-mrr').textContent = `R$ ${mrr.toFixed(2).replace('.', ',')}`;
@@ -900,6 +903,28 @@ function renderKPIsPlataforma() {
   document.getElementById('kpi-nf').textContent = totalPendentesNF;
   document.getElementById('kpi-nf-sub').textContent = totalPendentesNF ? `em ${empresasComPendencia} empresa(s)` : 'tudo em dia';
   document.getElementById('kpi-trials').textContent = trialsTerminando;
+  document.getElementById('kpi-canceladas-antigas').textContent = canceladasAntigas.length;
+  document.getElementById('kpi-canceladas-antigas-sub').textContent = canceladasAntigas.length ? 'candidatas a limpeza' : 'nenhuma por enquanto';
+}
+
+// Cancelada há mais de 365 dias — candidata a exclusão manual (limpeza de
+// conta morta que nunca reativou). Empresas com exclusão já em andamento
+// (status exclusao_agendada) não entram aqui, esse KPI é só pra quem ficou
+// esquecida como 'cancelada' sem ninguém nunca ter pedido a exclusão.
+function ehCanceladaHaMaisDeUmAno(emp) {
+  if (emp.status !== 'cancelada' || !emp.cancelada_em) return false;
+  const umAnoAtras = new Date(); umAnoAtras.setDate(umAnoAtras.getDate() - 365);
+  return new Date(emp.cancelada_em) <= umAnoAtras;
+}
+
+// "há 3 dias" / "há 5 meses" / "há 2 anos" — usado no selo de cada card e
+// no filtro do chip "Canceladas há +1 ano".
+function formatarTempoDesde(dataISO) {
+  const dias = Math.floor((Date.now() - new Date(dataISO).getTime()) / 86400000);
+  if (dias < 30) return `há ${dias} dia${dias === 1 ? '' : 's'}`;
+  if (dias < 365) { const m = Math.floor(dias / 30); return `há ${m} ${m === 1 ? 'mês' : 'meses'}`; }
+  const a = Math.floor(dias / 365);
+  return `há ${a} ${a === 1 ? 'ano' : 'anos'}`;
 }
 
 // ============ Busca + filtro por status (aba Empresas) ============
@@ -908,7 +933,11 @@ let filtroStatusAtualPlataforma = '';
 function filtrarEmpresasPlataforma() {
   const termo = document.getElementById('empresa-busca').value.trim().toLowerCase();
   let lista = empresasCachePlataforma;
-  if (filtroStatusAtualPlataforma) lista = lista.filter(e => e.status === filtroStatusAtualPlataforma);
+  if (filtroStatusAtualPlataforma === 'cancelada_antiga') {
+    lista = lista.filter(ehCanceladaHaMaisDeUmAno);
+  } else if (filtroStatusAtualPlataforma) {
+    lista = lista.filter(e => e.status === filtroStatusAtualPlataforma);
+  }
   if (termo) lista = lista.filter(e => e.nome.toLowerCase().includes(termo));
   renderEmpresasPlataforma(lista);
 }
