@@ -121,6 +121,9 @@ function renderEmpresasPlataforma(listaFiltrada) {
                 <span onclick="abrirModalDetalhesEmpresa('${emp.id}')" title="Ver detalhes completos" class="info-ico">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
                 </span>
+                <span onclick="copiarCaminhoR2('${emp.id}')" title="Copiar caminho da pasta no R2" class="info-ico">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                </span>
               </div>
               <div class="meta">
                 <span>Criada em ${new Date(emp.criado_em).toLocaleDateString('pt-BR')}</span>
@@ -925,6 +928,20 @@ function formatarTempoDesde(dataISO) {
   if (dias < 365) { const m = Math.floor(dias / 30); return `há ${m} ${m === 1 ? 'mês' : 'meses'}`; }
   const a = Math.floor(dias / 365);
   return `há ${a} ${a === 1 ? 'ano' : 'anos'}`;
+}
+
+// No R2 não existe "pasta" de verdade — o que parece pasta é só o prefixo
+// do nome do arquivo, sempre o id da empresa (ex: "3c04d0ea-.../notas-
+// fiscais/nota.pdf"). Copia esse prefixo pra colar direto na busca do
+// painel do Cloudflare, já que renomear pasta não é uma operação que
+// existe em storage S3-compatível (teria que copiar arquivo por arquivo).
+function copiarCaminhoR2(empresaId) {
+  const caminho = `${empresaId}/`;
+  navigator.clipboard.writeText(caminho).then(() => {
+    toastPlataforma(`Caminho copiado: ${caminho}`);
+  }).catch(() => {
+    toastPlataforma('Não foi possível copiar automaticamente. Caminho: ' + caminho);
+  });
 }
 
 // ============ Busca + filtro por status (aba Empresas) ============
