@@ -1,6 +1,6 @@
 // config.js
-// versão: 01
-// última atualização: 18/08/2026 07:50
+// versão: 02
+// última atualização: 20/08/2026 06:30
 
 // ============ PLANOS PADRÃO (Essencial/Profissional) — vem do Supabase ============
 // Fonte única de verdade: tabela planos_config (migration 009). Antes o
@@ -1533,7 +1533,6 @@ let dragInfo = null;
 let layoutGuides = { cert: { v: null, h: null }, carta: { v: null, h: null } };
 const SNAP_PX = 6; // tolerância de encaixe (em pixels de tela) pra considerar "alinhado"
 let resizeInfo = null;
-let layoutIdCounter = 1;
 // Zoom do editor (multiplica dims.scale só na tela — nunca entra no PDF nem no mm real).
 let layoutZoom = { cert: 1, carta: 1 };
 const ZOOM_MIN = 0.5, ZOOM_MAX = 2.5, ZOOM_STEP = 0.15;
@@ -2013,7 +2012,18 @@ function atualizarBlocoLayout(tipo, campo, valor) {
 }
 
 function adicionarBlocoLayout(tipo) {
-  const novo = { id: 'custom' + (layoutIdCounter++), label: 'Novo texto', tipo: 'fixo', conteudo: 'Clique para editar este texto', fonte: 'helvetica', tamanho: 12, cor: '#333333', negrito: false, italico: false, align: 'left', x: 30, y: 100, largura: 140 };
+  // AJUSTE (ago/2026): antes usava um contador (layoutIdCounter) que reiniciava
+  // em 1 toda vez que a página carregava — sem saber quais ids já tinham sido
+  // salvos no banco em sessões anteriores. Resultado: um bloco novo podia
+  // nascer com o MESMO id de um bloco já salvo (ex: "custom1" de ontem +
+  // "custom1" de hoje), e como o editor sempre acha o PRIMEIRO bloco que bate
+  // com um id, as edições do segundo "vazavam" pro primeiro, e excluir um
+  // apagava os dois juntos (o filtro removia todos que batiam com aquele id).
+  // Agora o id é gerado por timestamp + sufixo aleatório — nunca colide,
+  // independe de quantas vezes a página foi recarregada. Mesmo padrão já
+  // usado aqui pra chave de fonte personalizada.
+  const id = 'custom_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const novo = { id, label: 'Novo texto', tipo: 'fixo', conteudo: 'Clique para editar este texto', fonte: 'helvetica', tamanho: 12, cor: '#333333', negrito: false, italico: false, align: 'left', x: 30, y: 100, largura: 140 };
   layoutEditorState[tipo].blocos.push(novo);
   selecionarBlocoLayout(tipo, novo.id);
   toast('Bloco adicionado — arraste ou puxe as bordas pra ajustar');

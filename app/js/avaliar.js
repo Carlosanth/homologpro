@@ -1,6 +1,6 @@
 // avaliar.js
-// versão: 04
-// última atualização: 18/08/2026 21:26
+// versão: 05
+// última atualização: 18/08/2026 06:30
 
 // ============ AVALIAR: preenchimento de avaliação (avaliador) + avaliação de produto (admin) ============
 // ============ SHELL DO AVALIADOR ============
@@ -790,6 +790,7 @@ function renderAvaliarProdutoTab() {
   // lugar nenhum até "Salvar lançamento" ser clicado.
   window._fornecedorLancamento = { id: null, cnpj: '', novo: false };
   window._conferenciaVinculada = null;
+  window._editandoAvaliacaoProdutoId = null;
 
   const hoje = new Date();
   const mesAtual = hoje.getMonth() + 1;
@@ -812,7 +813,7 @@ function renderAvaliarProdutoTab() {
           <input type="text" id="lp-nome-fornecedor" placeholder="Busque o CNPJ primeiro" disabled>
           <div id="lp-status-fornecedor" style="margin-top:6px; font-size:11px"></div>
         </div>
-        <div class="form-group"><label>Nº da Nota Fiscal</label><input type="text" id="lp-nf" placeholder="Ex: 117743" onblur="aplicarConferenciaVinculada()"></div>
+        <div class="form-group"><label>Nº da Nota Fiscal</label><input type="text" id="lp-nf" placeholder="Ex: 117743" onblur="aplicarConferenciaVinculada(); verificarNfJaAvaliada();"></div>
         <div class="form-group"><label>Data</label><input type="date" id="lp-data" value="${hoje.toISOString().slice(0,10)}"></div>
       </div>
       <div id="lp-conferencia-info"></div>
@@ -1204,6 +1205,98 @@ function atualizarPreviaNotaProduto() {
   }
 }
 
+// Ao sair do campo de NF (mesmo gatilho de aplicarConferenciaVinculada),
+// confere se essa NF já foi avaliada pra esse fornecedor e, se sim, avisa
+// com um popup mostrando o resultado — pra não deixar a pessoa preencher
+// tudo de novo só pra descobrir na hora de salvar que já existe.
+function verificarNfJaAvaliada() {
+  const estado = window._fornecedorLancamento;
+  const numeroNf = document.getElementById('lp-nf').value.trim();
+  if (!estado || !estado.id || !numeroNf) return;
+  // Se já está editando ESSA mesma avaliação, não faz sentido avisar de novo.
+  if (window._editandoAvaliacaoProdutoId) {
+    const editando = db().avaliacoesProduto.find(a => a.id === window._editandoAvaliacaoProdutoId);
+    if (editando && editando.numeroNf.trim().toLowerCase() === numeroNf.toLowerCase()) return;
+  }
+
+  const existente = buscarAvaliacaoProduto(estado.id, numeroNf);
+  if (existente) abrirPopupNfJaAvaliada(existente);
+}
+
+function abrirPopupNfJaAvaliada(av) {
+  const d = db();
+  const faixa = d.faixasConceitoProduto.find(f => f.nome === av.conceito);
+  const forn = d.fornecedores.find(f => f.id === av.fornecedorId);
+
+  openModal(`
+    <h3>Essa nota fiscal já foi avaliada</h3>
+    <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px">${forn ? escapeHtml(forn.nome) : 'Fornecedor'} — NF ${av.numeroNf || '(sem número)'} · ${fmtDataSimples(av.data)}</p>
+    <div style="margin-bottom:16px; display:flex; align-items:center; gap:8px">
+      ${badgeSit(getSituacao(av.notaGeral))}
+      <span style="padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; background:${faixa ? faixa.cor + '22' : 'var(--surface2)'}; color:${faixa ? faixa.cor : 'var(--text-muted)'}">${av.conceito || '—'}</span>
+      <b style="font-size:15px">${av.notaGeral.toFixed(1)}</b>
+    </div>
+    <div style="display:flex; gap:8px">
+      <button class="btn btn-secondary" style="flex:1" onclick="editarAvaliacaoProduto('${av.id}')">Editar</button>
+      <button class="btn btn-danger" style="flex:1" onclick="excluirAvaliacaoProduto('${av.id}'); closeModal();">Excluir</button>
+    </div>
+  `);
+}
+
+// Preenche o formulário de lançamento com os dados de uma avaliação já
+// existente, pra corrigir sem precisar apagar e relançar do zero. Ao
+// salvar, salvarAvaliacaoProduto() detecta window._editandoAvaliacaoProdutoId
+// e faz UPDATE em vez de INSERT.
+function editarAvaliacaoProduto(id) {
+  closeModal();
+  const d = db();
+  const av = d.avaliacoesProduto.find(a => a.id === id);
+  if (!av) return;
+  const forn = d.fornecedores.find(f => f.id === av.fornecedorId);
+  if (!forn) { toast('Fornecedor não encontrado.'); return; }
+
+  window._editandoAvaliacaoProdutoId = id;
+  window._fornecedorLancamento = { id: forn.id, cnpj: forn.cnpj, novo: false };
+
+  document.getElementById('lp-cnpj').value = formatarCNPJ(forn.cnpj || '');
+  document.getElementById('lp-nome-fornecedor').value = forn.nome;
+  document.getElementById('lp-nf').value = av.numeroNf || '';
+  document.getElementById('lp-data').value = av.data;
+
+  (av.notas || []).forEach(n => {
+    const notaInp = document.querySelector(`.lp-nota-input[data-criterio-id="${n.criterioId}"]`);
+    if (!notaInp) return; // critério pode ter sido excluído desde então
+
+    if (n.opcoes && n.opcoes.length) {
+      // Critério com régua — reaproveita a régua que estava CONGELADA no
+      // momento do lançamento (n.opcoes), não a atual, pra bater com a nota
+      // salva mesmo que a régua tenha sido editada depois.
+      notaInp.value = n.nota;
+      const opcaoEscolhida = n.opcoes.find(o => Math.abs(o.pontos - n.nota) < 0.01);
+      const labelEl = document.getElementById(`lp-select-label-${n.criterioId}`);
+      if (labelEl && opcaoEscolhida) {
+        labelEl.textContent = `${opcaoEscolhida.label} (${opcaoEscolhida.pontos}P)`;
+        labelEl.style.color = 'var(--text)';
+      }
+      const motivoInp = document.querySelector(`.lp-motivo-input[data-criterio-id="${n.criterioId}"]`);
+      if (motivoInp) motivoInp.value = n.motivo || '';
+    } else {
+      notaInp.value = n.nota;
+      if (n.motivo) {
+        const motivoWrap = document.getElementById(`lp-motivo-wrap-${n.criterioId}`);
+        if (motivoWrap) {
+          motivoWrap.innerHTML = `<textarea class="lp-motivo-input" data-criterio-id="${n.criterioId}" placeholder="Motivo">${escapeHtml(n.motivo)}</textarea>`;
+          motivoWrap.dataset.aberto = '1';
+        }
+      }
+    }
+  });
+
+  atualizarPreviaNotaProduto();
+  toast('Editando lançamento — ajuste os campos e salve.');
+  document.getElementById('lp-cnpj').closest('.card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 async function salvarAvaliacaoProduto() {
   const d = db();
   const estado = window._fornecedorLancamento;
@@ -1216,7 +1309,10 @@ async function salvarAvaliacaoProduto() {
 
   // Fornecedor já existe? Então já dá pra checar se essa NF já foi avaliada
   // antes de mexer em mais nada. Fornecedor "novo" nunca tem avaliação prévia.
-  if (estado.id && buscarAvaliacaoProduto(estado.id, numeroNf)) {
+  // Se estiver editando essa MESMA avaliação, a duplicata é ela mesma —
+  // não bloqueia.
+  const duplicata = estado.id ? buscarAvaliacaoProduto(estado.id, numeroNf) : null;
+  if (duplicata && duplicata.id !== window._editandoAvaliacaoProdutoId) {
     toast('Essa nota fiscal já foi avaliada para esse fornecedor.');
     return;
   }
@@ -1303,7 +1399,7 @@ async function salvarAvaliacaoProduto() {
     .filter(c => notasPorCriterio[c.id] !== undefined)
     .map(c => ({ criterioId: c.id, nome: c.nome, peso: c.peso, nota: notasPorCriterio[c.id], motivo: motivosPorCriterio[c.id] || null, opcoes: c.opcoes || [] }));
 
-  const { error } = await supabaseClient.from('avaliacoes_produto').insert({
+  const payloadProduto = {
     empresa_id: currentUser.empresaId,
     fornecedor_id: fornecedorId,
     usuario_id: currentUser.id,
@@ -1319,11 +1415,34 @@ async function salvarAvaliacaoProduto() {
     desconto_extra_detalhe: descontoExtraDetalhe,
     conferencia_id: conferenciaVinculada ? conferenciaVinculada.id : null,
     justificativa: justificativaConceito || null,
-  });
+  };
+
+  const editandoId = window._editandoAvaliacaoProdutoId;
+  let error, avaliacaoIdSalva;
+  if (editandoId) {
+    ({ error } = await supabaseClient.from('avaliacoes_produto').update(payloadProduto).eq('id', editandoId));
+    avaliacaoIdSalva = editandoId;
+  } else {
+    const { data: inserida, error: erroInsert } = await supabaseClient.from('avaliacoes_produto').insert(payloadProduto).select('id').single();
+    error = erroInsert;
+    avaliacaoIdSalva = inserida ? inserida.id : null;
+  }
 
   if (error) { esconderProgresso(); toast('Erro ao salvar lançamento: ' + error.message); return; }
 
-  addLog('avaliacao_produto_lancada', `${currentUser.email} lançou NF ${numeroNf || '(sem número)'} do fornecedor "${nomeFornecedor}" — nota ${notaGeral.toFixed(1)} (${faixa ? faixa.nome : '—'})`);
+  window._editandoAvaliacaoProdutoId = null;
+
+  addLog(editandoId ? 'avaliacao_produto_editada' : 'avaliacao_produto_lancada', `${currentUser.email} ${editandoId ? 'editou' : 'lançou'} NF ${numeroNf || '(sem número)'} do fornecedor "${nomeFornecedor}" — nota ${notaGeral.toFixed(1)} (${faixa ? faixa.nome : '—'})`);
+
+  // Mesmo padrão do Avaliar de Serviço: se a empresa estiver em "Automático"
+  // + "No momento" (0h), tenta disparar o e-mail JÁ, sem esperar o cron de
+  // hora em hora. Disparo silencioso — a function confere de novo no
+  // servidor se a config bate, e se não bater, não mostra erro nenhum (a
+  // maioria das empresas não usa esse modo, então "não bater" é o normal).
+  const situacaoProduto = getSituacao(notaGeral);
+  if (avaliacaoIdSalva && (situacaoProduto === 'reprovado' || situacaoProduto === 'parcial')) {
+    supabaseClient.functions.invoke('enviar-avaliacao-produto-html', { body: { avaliacaoId: avaliacaoIdSalva, instantaneo: true } }).catch(() => {});
+  }
 
   await carregarAvaliacoesProduto();
   renderAvaliarProdutoTab();
@@ -1379,7 +1498,7 @@ function renderResultadoHistoricoProduto(fornecedorId, mes, ano) {
               <td>${fmtDataSimples(av.data)}</td>
               <td>${av.numeroNf || '—'}</td>
               <td style="text-align:center; font-weight:600">${av.notaGeral.toFixed(1)}</td>
-              <td><span style="padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; background:${faixa ? faixa.cor + '22' : 'var(--surface2)'}; color:${faixa ? faixa.cor : 'var(--text-muted)'}">${av.conceito || '—'}</span>${av.contaOcorrencia ? ` <span style="color:var(--danger); font-size:11px; display:inline-flex; align-items:center; gap:3px">${ic('alertTriangle', 11)}ocorrência</span>` : ''}</td>
+              <td><span style="display:inline-flex; align-items:center; gap:6px">${badgeSit(getSituacao(av.notaGeral))}<span style="padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; background:${faixa ? faixa.cor + '22' : 'var(--surface2)'}; color:${faixa ? faixa.cor : 'var(--text-muted)'}">${av.conceito || '—'}</span></span>${av.contaOcorrencia ? ` <span style="color:var(--danger); font-size:11px; display:inline-flex; align-items:center; gap:3px">${ic('alertTriangle', 11)}ocorrência</span>` : ''}</td>
               <td><button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); excluirAvaliacaoProduto('${av.id}')">Excluir</button></td>
             </tr>`;
           }).join('')}
@@ -1437,8 +1556,8 @@ function verDetalheAvaliacaoProduto(id) {
     <p style="font-size:12px; color:var(--text-muted); margin-bottom:4px">NF ${av.numeroNf || '(sem número)'} · ${fmtDataSimples(av.data)}</p>
     <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px">Lançado por ${av.enviadoPorEmail || '—'}</p>
     <div style="margin-bottom:14px">
-      <span style="padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; background:${faixa ? faixa.cor + '22' : 'var(--surface2)'}; color:${faixa ? faixa.cor : 'var(--text-muted)'}">${av.conceito || '—'}</span>
-      <b style="margin-left:8px; font-size:15px">${av.notaGeral.toFixed(1)}</b>
+      ${badgeSit(getSituacao(av.notaGeral))}
+      <span style="padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; background:${faixa ? faixa.cor + '22' : 'var(--surface2)'}; color:${faixa ? faixa.cor : 'var(--text-muted)'}; margin-left:6px">${av.conceito || '—'}</span>
       ${av.contaOcorrencia ? ` <span style="color:var(--danger); font-size:12px; display:inline-flex; align-items:center; gap:3px">${ic('alertTriangle', 12)}conta como ocorrência</span>` : ''}
     </div>
     ${(av.notas || []).map(n => `
