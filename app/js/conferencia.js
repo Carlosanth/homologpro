@@ -1,6 +1,6 @@
 // conferencia.js
-// versão: 01
-// última atualização: 18/08/2026 07:50
+// versão: 02
+// última atualização: 20/08/2026 09:08
 
 // ============ MÓDULO CONFERÊNCIA ============
 // Formulário separado do de Avaliar Produto — pensado pra quem só confere
@@ -17,7 +17,6 @@
 
 let _abaConferencia = 'lancar';
 let _conferirRecebimentoAberto = true;
-let _cabecalhoConferenciaAberto = false;
 let _novoCriterioConferenciaAberto = false;
 
 function toggleConferirRecebimentoCard(forcarAberto) {
@@ -26,12 +25,6 @@ function toggleConferirRecebimentoCard(forcarAberto) {
   const body = document.getElementById('conferir-recebimento-body');
   if (card) card.classList.toggle('open', _conferirRecebimentoAberto);
   if (body) body.style.display = _conferirRecebimentoAberto ? 'block' : 'none';
-}
-
-function toggleCabecalhoConferenciaCard() {
-  _cabecalhoConferenciaAberto = !_cabecalhoConferenciaAberto;
-  document.getElementById('cabecalho-conferencia-card').classList.toggle('open', _cabecalhoConferenciaAberto);
-  document.getElementById('cabecalho-conferencia-body').style.display = _cabecalhoConferenciaAberto ? 'block' : 'none';
 }
 
 function toggleNovoCriterioConferenciaCard() {
@@ -191,7 +184,6 @@ function renderLancarConferenciaTab() {
         <div class="form-group"><label>Fornecedor</label><input type="text" id="cf-filtro-fornecedor" placeholder="Nome..." oninput="rerenderListaConferencias()"></div>
         <div class="form-group"><label>CNPJ</label><input type="text" id="cf-filtro-cnpj" placeholder="00.000.000/0000-00" oninput="this.value = formatarCNPJ(this.value); rerenderListaConferencias()"></div>
       </div>
-      <button class="btn btn-secondary btn-sm" style="margin-bottom:14px" onclick="gerarRelatorioConferencia()">${ic('fileText', 13)} Gerar relatório (PDF)</button>
       <div id="cf-lista-wrap">${renderListaConferenciasHtml()}</div>
     </div>
   `;
@@ -317,76 +309,6 @@ async function excluirConferencia(id) {
   await carregarConferencias();
   rerenderListaConferencias();
   toast('Conferência excluída.');
-}
-
-function formatarRespostaTextoPdf(r) {
-  if (!r) return '—';
-  if (r.tipo === 'sim_nao') return r.valor === 'nao' ? 'Não' : 'Sim';
-  if (r.tipo === 'nota') return `${r.valor}/10`;
-  if (r.tipo === 'texto') return r.valor || '—';
-  if (r.tipo === 'faixa') {
-    return r.dentroFaixa
-      ? `Recomendado ${r.min}-${r.max}${r.unidade || ''} · Recebido ${r.valor}${r.unidade || ''} (dentro da faixa)`
-      : `Recomendado ${r.min}-${r.max}${r.unidade || ''} · Recebido ${r.valor}${r.unidade || ''} (FORA — RPNC ${r.rpnc})`;
-  }
-  return String(r.valor ?? '—');
-}
-
-// Relatório em PDF pra imprimir/levar em reunião — respeita os filtros
-// atuais (De/Até/Fornecedor/CNPJ). As colunas de critério vêm do que foi
-// REALMENTE respondido em cada conferência da lista filtrada — não do
-// estado atual dos critérios — assim uma conferência antiga não perde a
-// coluna se o critério for desativado ou renomeado depois (mesmo
-// princípio da situação congelada nas avaliações).
-function gerarRelatorioConferencia() {
-  const d = db();
-  const lista = conferenciasFiltradas();
-  if (!lista.length) { toast('Nenhuma conferência encontrada com os filtros atuais pra gerar o relatório.'); return; }
-
-  const colunasCriterios = [];
-  const vistos = new Set();
-  lista.forEach(c => c.respostas.forEach(r => {
-    if (!vistos.has(r.criterioId)) { vistos.add(r.criterioId); colunasCriterios.push({ id: r.criterioId, nome: r.nome }); }
-  }));
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' });
-
-  let y = 14;
-  doc.setFontSize(14);
-  doc.setFont(undefined, 'bold');
-  doc.text(d.nomeEmpresa || 'Empresa', 14, y);
-  y += 7;
-
-  doc.setFontSize(9);
-  doc.setFont(undefined, 'normal');
-  (d.conferenciaCabecalho || []).forEach(linha => {
-    if (!linha.rotulo && !linha.valor) return;
-    doc.text(`${linha.rotulo}: ${linha.valor}`, 14, y);
-    y += 5;
-  });
-  y += 3;
-
-  const head = [['Data', 'Fornecedor', 'NF', ...colunasCriterios.map(c => c.nome), 'Quem avaliou']];
-  const body = lista.map(c => {
-    const forn = d.fornecedores.find(f => f.id === c.fornecedorId);
-    return [
-      fmtDataSimples(c.data),
-      forn ? forn.nome : '—',
-      c.numeroNf,
-      ...colunasCriterios.map(col => formatarRespostaTextoPdf(c.respostas.find(r => r.criterioId === col.id))),
-      c.enviadoPorEmail || '—',
-    ];
-  });
-
-  doc.autoTable({
-    head, body, startY: y,
-    styles: { fontSize: 8, cellPadding: 2.5 },
-    headStyles: { fillColor: [8, 60, 81] },
-  });
-
-  doc.save(`conferencia-${new Date().toISOString().slice(0, 10)}.pdf`);
-  addLog('relatorio_conferencia_gerado', `${currentUser.email} gerou um relatório de conferência (${lista.length} registro(s))`);
 }
 
 function fmtDataSimples(iso) {
@@ -731,29 +653,6 @@ function renderCriteriosConferenciaTab() {
   const d = db();
   const wrap = document.getElementById('conferencia-tab-criterios');
   wrap.innerHTML = `
-    <div class="card sup-new-card ${_cabecalhoConferenciaAberto ? 'open' : ''}" id="cabecalho-conferencia-card" style="margin-bottom:16px">
-      <div class="sup-new-card-header" onclick="toggleCabecalhoConferenciaCard()">
-        <div class="sup-new-icon">+</div>
-        <div class="sup-new-card-title-wrap">
-          <div class="sup-new-card-title">Cabeçalho do relatório impresso</div>
-          <div class="sup-new-card-subtitle">Livre — título, código do documento, revisão, ou qualquer campo específico da sua empresa.</div>
-        </div>
-        <div class="sup-new-chevron">⌄</div>
-      </div>
-      <div class="sup-new-card-body" id="cabecalho-conferencia-body" style="${_cabecalhoConferenciaAberto ? '' : 'display:none'}">
-      <div id="cc-cabecalho-linhas">
-        ${(d.conferenciaCabecalho.length ? d.conferenciaCabecalho : [{ rotulo: '', valor: '' }]).map((linha, i) => `
-          <div class="form-row" style="grid-template-columns:1fr 1fr auto; align-items:flex-end; margin-bottom:8px" data-linha-index="${i}">
-            <div class="form-group" style="margin:0"><label>Rótulo</label><input type="text" class="cc-cab-rotulo" value="${linha.rotulo || ''}" placeholder="Ex: Título"></div>
-            <div class="form-group" style="margin:0"><label>Valor</label><input type="text" class="cc-cab-valor" value="${linha.valor || ''}" placeholder="Ex: Controle de Temperatura de Recebimento"></div>
-            <button type="button" class="btn btn-danger btn-sm" onclick="removerLinhaCabecalhoConferencia(this)">Excluir</button>
-          </div>
-        `).join('')}
-      </div>
-      <button type="button" class="btn btn-secondary btn-sm" onclick="addLinhaCabecalhoConferencia()">+ Adicionar linha</button>
-      <button class="btn btn-primary" style="margin-top:10px; margin-left:8px" onclick="salvarCabecalhoConferencia()">Salvar cabeçalho</button>
-      </div>
-    </div>
     <div class="card sup-new-card ${_novoCriterioConferenciaAberto ? 'open' : ''}" id="novo-criterio-conferencia-card" style="margin-bottom:16px">
       <div class="sup-new-card-header" onclick="toggleNovoCriterioConferenciaCard()">
         <div class="sup-new-icon">+</div>
@@ -820,39 +719,6 @@ function atualizarCamposTipoCriterioConferencia() {
   document.getElementById('cc-desconto-wrap').style.display = (tipo === 'sim_nao' || tipo === 'faixa') ? 'block' : 'none';
   document.getElementById('cc-unidade-wrap').style.display = tipo === 'faixa' ? 'flex' : 'none';
   document.getElementById('cc-peso-wrap').style.display = tipo === 'nota' ? 'flex' : 'none';
-}
-
-function addLinhaCabecalhoConferencia() {
-  const container = document.getElementById('cc-cabecalho-linhas');
-  const div = document.createElement('div');
-  div.className = 'form-row';
-  div.style.cssText = 'grid-template-columns:1fr 1fr auto; align-items:flex-end; margin-bottom:8px';
-  div.innerHTML = `
-    <div class="form-group" style="margin:0"><label>Rótulo</label><input type="text" class="cc-cab-rotulo" placeholder="Ex: Código"></div>
-    <div class="form-group" style="margin:0"><label>Valor</label><input type="text" class="cc-cab-valor" placeholder="Ex: ANX.ALM.001"></div>
-    <button type="button" class="btn btn-danger btn-sm" onclick="removerLinhaCabecalhoConferencia(this)">Excluir</button>
-  `;
-  container.appendChild(div);
-}
-
-function removerLinhaCabecalhoConferencia(btn) {
-  btn.closest('.form-row').remove();
-}
-
-async function salvarCabecalhoConferencia() {
-  const linhas = [];
-  document.querySelectorAll('#cc-cabecalho-linhas .form-row').forEach(row => {
-    const rotulo = row.querySelector('.cc-cab-rotulo').value.trim();
-    const valor = row.querySelector('.cc-cab-valor').value.trim();
-    if (rotulo || valor) linhas.push({ rotulo, valor });
-  });
-
-  const { error } = await supabaseClient.from('empresas').update({ conferencia_cabecalho: linhas }).eq('id', currentUser.empresaId);
-  if (error) { toast('Erro ao salvar cabeçalho: ' + error.message); return; }
-
-  empresaConfigCache.conferencia_cabecalho = linhas;
-  addLog('cabecalho_conferencia_atualizado', `${currentUser.email} atualizou o cabeçalho do relatório de conferência`);
-  toast('Cabeçalho salvo!');
 }
 
 async function addCriterioConferencia() {
