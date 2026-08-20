@@ -1,6 +1,6 @@
 // avaliacoes-recebidas.js
-// versão: 01
-// última atualização: 18/08/2026 07:50
+// versão: 02
+// última atualização: 19/08/2026 21:09
 
 // ============ AVALIAÇÕES RECEBIDAS ============
 let _abaAvaliacoesAdAtual = 'todas';
@@ -356,7 +356,6 @@ function verDetalheAvaliacao(id) {
         <div style="margin-right:auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap">
           ${av.notificadoEm ? `<span style="font-size:12px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:4px">${ic('mail', 13)}Cobrado em ${new Date(av.notificadoEm).toLocaleDateString('pt-BR')}</span>` : ''}
           <button class="btn ${av.notificadoEm ? 'btn-secondary' : 'btn-primary'} btn-sm" onclick="notificarFornecedorNota('${av.id}')" style="display:inline-flex; align-items:center; gap:6px">${ic('mail', 13)}${av.notificadoEm ? 'Notificar novamente' : 'Notificar por e-mail'}</button>
-          ${d.notifAvaliacaoModo === 'aprovacao' && (d.notifAvaliacaoSituacoes || ['reprovado']).includes(sit) ? `<button class="btn btn-primary btn-sm" onclick="aprovarEnviarNotificacaoAutomatica('${av.id}')" style="display:inline-flex; align-items:center; gap:6px">${ic('check', 13)}${av.notificadoEm ? 'Reenviar (HTML)' : 'Aprovar e enviar (HTML)'}</button>` : ''}
           <button class="btn btn-secondary btn-sm" onclick="marcarPlanoAcaoResolvido('${av.id}')">Marcar como resolvido</button>
         </div>
       ` : '') // avaliador: fornecedor ainda não enviou nada — não há ação nem status relevante pra mostrar aqui, isso é tarefa do admin

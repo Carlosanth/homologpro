@@ -1,6 +1,6 @@
 // avaliar.js
-// versão: 03
-// última atualização: 18/08/2026 11:10
+// versão: 04
+// última atualização: 18/08/2026 21:26
 
 // ============ AVALIAR: preenchimento de avaliação (avaliador) + avaliação de produto (admin) ============
 // ============ SHELL DO AVALIADOR ============
@@ -1390,6 +1390,41 @@ function renderResultadoHistoricoProduto(fornecedorId, mes, ano) {
   `;
 }
 
+// Bloco "Conferência no recebimento" — mostra os critérios da Conferência
+// vinculada a essa NF (quando existir), no mesmo padrão do e-mail HTML
+// (enviar-avaliacao-produto-html). Só entram aqui os critérios que NÃO
+// aparecem em "Critérios avaliados" acima (pra não duplicar quando o mesmo
+// nome foi avaliado nos dois lados).
+function blocoConferenciaProdutoHtml(av) {
+  if (!av.conferenciaId) return '';
+  const conferencia = (db().conferencias || []).find(c => c.id === av.conferenciaId);
+  if (!conferencia) return '';
+
+  const nomesAvaliados = new Set((av.notas || []).map(n => (n.nome || '').trim().toLowerCase()));
+  const respostas = (conferencia.respostas || []).filter(r => !nomesAvaliados.has((r.nome || '').trim().toLowerCase()));
+  if (!respostas.length) return '';
+
+  const linhas = respostas.map(r => {
+    const comDesconto = r.desconto > 0;
+    let detalhe;
+    if (r.tipo === 'sim_nao') {
+      detalhe = r.valor === 'sim' ? 'Sim' : 'Não';
+    } else if (r.tipo === 'faixa') {
+      detalhe = `${escapeHtml(String(r.valor))}${escapeHtml(r.unidade || '')} (faixa aceitável ${escapeHtml(String(r.min))}–${escapeHtml(String(r.max))}${escapeHtml(r.unidade || '')})`;
+    } else {
+      detalhe = `${escapeHtml(String(r.valor))}${r.motivo ? ` — ${escapeHtml(r.motivo)}` : ''}`;
+    }
+    return `<div style="font-size:12px; color:${comDesconto ? 'var(--danger)' : 'var(--text)'}; margin-bottom:4px">${escapeHtml(r.nome)}: <b>${detalhe}</b>${comDesconto ? ` <b>(desconto de ${r.desconto.toFixed(1)}P)</b>` : ''}</div>`;
+  }).join('');
+
+  return `
+    <div style="margin-top:12px; padding:10px 12px; background:var(--danger-bg); border-radius:8px">
+      <p style="font-size:12px; font-weight:600; color:var(--danger); margin-bottom:6px">Conferência no recebimento</p>
+      ${linhas}
+    </div>
+  `;
+}
+
 function verDetalheAvaliacaoProduto(id) {
   const d = db();
   const av = d.avaliacoesProduto.find(a => a.id === id);
@@ -1423,6 +1458,7 @@ function verDetalheAvaliacaoProduto(id) {
         `).join('')}
       </div>
     ` : ''}
+    ${blocoConferenciaProdutoHtml(av)}
     ${av.justificativa ? `
       <div style="margin-top:12px; padding:10px 12px; background:var(--surface2); border-radius:8px">
         <p style="font-size:12px; font-weight:600; margin-bottom:4px">Observações</p>
@@ -1453,7 +1489,6 @@ function verDetalheAvaliacaoProduto(id) {
         <div style="margin-right:auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap">
           ${av.notificadoEm ? `<span style="font-size:12px; color:var(--success); font-weight:600; display:flex; align-items:center; gap:4px">${ic('mail', 13)}Cobrado em ${new Date(av.notificadoEm).toLocaleDateString('pt-BR')}</span>` : ''}
           <button class="btn ${av.notificadoEm ? 'btn-secondary' : 'btn-primary'} btn-sm" onclick="notificarFornecedorProduto('${av.id}')" style="display:inline-flex; align-items:center; gap:6px">${ic('mail', 13)}${av.notificadoEm ? 'Notificar novamente' : 'Notificar por e-mail'}</button>
-          <button class="btn btn-secondary btn-sm" onclick="enviarAvaliacaoProdutoHtml('${av.id}')" style="display:inline-flex; align-items:center; gap:6px" title="Testa o e-mail automático em HTML (não mexe no botão de cima)">${ic('fileText', 13)}E-mail automático (teste)</button>
         </div>
       `) : ''}
       <button class="btn btn-secondary" onclick="closeModal()">Fechar</button>

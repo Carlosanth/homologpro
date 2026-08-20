@@ -1,6 +1,6 @@
 // relatorios-pdf.js
-// versão: 04
-// última atualização: 19/08/2026 11:10
+// versão: 05
+// última atualização: 19/08/2026 21:09
 
 // ============ RELATÓRIO & PDFs ============
 // ---------- RELATÓRIO & PDFs ----------
@@ -644,108 +644,39 @@ function saudacaoPorHorario() {
   return 'Boa noite';
 }
 
-// Notifica por e-mail com o conteúdo da avaliação ESCRITO no corpo (sem gerar/anexar PDF) —
-// o fornecedor lê os critérios direto no e-mail, como se fosse o formulário em texto.
-// Mostra a régua completa de cada critério (todas as opções, marcando a escolhida) e sugere
-// automaticamente qual seria a melhor opção em cada critério abaixo do máximo — além da
-// "Melhoria esperada" (justificativa) e "Observações" que o setor já preenche no formulário.
-// ---------- NOTIFICAÇÃO AUTOMÁTICA EM HTML (modo "Por aprovação") ----------
-// Diferente do notificarFornecedorNota (mailto, monta tudo no navegador), aqui
-// só mandamos o id — a Edge Function busca os dados de novo no servidor
-// (fonte confiável) e já dispara o e-mail em HTML via Resend. Usado pelo botão
-// "Aprovar e enviar" que só aparece quando cfg-notif-avaliacao-modo = 'aprovacao'.
-async function aprovarEnviarNotificacaoAutomatica(avId) {
-  toast('Enviando notificação...');
-  const { data, error } = await supabaseClient.functions.invoke('enviar-avaliacao-html', {
-    body: { avaliacaoId: avId, tipo: 'servico' },
-  });
-
-  if (error || !data || data.ok === false) {
-    toast((data && data.error) || 'Não foi possível enviar agora. Tenta de novo em instantes.');
-    return;
-  }
-
-  const d = db();
-  const av = d.avaliacoes.find(a => a.id === avId);
-  if (av) { av.notificadoEm = new Date().toISOString(); av.notificadoVia = 'aprovacao'; }
-  addLog('notificacao_html_aprovada', `${currentUser.email} aprovou e enviou a notificação automática em HTML de uma avaliação reprovada`);
-  toast('Notificação enviada!');
-  verDetalheAvaliacao(avId);
-  renderAdDashboard();
-}
-
+// ---------- NOTIFICAÇÃO PONTUAL — SERVIÇO ----------
+// AJUSTE (ago/2026): antes montava um mailto: no navegador com o corpo
+// inteiro escrito na mão (o fornecedor recebia texto puro). Agora sempre
+// manda via enviar-avaliacao-html (Resend), com o mesmo template visual em
+// HTML usado no resto da plataforma. Isso substitui de vez tanto o mailto
+// antigo quanto o botão separado "Aprovar e enviar (HTML)" que existia ao
+// lado — não faz mais sentido ter os dois, então virou um botão só. Continua
+// disponível em qualquer modo de notificação automática configurado
+// (cfg-notif-avaliacao-modo: desligado/automático/por aprovação) — serve
+// pra notificar ou reenviar manualmente a qualquer momento.
 async function notificarFornecedorNota(avId) {
   const d = db();
   const av = d.avaliacoes.find(a => a.id === avId);
   if (!av) return;
   const forn = d.fornecedores.find(f => f.id === av.fornecedorId);
-  if (!forn) return;
-  if (!forn.email) { toast(`"${forn.nome}" não tem e-mail cadastrado. Adicione em Fornecedores › Editar.`); return; }
-  const form = d.formularios.find(f => f.id === av.formularioId);
-  const [ano, mes] = av.periodo.split('-');
-  const periodoLabel = `${MESES[parseInt(mes)]}/${ano}`;
-  const sit = getSituacao(av.nota);
-  const empNome = d.nomeEmpresa || 'Empresa';
-  const saudacao = saudacaoPorHorario();
+  if (forn && !forn.email) { toast(`"${forn.nome}" não tem e-mail cadastrado. Adicione em Fornecedores › Editar.`); return; }
 
-  const DIVISOR = '─'.repeat(42);
-
-  const blocosCriterios = [];
-  let numero = 1;
-  (form ? form.criterios : []).forEach(c => {
-    const r = av.respostas[c.id];
-    if (!r || r.naoHouve) return;
-    const escolhida = c.opcoes[r.opcaoIndex];
-    if (!escolhida) return;
-    const regua = c.opcoes.map((o, i) => `  ${i === r.opcaoIndex ? '●' : '○'} ${o.label} — ${o.pontos.toFixed(1)}P${i === r.opcaoIndex ? ' (Sua nota)' : ''}`).join('\n');
-    const melhorOpcao = c.opcoes.reduce((best, o) => o.pontos > best.pontos ? o : best, c.opcoes[0]);
-    const melhoria = melhorOpcao.pontos > escolhida.pontos ? `\n\nMelhoria esperada: atingir "${melhorOpcao.label}".` : '';
-    blocosCriterios.push(`${DIVISOR}\n${numero}. ${c.nome} — Sua nota: ${escolhida.pontos.toFixed(1)} de ${c.pesoMax.toFixed(1)}P\n${DIVISOR}\nCritério avaliado: ● ${escolhida.label}.\n\nCritérios avaliativo:\n${regua}${melhoria}`);
-    numero++;
+  mostrarCarregando('Enviando e-mail...');
+  const { data, error } = await supabaseClient.functions.invoke('enviar-avaliacao-html', {
+    body: { avaliacaoId: avId, tipo: 'servico' },
   });
+  esconderProgresso();
 
-  const notaMax = form ? form.criterios.reduce((s, c) => s + c.pesoMax, 0) : null;
-  const tipoLabel = form ? (form.tipo === 'produto' ? 'Produto' : 'Serviço') : '';
-  const setorInfo = form ? `Setor Avaliador: ${form.setor} · ${tipoLabel} (${form.nome})\n${av.enviadoPorNome ? `Avaliador: ${av.enviadoPorNome}\n` : ''}` : '';
-
-  const textos = d.textos || {};
-  const abertura = textos['notif-abertura'] || 'Informamos que foi concluída a análise referente à avaliação abaixo.';
-  const planoAcaoTexto = textos['notif-plano-acao'] || 'Solicitamos o envio de um plano de ação para os pontos identificados.';
-  const fechamento = textos['notif-fechamento'] || 'Apresentamos esses dados para que sua equipe possa analisar os pontos de melhoria e alinhar os processos internos. Permanecemos à disposição para esclarecer dúvidas e apoiar no que for necessário.\n\nAtenciosamente,';
-  const prazo = sit === 'reprovado' ? calcularPrazoPlanoAcao(d) : null;
-
-  let linkPortal = null;
-  if (sit === 'reprovado') {
-    mostrarCarregando('Gerando link do portal...');
-    linkPortal = await gerarLinkPortalFornecedor(forn.id);
-    esconderProgresso();
+  if (error || !data || data.ok === false) {
+    toast((data && data.error) || (error && error.message) || 'Não foi possível enviar agora. Tenta de novo em instantes.');
+    return;
   }
 
-  const assunto = `Avaliação de Desempenho de Fornecedores - ${periodoLabel} - ${forn.nome}`;
-  const refLabel = mesReferenciaLabel(av.periodo, d.periodoAvaliadoMesesAntes);
-  const fraseDetalhamento = refLabel
-    ? `Referente ao serviço prestado em ${refLabel}, detalhamos abaixo os critérios avaliados e a pontuação obtida:`
-    : `Detalhamos abaixo os critérios avaliados e a pontuação obtida:`;
-  let corpo = `${saudacao},\n${abertura}\n\n${setorInfo}Nota Obtida: ${av.nota.toFixed(1)}${notaMax ? ` de ${notaMax.toFixed(1)}P` : ''} (${getSubtituloDoc(sit)})\n\n`;
-  if (blocosCriterios.length) corpo += `${fraseDetalhamento}\n\n${blocosCriterios.join('\n\n')}\n${DIVISOR}\n\n`;
-  if (av.justificativa) corpo += `Outras melhorias apontadas pelo setor avaliador:\n${av.justificativa}\n\n`;
-  if (av.obs) corpo += `Observações:\n${av.obs}\n\n`;
-  if (sit === 'reprovado') {
-    corpo += `${planoAcaoTexto}${prazo ? `\nPrazo de entrega: até ${prazo.formatada}.` : ''}${linkPortal ? `\nVocê pode enviar o plano de ação diretamente por aqui, sem precisar responder este e-mail: ${linkPortal}` : ''}\n\n`;
-  }
-  corpo += `${fechamento}\n${empNome}`;
-  corpo = corpo.replace(/\n{3,}/g, '\n\n');
-
-  const link = `mailto:${encodeURIComponent(forn.email)}?cc=${encodeURIComponent(montarCcNotificacao(d, av.usuarioId))}&subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
-  addLog('notificacao_nota_enviada', `${currentUser.email} notificou "${forn.nome}" sobre a nota do período ${periodoLabel}`);
-  closeModal();
-  window.location.href = link;
-
-  // Grava quando foi notificado — assim o alerta do dashboard mostra
-  // "Cobrado em DD/MM" em vez de ficar pedindo ação pra sempre. Não trava a
-  // navegação: dispara depois do mailto, sem "await" no fluxo principal.
-  supabaseClient.from('avaliacoes').update({ notificado_em: new Date().toISOString(), plano_acao_prazo: prazo ? prazo.iso : null }).eq('id', av.id)
-    .then(({ error }) => { if (!error) { av.notificadoEm = new Date().toISOString(); av.planoAcaoPrazo = prazo ? prazo.iso : null; renderAdDashboard(); } });
+  av.notificadoEm = new Date().toISOString();
+  addLog('notificacao_nota_enviada', `${currentUser.email} notificou "${forn ? forn.nome : ''}" sobre a nota do período ${av.periodo}`);
+  toast('Notificação enviada!');
+  verDetalheAvaliacao(avId);
+  renderAdDashboard();
 }
 
 // Calcula a data-limite pro fornecedor enviar o plano de ação (hoje + prazo
@@ -833,70 +764,20 @@ function blocoPlanoAcaoHtml(tipo, av) {
 }
 
 // ---------- NOTIFICAÇÃO PONTUAL — PRODUTO (NF) ----------
-// O botão de notificar já vive dentro do modal de "verDetalheAvaliacaoProduto"
-// (avaliar.js) — aqui só fica a lógica de montar e mandar o e-mail em si.
+// AJUSTE (ago/2026): mesma migração do lado de Serviço — antes montava
+// mailto: no navegador, agora sempre manda via enviar-avaliacao-produto-html
+// (Resend). Isso substitui de vez tanto o mailto quanto o botão separado
+// "E-mail automático (teste)" que existia ao lado (não fazia mais sentido
+// ter os dois depois de validado o padrão visual do HTML). O botão de
+// notificar já vive dentro do modal de "verDetalheAvaliacaoProduto"
+// (avaliar.js) — aqui só fica a lógica de disparo em si.
 async function notificarFornecedorProduto(avId) {
   const d = db();
   const av = d.avaliacoesProduto.find(a => a.id === avId);
   if (!av) return;
   const forn = d.fornecedores.find(f => f.id === av.fornecedorId);
-  if (!forn) return;
-  if (!forn.email) { toast(`"${forn.nome}" não tem e-mail cadastrado. Adicione em Fornecedores › Editar.`); return; }
-  const empNome = d.nomeEmpresa || 'Empresa';
-  const saudacao = saudacaoPorHorario();
-  const dataLabel = av.data ? new Date(av.data + 'T00:00:00').toLocaleDateString('pt-BR') : '';
+  if (forn && !forn.email) { toast(`"${forn.nome}" não tem e-mail cadastrado. Adicione em Fornecedores › Editar.`); return; }
 
-  const todosCriterios = av.notas || [];
-  const descontos = av.descontoExtraDetalhe || [];
-
-  const blocosCriterios = todosCriterios.map((n, i) =>
-    `${i + 1}. ${n.nome} (Nota: ${n.nota} de ${n.peso})${n.motivo ? `\nMotivo: ${n.motivo}` : ''}`);
-  const blocosDescontos = descontos.map(det => `- ${det.motivo}: desconto de ${det.valor} ponto(s)`);
-
-  const textos = d.textos || {};
-  const abertura = textos['notif-abertura'] || 'Informamos que foi concluída a análise referente à avaliação abaixo.';
-  const planoAcaoTexto = textos['notif-plano-acao'] || 'Solicitamos o envio de um plano de ação para os pontos identificados.';
-  const fechamento = textos['notif-fechamento'] || 'Apresentamos esses dados para que sua equipe possa analisar os pontos de melhoria e alinhar os processos internos. Permanecemos à disposição para esclarecer dúvidas e apoiar no que for necessário.\n\nAtenciosamente,';
-  const sitProduto = getSituacao(av.notaGeral);
-  const prazo = sitProduto === 'reprovado' ? calcularPrazoPlanoAcao(d) : null;
-
-  let linkPortal = null;
-  if (sitProduto === 'reprovado') {
-    mostrarCarregando('Gerando link do portal...');
-    linkPortal = await gerarLinkPortalFornecedor(forn.id);
-    esconderProgresso();
-  }
-
-  const assunto = `Avaliação de Nota Fiscal ${av.numeroNf || ''} - ${forn.nome}`;
-  const responsavelInfo = av.enviadoPorNome ? `- Avaliado por: ${av.enviadoPorNome}\n` : '';
-  const refLabelProduto = av.data ? mesReferenciaLabel(periodoDeData(av.data), d.periodoAvaliadoMesesAntes) : null;
-  const fraseDetalhamentoProduto = refLabelProduto
-    ? `Referente à mercadoria/serviço recebido em ${refLabelProduto}, detalhamos abaixo os critérios avaliados e a pontuação obtida em cada um:`
-    : `Detalhamos abaixo os critérios avaliados e a pontuação obtida em cada um:`;
-  let corpo = `${saudacao},\n${abertura}\n\n${responsavelInfo}- Nota Fiscal: ${av.numeroNf || '—'}\n- Data: ${dataLabel}\n- Nota Obtida: ${av.notaGeral != null ? av.notaGeral.toFixed(1) : '—'} (${getSubtituloDoc(sitProduto)})\n\n`;
-
-  if (blocosCriterios.length) corpo += `${fraseDetalhamentoProduto}\n\n${blocosCriterios.join('\n\n')}\n\n`;
-  if (blocosDescontos.length) corpo += `Descontos aplicados:\n${blocosDescontos.join('\n')}\n\n`;
-  if (av.justificativa) corpo += `Outras observações:\n${av.justificativa}\n\n`;
-  if (sitProduto === 'reprovado') {
-    corpo += `${planoAcaoTexto}${prazo ? `\nPrazo de entrega: até ${prazo.formatada}.` : ''}${linkPortal ? `\nVocê pode enviar o plano de ação diretamente por aqui, sem precisar responder este e-mail: ${linkPortal}` : ''}\n\n`;
-  }
-  corpo += `${fechamento}\n${empNome}`;
-
-  const link = `mailto:${encodeURIComponent(forn.email)}?cc=${encodeURIComponent(montarCcNotificacao(d, av.usuarioId))}&subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
-  addLog('notificacao_produto_enviada', `${currentUser.email} notificou "${forn.nome}" sobre a NF ${av.numeroNf || ''}`);
-  closeModal();
-  window.location.href = link;
-
-  supabaseClient.from('avaliacoes_produto').update({ notificado_em: new Date().toISOString(), plano_acao_prazo: prazo ? prazo.iso : null }).eq('id', av.id)
-    .then(({ error }) => { if (!error) { av.notificadoEm = new Date().toISOString(); av.planoAcaoPrazo = prazo ? prazo.iso : null; renderAdDashboard(); } });
-}
-
-// Botão de teste — dispara o e-mail HTML automático (enviar-avaliacao-produto-html)
-// SEM tocar no mailto acima. Os dois convivem até o Carlos validar que o
-// padrão visual do HTML está bom; só depois disso decide se substitui o
-// mailto ou deixa os dois.
-async function enviarAvaliacaoProdutoHtml(avId) {
   mostrarCarregando('Enviando e-mail...');
   const { data, error } = await supabaseClient.functions.invoke('enviar-avaliacao-produto-html', { body: { avaliacaoId: avId } });
   esconderProgresso();
@@ -906,11 +787,9 @@ async function enviarAvaliacaoProdutoHtml(avId) {
     return;
   }
 
-  const d = db();
-  const av = d.avaliacoesProduto.find(a => a.id === avId);
-  if (av) { av.notificadoEm = new Date().toISOString(); }
-  addLog('notificacao_produto_html_enviada', `${currentUser.email} enviou o e-mail automático (teste) sobre a NF de avaliação produto ${avId}`);
-  toast('E-mail automático enviado!');
+  av.notificadoEm = new Date().toISOString();
+  addLog('notificacao_produto_enviada', `${currentUser.email} notificou "${forn ? forn.nome : ''}" sobre a NF ${av.numeroNf || ''}`);
+  toast('E-mail enviado!');
   await carregarAvaliacoesProduto();
   closeModal();
   renderAdDashboard();
