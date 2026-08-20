@@ -977,7 +977,7 @@ body {
 /* Cartão recolhível "Novo fornecedor" */
 .sup-new-card {
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .sup-new-card-header {
@@ -989,6 +989,11 @@ body {
   user-select: none;
   transition: background 0.15s;
   align-items: stretch;
+  border-radius: 10px 10px 0 0;
+}
+
+.sup-new-card:not(.open) .sup-new-card-header {
+  border-radius: 10px;
 }
 
 .sup-new-card-header:hover {
@@ -1047,6 +1052,7 @@ body {
   padding: 4px 22px 20px;
   border-top: 1px solid var(--border);
   margin-top: 2px;
+  border-radius: 0 0 10px 10px;
 }
 
 .sup-new-card-body .form-row:first-child {
