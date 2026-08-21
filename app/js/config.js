@@ -1,6 +1,6 @@
 // config.js
-// versão: 04
-// última atualização: 20/08/2026 13:00
+// versão: 05
+// última atualização: 21/08/2026 17:00
 
 // ============ PLANOS PADRÃO (Essencial/Profissional) — vem do Supabase ============
 // Fonte única de verdade: tabela planos_config (migration 009). Antes o
@@ -1818,6 +1818,10 @@ function renderLayoutBlocks(tipo, atualizarSidebar = true) {
 
     const delX = document.createElement('span');
     delX.className = 'blkedit-del'; delX.innerHTML = ic('x', 11);
+    // Sem isso, o mousedown no X borbulhava pro bloco inteiro e disparava o
+    // arraste (que re-renderiza a tela e destrói o próprio X antes do clique
+    // completar) — por isso o botão parecia não funcionar.
+    delX.onmousedown = (e) => e.stopPropagation();
     delX.onclick = (e) => { e.stopPropagation(); removerBlocoLayout(tipo, b.id); };
     div.appendChild(delX);
     ['left','right'].forEach(lado => {
@@ -1898,6 +1902,16 @@ function atualizarPreviewTexto(chave, valor, tipo) {
   renderLayoutBlocks(tipo, false);
 }
 
+// Mesma ideia da função acima, mas pro texto de um bloco "Texto fixo": atualiza
+// só o preview a cada tecla (sem reconstruir a sidebar, que derrubaria o foco do
+// textarea) — o salvamento de verdade no estado do bloco continua no onchange.
+function atualizarPreviewConteudoFixo(tipo, id, valor) {
+  const b = layoutEditorState[tipo].blocos.find(x => x.id === id);
+  if (!b) return;
+  b.conteudo = valor;
+  renderLayoutBlocks(tipo, false);
+}
+
 async function salvarTextoDocumento(chave, valor, tipo) {
   const textos = { ...db().textos, [chave]: valor };
   const { error } = await salvarConfigEmpresa('textos', textos);
@@ -1962,12 +1976,12 @@ function renderLayoutSidebar(tipo) {
     </div>
 
     ${b.tipo === 'fixo'
-      ? `<div class="blkedit-prop"><label>Texto</label><textarea onchange="atualizarBlocoLayout('${tipo}','conteudo',this.value)">${b.conteudo||''}</textarea></div>`
+      ? `<div class="blkedit-prop"><label>Texto</label><textarea oninput="atualizarPreviewConteudoFixo('${tipo}','${b.id}',this.value)" onchange="atualizarBlocoLayout('${tipo}','conteudo',this.value)">${b.conteudo||''}</textarea></div>`
       : `<div class="blkedit-prop"><label>Variável associada</label><select onchange="atualizarBlocoLayout('${tipo}','variavel',this.value)">${opcoesVars}</select>
           ${corpoTextoJaUsado && b.variavel !== 'corpo_texto' ? '<p style="font-size:10.5px; color:var(--text-muted); margin:4px 0 0">"Texto do status" já está em uso em outro bloco desse documento — use "Texto fixo" pra um texto extra independente.</p>' : ''}
         </div>`}
 
-    ${b.variavel === 'corpo_texto' ? renderEditorTextoDocumento(tipo) : ''}
+    ${b.tipo === 'variavel' && b.variavel === 'corpo_texto' ? renderEditorTextoDocumento(tipo) : ''}
 
     <div class="blkedit-prop"><label>Fonte</label>
       <select onchange="atualizarBlocoLayout('${tipo}','fonte',this.value)">
