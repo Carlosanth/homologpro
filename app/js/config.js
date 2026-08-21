@@ -1,6 +1,6 @@
 // config.js
-// versão: 03
-// última atualização: 21/08/2026 07:50
+// versão: 04
+// última atualização: 20/08/2026 13:00
 
 // ============ PLANOS PADRÃO (Essencial/Profissional) — vem do Supabase ============
 // Fonte única de verdade: tabela planos_config (migration 009). Antes o
@@ -1560,6 +1560,17 @@ function initLayoutEditor() {
   layoutSelecionado = { cert: null, carta: null };
   atualizarFontesDisponiveis();
   renderFontesCustomLista();
+  // Injeta uma vez só: some com as setinhas feias/padrão do navegador no campo
+  // "Tamanho" — ele usa um stepper próprio (botões − / +) em vez delas.
+  if (!document.getElementById('estilo-tamanho-bloco')) {
+    const style = document.createElement('style');
+    style.id = 'estilo-tamanho-bloco';
+    style.textContent = `
+      .tamanho-bloco-input::-webkit-inner-spin-button, .tamanho-bloco-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+      .tamanho-bloco-input { -moz-appearance: textfield; }
+    `;
+    document.head.appendChild(style);
+  }
   renderLayoutEditorTipo('cert');
   renderLayoutEditorTipo('carta');
 }
@@ -1965,7 +1976,14 @@ function renderLayoutSidebar(tipo) {
     </div>
 
     <div class="blkedit-row">
-      <div class="blkedit-prop"><label>Tamanho</label><input type="number" step="1" min="4" max="200" value="${b.tamanho}" onchange="atualizarBlocoLayout('${tipo}','tamanho',parseFloat(this.value)||b.tamanho)"></div>
+      <div class="blkedit-prop">
+        <label>Tamanho</label>
+        <div style="display:flex; align-items:stretch; border:1px solid var(--accent-border, #ddd); border-radius:6px; overflow:hidden">
+          <button type="button" onclick="ajustarTamanhoBloco('${tipo}', -1)" style="width:30px; border:none; border-right:1px solid var(--accent-border, #ddd); background:var(--accent-bg, #f4f4f5); cursor:pointer; font-size:15px; line-height:1; color:inherit">−</button>
+          <input type="number" step="1" min="4" max="200" value="${b.tamanho}" class="tamanho-bloco-input" onchange="atualizarBlocoLayout('${tipo}','tamanho',parseFloat(this.value)||b.tamanho)" style="flex:1; min-width:0; border:none; text-align:center; padding:4px 0; background:transparent; color:inherit">
+          <button type="button" onclick="ajustarTamanhoBloco('${tipo}', 1)" style="width:30px; border:none; border-left:1px solid var(--accent-border, #ddd); background:var(--accent-bg, #f4f4f5); cursor:pointer; font-size:15px; line-height:1; color:inherit">+</button>
+        </div>
+      </div>
       <div class="blkedit-prop"><label>Cor</label>
         <div class="blkedit-color-row">
           <input type="color" value="${b.cor}" onchange="atualizarBlocoLayout('${tipo}','cor',this.value)">
@@ -2009,7 +2027,7 @@ function renderLayoutSidebar(tipo) {
 function atualizarBlocoLayout(tipo, campo, valor) {
   const b = layoutEditorState[tipo].blocos.find(x => x.id === layoutSelecionado[tipo]);
   if (!b) return;
-  // Segunda trava (a primeira é a opção desabilitada no <select> da sidebar):
+  // Trava (a primeira é a opção desabilitada no <select> da sidebar):
   // nunca deixa dois blocos ficarem apontando pra corpo_texto ao mesmo tempo,
   // mesmo que a mudança venha de outro caminho que não o dropdown normal.
   if (campo === 'variavel' && valor === 'corpo_texto' && layoutEditorState[tipo].blocos.some(x => x.id !== b.id && x.variavel === 'corpo_texto')) {
@@ -2029,6 +2047,14 @@ function atualizarBlocoLayout(tipo, campo, valor) {
   b[campo] = valor;
   if (campo === 'tipo' && valor === 'variavel' && !b.variavel) b.variavel = 'fornecedor';
   renderLayoutBlocks(tipo);
+}
+
+// Botões −/+ do campo Tamanho (substituem as setinhas nativas do navegador).
+function ajustarTamanhoBloco(tipo, delta) {
+  const b = layoutEditorState[tipo].blocos.find(x => x.id === layoutSelecionado[tipo]);
+  if (!b) return;
+  const novo = Math.min(200, Math.max(4, (b.tamanho || 0) + delta));
+  atualizarBlocoLayout(tipo, 'tamanho', novo);
 }
 
 function adicionarBlocoLayout(tipo) {
