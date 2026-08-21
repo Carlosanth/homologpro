@@ -1,6 +1,8 @@
 // relatorios-pdf.js
-// versão: 06
-// última atualização: 21/08/2026 07:50
+// versão: 07
+// última atualização: 21/08/2026 (mesclagem: prazo em dias úteis via core.js
+// da v06 + motor de runs/negrito-itálico por trecho da v05, que tinha ficado
+// pra trás nessa versão)
 
 // ============ RELATÓRIO & PDFs ============
 // ---------- RELATÓRIO & PDFs ----------
@@ -392,8 +394,16 @@ async function enviarSelecionadosEmailAd() {
   atualizarBotaoEnviarSelecionadosAd();
 }
 
+// Aceita tanto o formato antigo (template = string simples) quanto o novo
+// (template = array de runs, ver normalizarRuns mais abaixo) — nesse segundo
+// caso substitui as variáveis dentro do texto de cada run, preservando a
+// formatação (negrito/itálico) de cada trecho.
 function aplicarTexto(template, fornecedor, nota, periodo, empresa, avaliado) {
-  return template.replace(/{fornecedor}/g, fornecedor).replace(/{nota}/g, nota).replace(/{periodo}/g, periodo).replace(/{empresa}/g, empresa).replace(/{avaliado}/g, avaliado || '');
+  const substituir = (str) => String(str ?? '')
+    .replace(/{fornecedor}/g, fornecedor).replace(/{nota}/g, nota).replace(/{periodo}/g, periodo)
+    .replace(/{empresa}/g, empresa).replace(/{avaliado}/g, avaliado || '');
+  if (Array.isArray(template)) return template.map(r => ({ ...r, texto: substituir(r.texto) }));
+  return substituir(template);
 }
 
 function getTipoDoc(sit, tipo) {
@@ -470,6 +480,149 @@ function calcularLinhasBloco(doc, texto, b) {
   });
 }
 
+// ===== RUNS — texto com formatação por trecho (negrito/itálico dentro da mesma frase) =====
+// Hoje só o bloco "Texto do status" (corpo_texto) usa esse motor — os demais
+// blocos continuam com uma fonte só por bloco (calcularLinhasBloco acima).
+// Textos salvos no formato antigo (string simples) continuam funcionando:
+// normalizarRuns converte pra um run único sem formatação, então nenhuma
+// empresa perde texto já configurado com essa mudança.
+
+function normalizarRuns(valor) {
+  if (Array.isArray(valor)) return valor.length ? valor : [{ texto: '' }];
+  return [{ texto: String(valor ?? '') }];
+}
+
+function runsParaTexto(runs) {
+  return normalizarRuns(runs).map(r => r.texto).join('');
+}
+
+function estiloFonte(negrito, italico) {
+  return (negrito && italico) ? 'bolditalic' : negrito ? 'bold' : italico ? 'italic' : 'normal';
+}
+
+// Quebra os runs numa sequência de tokens (palavra/espaço/quebra de linha),
+// cada palavra carregando o estilo (negrito/itálico) do run de onde veio.
+function tokenizarRuns(runs) {
+  const tokens = [];
+  normalizarRuns(runs).forEach(r => {
+    const negrito = !!r.negrito, italico = !!r.italico;
+    String(r.texto ?? '').split('\n').forEach((paragrafo, pi) => {
+      if (pi > 0) tokens.push({ tipo: 'quebra' });
+      paragrafo.split(' ').forEach((palavra, wi) => {
+        if (wi > 0) tokens.push({ tipo: 'espaco' });
+        if (palavra !== '') tokens.push({ tipo: 'palavra', texto: palavra, negrito, italico });
+      });
+    });
+  });
+  return tokens;
+}
+
+// Quebra os runs em linhas que cabem em b.largura (mm), palavra por palavra —
+// equivalente ao doc.splitTextToSize nativo, mas suportando negrito/itálico
+// por trecho (o que o splitTextToSize não suporta, por aceitar só uma
+// fonte/estilo por chamada). Validado (teste local) pra produzir exatamente
+// as mesmas quebras de linha que o splitTextToSize quando o texto é um único
+// run sem formatação — inclusive espaços múltiplos e palavras maiores que a
+// largura do bloco (quebra por caractere).
+function quebrarRunsEmLinhas(doc, runs, b) {
+  const largura = b.largura || 160;
+  const fonte = b.fonte || 'helvetica';
+  doc.setFont(fonte, 'normal'); doc.setFontSize(b.tamanho);
+  const larguraEspaco = doc.getTextWidth(' ');
+
+  const linhas = [];
+  let linhaAtual = [];
+  let larguraAtual = 0;
+  let espacosPendentes = 0;
+
+  function fecharLinha() {
+    linhas.push({ palavras: linhaAtual, vazio: linhaAtual.length === 0 });
+    linhaAtual = [];
+    larguraAtual = 0;
+    espacosPendentes = 0;
+  }
+
+  function medir(texto, negrito, italico) {
+    doc.setFont(fonte, estiloFonte(negrito, italico));
+    doc.setFontSize(b.tamanho);
+    return doc.getTextWidth(texto);
+  }
+
+  function adicionarPalavra(texto, negrito, italico) {
+    const lp = medir(texto, negrito, italico);
+    const espacosAntes = linhaAtual.length ? espacosPendentes : 0;
+    const larguraComEspacos = espacosAntes * larguraEspaco + lp;
+    if (linhaAtual.length > 0 && larguraAtual + larguraComEspacos > largura) {
+      fecharLinha();
+      adicionarPalavra(texto, negrito, italico);
+      return;
+    }
+    // palavra maior que a largura inteira do bloco (ex: link sem espaços) — quebra por caractere
+    if (lp > largura && linhaAtual.length === 0) {
+      let restante = texto;
+      while (restante) {
+        let corte = restante.length;
+        while (corte > 1 && medir(restante.slice(0, corte), negrito, italico) > largura) corte--;
+        const pedaco = restante.slice(0, corte);
+        restante = restante.slice(corte);
+        linhaAtual.push({ texto: pedaco, negrito, italico, largura: medir(pedaco, negrito, italico), espacosAntes: 0 });
+        larguraAtual = linhaAtual[linhaAtual.length - 1].largura;
+        if (restante) fecharLinha();
+      }
+      return;
+    }
+    linhaAtual.push({ texto, negrito, italico, largura: lp, espacosAntes });
+    larguraAtual += larguraComEspacos;
+    espacosPendentes = 0;
+  }
+
+  tokenizarRuns(runs).forEach(tk => {
+    if (tk.tipo === 'quebra') { fecharLinha(); return; }
+    if (tk.tipo === 'espaco') { espacosPendentes++; return; }
+    adicionarPalavra(tk.texto, tk.negrito, tk.italico);
+  });
+  fecharLinha();
+  return linhas;
+}
+
+// Equivalente a calcularLinhasBloco, mas devolvendo "segmentos" (um por trecho
+// de estilo consecutivo dentro da linha) já com a posição x calculada — quem
+// desenha só percorre os segmentos e aplica doc.setFont em cada um, sem
+// recalcular nada. Usada tanto no PDF final (gerarPDFDoc) quanto no preview
+// do editor (renderLayoutBlocks, em config.js), pelo mesmo motivo do
+// calcularLinhasBloco original: preview e PDF não podem decidir quebras de
+// linha diferentes.
+function calcularLinhasRuns(doc, runs, b) {
+  const largura = b.largura || 160;
+  const fonte = b.fonte || 'helvetica';
+  const linhasPalavras = quebrarRunsEmLinhas(doc, runs, b);
+  let y = b.y;
+  doc.setFont(fonte, 'normal'); doc.setFontSize(b.tamanho);
+  const larguraEspaco = doc.getTextWidth(' ');
+
+  return linhasPalavras.map((linha, i) => {
+    const item = { y, vazio: linha.vazio, segmentos: null, larguraLinha: null, justify: false };
+    if (!linha.vazio) {
+      const larguraNatural = linha.palavras.reduce((s, p) => s + (p.espacosAntes || 0) * larguraEspaco + p.largura, 0);
+      const proxima = linhasPalavras[i + 1];
+      const ehUltimaDoParagrafo = (i === linhasPalavras.length - 1) || (proxima && proxima.vazio);
+      const justificar = b.align === 'justify' && !ehUltimaDoParagrafo && linha.palavras.length > 1;
+      const espacoExtra = justificar ? (largura - linha.palavras.reduce((s, p) => s + p.largura, 0)) / (linha.palavras.length - 1) : null;
+      let x = 0;
+      item.segmentos = linha.palavras.map((p, idx) => {
+        if (idx > 0) x += justificar ? espacoExtra : (p.espacosAntes || 1) * larguraEspaco;
+        const seg = { texto: p.texto, negrito: p.negrito, italico: p.italico, x, largura: p.largura };
+        x += p.largura;
+        return seg;
+      });
+      item.larguraLinha = larguraNatural;
+      item.justify = justificar;
+    }
+    y += b.tamanho * 0.5 + 1;
+    return item;
+  });
+}
+
 function gerarPDFDoc(fornecedor, periodo, layoutOverride) {
   const { jsPDF } = window.jspdf;
   const isCert = fornecedor.sit === 'certificado';
@@ -492,6 +645,25 @@ function gerarPDFDoc(fornecedor, periodo, layoutOverride) {
   const corSituacao = { aprovado: [0,130,60], parcial: [180,100,0], reprovado: [180,0,0], certificado: [0,130,60] }[fornecedor.sit] || [40,40,40];
 
   (L.blocos || []).forEach(b => {
+    // corpo_texto é o único campo preparado pra formatação por trecho
+    // (negrito/itálico dentro da mesma frase) — os demais blocos (fixos ou
+    // outras variáveis) continuam no motor antigo, de uma fonte só por bloco.
+    if (b.variavel === 'corpo_texto') {
+      const runs = normalizarRuns(ctx.corpoTexto);
+      if (!runsParaTexto(runs).trim()) return;
+      doc.setTextColor(...hexParaRGB(b.cor));
+      calcularLinhasRuns(doc, runs, b).forEach(lr => {
+        if (lr.vazio) return;
+        const offset = b.align === 'center' ? (b.largura - lr.larguraLinha) / 2 : b.align === 'right' ? (b.largura - lr.larguraLinha) : 0;
+        lr.segmentos.forEach(seg => {
+          doc.setFont(b.fonte || 'helvetica', estiloFonte(seg.negrito, seg.italico));
+          doc.setFontSize(b.tamanho);
+          doc.text(seg.texto, b.x + offset + seg.x, lr.y);
+        });
+      });
+      return;
+    }
+
     const texto = b.tipo === 'fixo' ? b.conteudo : resolveVariavelValor(b.variavel, ctx);
     if (!texto) return;
     const estilo = (b.negrito && b.italico) ? 'bolditalic' : b.negrito ? 'bold' : b.italico ? 'italic' : 'normal';
