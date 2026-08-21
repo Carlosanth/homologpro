@@ -1,6 +1,6 @@
 // unidades.js
-// versão: 01
-// última atualização: 18/08/2026 07:50
+// versão: 02
+// última atualização: 21/08/2026 07:50
 
 // ============ MEUS DOCUMENTOS (unidades da própria empresa) ============
 // Mesma lógica de arquivo de documento do módulo Fornecedores (validade,
@@ -279,10 +279,7 @@ async function abrirArquivoUnidadeDoc(docId) {
   const d = db();
   const doc = d.unidadesDocumentos.find(x => x.id === docId);
   if (!doc || !doc.caminhoStorage) return;
-
-  try {
-    await r2Baixar(doc.caminhoStorage, doc.nomeArquivo || doc.nome);
-  } catch (error) { toast('Erro ao abrir arquivo: ' + error.message); }
+  await visualizarAnexo(doc.caminhoStorage, doc.nomeArquivo || doc.nome);
 }
 
 async function addUnidadeDocumento(unidadeId) {

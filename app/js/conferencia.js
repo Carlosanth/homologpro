@@ -1,6 +1,6 @@
 // conferencia.js
-// versão: 02
-// última atualização: 20/08/2026 09:08
+// versão: 03
+// última atualização: 21/08/2026 07:50
 
 // ============ MÓDULO CONFERÊNCIA ============
 // Formulário separado do de Avaliar Produto — pensado pra quem só confere
@@ -652,7 +652,23 @@ async function salvarConferencia() {
 function renderCriteriosConferenciaTab() {
   const d = db();
   const wrap = document.getElementById('conferencia-tab-criterios');
+
+  // Critérios do Avaliar Produto que ainda não foram trazidos pra Conferência
+  // (nenhum critério de conferência linkado via criterio_produto_id) — em vez
+  // de tentar acertar o nome na mão, escolhe direto da lista de origem.
+  const idsJaLinkados = new Set(d.criteriosConferencia.filter(c => c.criterio_produto_id).map(c => c.criterio_produto_id));
+  const criteriosDisponiveis = d.criteriosProduto.filter(c => !c.arquivado_em && !idsJaLinkados.has(c.id));
+
   wrap.innerHTML = `
+    ${criteriosDisponiveis.length ? `
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">Critérios disponíveis${infoTip('Critérios já cadastrados lá no Avaliar → Produto. Adicione aqui pra poder conferir esse mesmo critério no recebimento — a régua e o peso vêm copiados de lá, e se o critério for arquivado no Avaliar, ele arquiva automaticamente aqui também.')}</div>
+      <div style="display:flex; flex-wrap:wrap; gap:8px">
+        ${criteriosDisponiveis.map(c => `
+          <button class="btn btn-secondary btn-sm" onclick="adicionarCriterioConferenciaDoProduto('${c.id}')" style="display:inline-flex; align-items:center; gap:5px">${ic('plus', 12)} ${c.nome}</button>
+        `).join('')}
+      </div>
+    </div>` : ''}
     <div class="card sup-new-card ${_novoCriterioConferenciaAberto ? 'open' : ''}" id="novo-criterio-conferencia-card" style="margin-bottom:16px">
       <div class="sup-new-card-header" onclick="toggleNovoCriterioConferenciaCard()">
         <div class="sup-new-icon">+</div>
@@ -669,7 +685,7 @@ function renderCriteriosConferenciaTab() {
           <label>Tipo</label>
           <select id="cc-tipo" onchange="atualizarCamposTipoCriterioConferencia()">
             <option value="sim_nao">Sim/Não (desconta ponto se "Não")</option>
-            <option value="nota">Nota de 0 a 10 (liga com critério de mesmo nome no Avaliar Produto)</option>
+            <option value="nota">Nota de 0 a 10 (critério novo — pra puxar um já existente, use "Critérios disponíveis" acima)</option>
             <option value="faixa">Faixa numérica (mín/máx recomendado + valor recebido — ex: temperatura, umidade, peso)</option>
             <option value="texto">Texto livre (só informativo)</option>
           </select>
@@ -683,7 +699,7 @@ function renderCriteriosConferenciaTab() {
         <div class="form-group">
           <label>Peso</label>
           <input type="number" id="cc-peso" min="1" step="1" value="10">
-          <p style="font-size:11px; color:var(--text-muted); margin-top:4px">Se já existir um critério ativo de mesmo nome no Avaliar Produto com régua configurada, essa régua é copiada pra cá (o peso também vem de lá). Senão, geramos uma régua em branco do tamanho do peso pra você preencher.</p>
+          <p style="font-size:11px; color:var(--text-muted); margin-top:4px">Régua nasce em branco do tamanho do peso — dá pra editar depois.</p>
         </div>
       </div>
       <button class="btn btn-primary" style="margin-top:10px" onclick="addCriterioConferencia()">Adicionar critério</button>
@@ -697,7 +713,10 @@ function renderCriteriosConferenciaTab() {
           <thead><tr><th>Nome</th><th>Tipo</th><th>Peso</th><th>Régua</th><th>Desconto</th><th>Ativo</th><th></th></tr></thead>
           <tbody>
             ${d.criteriosConferencia.map(c => `<tr>
-              <td>${c.nome}</td>
+              <td>${c.nome}
+                ${c.criterio_produto_id ? `<span class="badge badge-accent" style="margin-left:6px">Do Avaliar</span>` : ''}
+                ${c.arquivado_em ? `<span class="badge" style="margin-left:6px; background:var(--text-muted); color:#fff">Arquivado (via Avaliar)</span>` : ''}
+              </td>
               <td>${c.tipo === 'sim_nao' ? 'Sim/Não' : c.tipo === 'nota' ? 'Nota (0-10)' : c.tipo === 'faixa' ? `Faixa (${c.unidade})` : 'Texto'}</td>
               <td>${c.tipo === 'nota' ? c.peso : '—'}</td>
               <td>${c.tipo === 'nota' ? ((c.opcoes && c.opcoes.length) ? `<span style="color:var(--accent); font-weight:600">${c.opcoes.length} opções</span>` : '<span style="color:var(--text-muted)">Livre</span>') : '—'}</td>
@@ -712,6 +731,27 @@ function renderCriteriosConferenciaTab() {
       `}
     </div>
   `;
+}
+
+// Traz um critério direto do Avaliar Produto pra Conferência, sem passar
+// pelo form manual — copia nome/peso/régua e grava o link (criterio_produto_id)
+// pra poder arquivar em cascata depois.
+async function adicionarCriterioConferenciaDoProduto(criterioProdutoId) {
+  const d = db();
+  const cp = d.criteriosProduto.find(c => c.id === criterioProdutoId);
+  if (!cp) return;
+
+  const { error } = await supabaseClient.from('criterios_conferencia').insert({
+    empresa_id: currentUser.empresaId, nome: cp.nome, tipo: 'nota', desconto_se_nao: 0,
+    unidade: null, ativo: true, peso: cp.peso, opcoes: (cp.opcoes || []).map(o => ({ ...o })),
+    criterio_produto_id: cp.id,
+  });
+  if (error) { toast('Erro ao adicionar critério: ' + error.message); return; }
+
+  addLog('criterio_conferencia_criado', `${currentUser.email} trouxe o critério "${cp.nome}" do Avaliar Produto pra Conferência`);
+  await carregarCriteriosConferencia();
+  renderCriteriosConferenciaTab();
+  toast('Critério adicionado!');
 }
 
 function atualizarCamposTipoCriterioConferencia() {
@@ -732,21 +772,10 @@ async function addCriterioConferencia() {
   const d = db();
   let peso = 10;
   let opcoes = [];
-  let origemRegua = '';
 
   if (tipo === 'nota') {
     peso = parseFloat(document.getElementById('cc-peso').value) || 10;
-    const critProdutoMatch = d.criteriosProduto.find(cp => cp.ativo && normalizarNomeCriterio(cp.nome) === normalizarNomeCriterio(nome));
-    if (critProdutoMatch && critProdutoMatch.opcoes && critProdutoMatch.opcoes.length) {
-      // Já existe um critério ativo de mesmo nome no Avaliar Produto, com
-      // régua configurada — copia a régua (e o peso) de lá, pra ficar igual.
-      peso = critProdutoMatch.peso;
-      opcoes = critProdutoMatch.opcoes.map(o => ({ ...o }));
-      origemRegua = ' (régua copiada do Avaliar Produto)';
-    } else {
-      opcoes = getModeloReguaPadrao(nome, peso);
-      origemRegua = ' com régua sugerida — revise e ajuste se quiser';
-    }
+    opcoes = getModeloReguaPadrao(nome, peso) || [];
   }
 
   const { error } = await supabaseClient.from('criterios_conferencia').insert({
@@ -760,7 +789,7 @@ async function addCriterioConferencia() {
   addLog('criterio_conferencia_criado', `${currentUser.email} criou o critério de conferência "${nome}"`);
   await carregarCriteriosConferencia();
   renderCriteriosConferenciaTab();
-  toast(`Critério adicionado${tipo === 'nota' ? origemRegua : ''}!`);
+  toast('Critério adicionado!');
 }
 
 async function toggleCriterioConferenciaAtivo(id, ativo) {
@@ -771,7 +800,7 @@ async function toggleCriterioConferenciaAtivo(id, ativo) {
 }
 
 async function excluirCriterioConferencia(id) {
-  if (!confirm('Excluir esse critério? Conferências já lançadas não são afetadas (ficam com a foto de quando foram feitas).')) return;
+  if (!confirm('Excluir esse critério? Conferências já lançadas não serão afetadas.')) return;
   const { error } = await supabaseClient.from('criterios_conferencia').delete().eq('id', id);
   if (error) { toast('Erro ao excluir critério: ' + error.message); return; }
   await carregarCriteriosConferencia();

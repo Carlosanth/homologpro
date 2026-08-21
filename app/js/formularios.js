@@ -1,6 +1,6 @@
 // formularios.js
-// versão: 01
-// última atualização: 18/08/2026 07:50
+// versão: 02
+// última atualização: 21/08/2026 07:50
 
 // ============ FORMULÁRIOS ============
 function renderAdFormularios() {
@@ -29,6 +29,19 @@ function renderAdFormularios() {
           </div>
           <div class="form-group" style="margin-bottom:0; display:flex; align-items:end">
             <button class="btn btn-primary" onclick="salvarPeriodoAvaliadoFormularios()">Salvar</button>
+          </div>
+        </div>
+
+        <div class="cobranca-field-row" style="grid-template-columns:1fr 1fr; margin-top:14px; margin-bottom:0">
+          <div class="form-group" style="margin-bottom:0">
+            <label>Prazo pro fornecedor enviar o plano de ação${infoTip('Contado em dias úteis a partir de hoje (a data em que o e-mail de cobrança é enviado) — sábados e domingos não contam. Usado no e-mail de notificação, tanto pra Serviço quanto pra Produto/NF.')}</label>
+            <div class="input-suffix-group">
+              <input type="number" class="no-spinner" id="fm-prazo-plano-acao-dias" min="1" max="60" step="1" value="${(db().textos && db().textos['notif-prazo-dias']) || '10'}">
+              <span>dias úteis</span>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:0; display:flex; align-items:end">
+            <button class="btn btn-primary" onclick="salvarPrazoPlanoAcaoFormularios()">Salvar</button>
           </div>
         </div>
       </div>
@@ -122,6 +135,26 @@ async function salvarPeriodoAvaliadoFormularios() {
 
   empresaConfigCache.periodo_avaliado_meses_antes = meses;
   addLog('config_periodo_avaliado', `${currentUser.email} mudou o período avaliado para ${meses} mês(es) antes`);
+  mostrarSucesso('Salvo!');
+}
+
+// Movido de Relatórios & PDFs (ago/2026) — Carlos pediu que o prazo do plano
+// de ação seja em dias ÚTEIS (não mais dias corridos), e que fique junto com
+// as outras "regras gerais de prazo e período" em vez de dentro do card de
+// texto do e-mail. Reaproveita a mesma chave notif-prazo-dias em
+// empresas.config.textos (mesma que enviar-avaliacao-html e
+// enviar-avaliacao-produto-html já leem) — só muda onde se edita e como o
+// valor é interpretado (dias úteis em vez de corridos).
+async function salvarPrazoPlanoAcaoFormularios() {
+  const dias = parseInt(document.getElementById('fm-prazo-plano-acao-dias').value, 10);
+  if (!dias || dias < 1) { toast('Informe um número de dias úteis válido.'); return; }
+
+  mostrarCarregando('Salvando...');
+  const textos = { ...db().textos, 'notif-prazo-dias': String(dias) };
+  const { error } = await salvarConfigEmpresa('textos', textos);
+  if (error) { esconderProgresso(); toast('Erro ao salvar: ' + error.message); return; }
+
+  addLog('config_prazo_plano_acao', `${currentUser.email} mudou o prazo do plano de ação para ${dias} dia(s) útil(eis)`);
   mostrarSucesso('Salvo!');
 }
 

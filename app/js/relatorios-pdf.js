@@ -1,6 +1,6 @@
 // relatorios-pdf.js
-// versão: 05
-// última atualização: 19/08/2026 21:09
+// versão: 06
+// última atualização: 21/08/2026 07:50
 
 // ============ RELATÓRIO & PDFs ============
 // ---------- RELATÓRIO & PDFs ----------
@@ -58,22 +58,10 @@ function renderAdRelatorio() {
         A saudação (bom dia/boa tarde) e os dados (nota, critérios com problema, motivos) são preenchidos automaticamente — aqui é só a parte do texto.
       </p>
       <div class="form-group">
-        <label>Abertura</label>
-        <textarea rows="2" onchange="salvarTextoDocumento('notif-abertura', this.value)">${textos['notif-abertura'] || ''}</textarea>
-      </div>
-      <div class="form-group">
         <label>Pedido de plano de ação (só entra quando a avaliação é reprovada)</label>
         <textarea rows="2" onchange="salvarTextoDocumento('notif-plano-acao', this.value)">${textos['notif-plano-acao'] || ''}</textarea>
       </div>
-      <div class="form-group" style="max-width:260px">
-        <label>Prazo pro fornecedor enviar o plano de ação (dias)</label>
-        <input type="number" min="1" step="1" value="${textos['notif-prazo-dias'] || '10'}" onchange="salvarTextoDocumento('notif-prazo-dias', this.value)">
-        <p style="font-size:11px; color:var(--text-muted); margin-top:4px">O sistema soma esses dias à data da cobrança e já escreve o prazo no e-mail.</p>
-      </div>
-      <div class="form-group">
-        <label>Fechamento</label>
-        <textarea rows="3" onchange="salvarTextoDocumento('notif-fechamento', this.value)">${textos['notif-fechamento'] || ''}</textarea>
-      </div>
+      <p style="font-size:11px; color:var(--text-muted); margin-top:-4px">O prazo pro fornecedor enviar o plano de ação agora fica em Formulários → Catálogo → "Regras gerais de prazo e período".</p>
     </div>
   `;
 }
@@ -679,14 +667,8 @@ async function notificarFornecedorNota(avId) {
   renderAdDashboard();
 }
 
-// Calcula a data-limite pro fornecedor enviar o plano de ação (hoje + prazo
-// configurado, em dias). Usado tanto na notificação de Serviço quanto Produto.
-function calcularPrazoPlanoAcao(d) {
-  const dias = parseInt((d.textos && d.textos['notif-prazo-dias']) || '10', 10) || 10;
-  const data = new Date();
-  data.setDate(data.getDate() + dias);
-  return { iso: data.toISOString().slice(0, 10), formatada: data.toLocaleDateString('pt-BR') };
-}
+// Cálculo do prazo (dias úteis) foi movido pra core.js (prazoPlanoAcaoDiasUteis)
+// — usado agora na config de Formulários → Catálogo, não mais aqui.
 
 // Gera um link novo do portal pra esse fornecedor (reaproveita a mesma Edge
 // Function que o botão "Gerar link do portal" já usa em Fornecedores — token

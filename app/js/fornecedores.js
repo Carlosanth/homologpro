@@ -1,6 +1,6 @@
 // fornecedores.js
-// versão: 01
-// última atualização: 18/08/2026 07:50
+// versão: 02
+// última atualização: 21/08/2026 07:00
 
 // ============ FORNECEDORES ============
 // ---------- ÍCONES (mesmo estilo lucide/outline usado no menu lateral) ----------
@@ -712,7 +712,7 @@ function abrirHistoricoDocumento(docId) {
       ${versoes.length ? versoes.map(v => `
         <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px">
           <span>Atualizado em ${new Date(v.substituidoEm).toLocaleDateString('pt-BR')} às ${new Date(v.substituidoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
-          ${v.caminhoStorage ? `<button class="btn btn-secondary btn-sm" onclick="baixarVersaoDocumento('${v.id}')">${ic('fileText', 13)} Baixar</button>` : ''}
+          ${v.caminhoStorage ? `<button class="btn btn-secondary btn-sm" onclick="baixarVersaoDocumento('${v.id}')">${ic('fileText', 13)} Ver</button>` : ''}
         </div>
       `).join('') : '<p style="font-size:12px; color:var(--text-muted)">Nenhuma versão anterior — esse documento ainda não foi atualizado.</p>'}
     </div>
@@ -723,10 +723,7 @@ async function baixarVersaoDocumento(versaoId) {
   const d = db();
   const v = d.documentosVersoes.find(x => x.id === versaoId);
   if (!v || !v.caminhoStorage) return;
-
-  try {
-    await r2Baixar(v.caminhoStorage, v.nomeArquivo || 'documento');
-  } catch (error) { toast('Erro ao abrir arquivo: ' + error.message); }
+  await visualizarAnexo(v.caminhoStorage, v.nomeArquivo || 'documento');
 }
 
 function toggleMenuFornecedor(id, event) {
@@ -790,7 +787,7 @@ async function renderAnexosLista(fornecedorId) {
         <div style="font-size:11px; color:var(--text-muted)">${new Date(a.enviado_em).toLocaleDateString('pt-BR')}</div>
       </div>
       <div style="display:flex; gap:6px; flex-shrink:0">
-        <button class="sup-doc-icon-btn" onclick="baixarAnexoFornecedor('${a.id}')" title="Baixar">${ic('fileText', 14)}</button>
+        <button class="sup-doc-icon-btn" onclick="baixarAnexoFornecedor('${a.id}')" title="Ver">${ic('fileText', 14)}</button>
         <button class="sup-doc-icon-btn sup-doc-icon-btn-danger" onclick="removerAnexoFornecedor('${a.id}','${fornecedorId}')" title="Excluir">${ic('trash', 14)}</button>
       </div>
     </div>
@@ -835,10 +832,7 @@ async function enviarAnexoFornecedor(fornecedorId, input) {
 async function baixarAnexoFornecedor(anexoId) {
   const info = anexosFornecedorTemp[anexoId];
   if (!info) return;
-
-  try {
-    await r2Baixar(info.caminhoStorage, info.nomeArquivo);
-  } catch (error) { toast('Erro ao abrir arquivo: ' + error.message); }
+  await visualizarAnexo(info.caminhoStorage, info.nomeArquivo);
 }
 
 async function removerAnexoFornecedor(anexoId, fornecedorId) {
@@ -894,18 +888,13 @@ async function abrirArquivoDoc(docId) {
   const d = db();
   const doc = d.documentos.find(x => x.id === docId);
   if (!doc || !doc.caminhoStorage) return;
-
-  try {
-    await r2Baixar(doc.caminhoStorage, doc.nomeArquivo || doc.nome);
-  } catch (error) { toast('Erro ao abrir arquivo: ' + error.message); }
+  await visualizarAnexo(doc.caminhoStorage, doc.nomeArquivo || doc.nome);
 }
 
-// Baixa um anexo de avaliação de serviço (mesmo padrão do documento de fornecedor).
+// Abre um anexo de avaliação de serviço em preview (mesmo padrão do documento de fornecedor).
 async function baixarAnexoAvaliacao(caminhoStorage, nomeArquivo) {
   if (!caminhoStorage) return;
-  try {
-    await r2Baixar(caminhoStorage, nomeArquivo);
-  } catch (error) { toast('Erro ao abrir anexo: ' + error.message); }
+  await visualizarAnexo(caminhoStorage, nomeArquivo);
 }
 
 async function addDocumento(fornecedorId) {

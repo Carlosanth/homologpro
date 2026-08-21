@@ -1,6 +1,6 @@
 // core.js
-// versão: 02
-// última atualização: 18/08/2026 20:20
+// versão: 03
+// última atualização: 21/08/2026 07:50
 
 // ============ CORE: estado global, persistência, sessão/login, shell de navegação ============
 
@@ -72,6 +72,20 @@ function prazoFinalDiasUteis(ano, mes, diasUteis) {
   if (!diasUteis) return null;
   const base = primeiroDiaUtilDoMes(ano, mes);
   return somarDiasUteis(base, diasUteis);
+}
+
+// Prazo do plano de ação (notif-prazo-dias): soma N dias ÚTEIS a partir de
+// hoje (hoje não conta como 1º dia — o prazo começa a contar a partir de
+// amanhã). Usado no e-mail de cobrança ao fornecedor (front e Edge Functions
+// replicam essa mesma lógica).
+function prazoPlanoAcaoDiasUteis(diasUteis) {
+  const d = new Date();
+  let contados = 0;
+  while (contados < diasUteis) {
+    d.setDate(d.getDate() + 1);
+    if (d.getDay() !== 0 && d.getDay() !== 6) contados++;
+  }
+  return d;
 }
 
 let currentUser = null;

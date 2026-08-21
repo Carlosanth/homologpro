@@ -1,6 +1,6 @@
 // avaliar.js
-// versão: 05
-// última atualização: 18/08/2026 06:30
+// versão: 06
+// última atualização: 21/08/2026 07:50
 
 // ============ AVALIAR: preenchimento de avaliação (avaliador) + avaliação de produto (admin) ============
 // ============ SHELL DO AVALIADOR ============
@@ -702,7 +702,10 @@ async function visualizarAnexo(caminhoStorage, nomeArquivo) {
     openModal(`
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:10px">
         <h3 style="margin:0; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${escapeHtml(nomeArquivo)}</h3>
-        <button class="btn btn-secondary btn-sm" onclick="closeModal()">Fechar</button>
+        <div style="display:flex; gap:8px; flex-shrink:0">
+          <button class="sup-doc-icon-btn" onclick="baixarPreviewAtual('${escapeForInlineHandler(nomeArquivo)}')" title="Baixar">${ic('fileText', 14)}</button>
+          <button class="btn btn-secondary btn-sm" onclick="closeModal()">Fechar</button>
+        </div>
       </div>
       ${ehImagem
         ? `<img src="${blobUrl}" style="max-width:100%; max-height:70vh; display:block; margin:0 auto; border-radius:8px">`
@@ -712,6 +715,17 @@ async function visualizarAnexo(caminhoStorage, nomeArquivo) {
     toast('Erro ao abrir anexo: ' + error.message);
     closeModal();
   }
+}
+
+// Baixa o arquivo do preview atualmente aberto (botão de download ao lado de
+// "Fechar"). Reaproveita a blob URL já carregada em _blobUrlAtualPreview —
+// não faz uma nova requisição ao R2.
+function baixarPreviewAtual(nomeArquivo) {
+  if (!_blobUrlAtualPreview) return;
+  const link = document.createElement('a');
+  link.href = _blobUrlAtualPreview;
+  link.download = nomeArquivo || 'documento';
+  link.click();
 }
 let _abaAvaliarProduto = 'avaliar';
 
@@ -1584,7 +1598,7 @@ function verDetalheAvaliacaoProduto(id) {
         <p style="font-size:12px">${escapeHtml(av.justificativa)}</p>
       </div>
     ` : ''}
-    ${getSituacao(av.notaGeral) === 'reprovado' ? blocoPlanoAcaoHtml('produto', av) : ''}
+    ${(getSituacao(av.notaGeral) === 'reprovado' || getSituacao(av.notaGeral) === 'parcial') ? blocoPlanoAcaoHtml('produto', av) : ''}
     <div class="no-print" style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px">
       ${(av.notas || []).some(n => n.motivo) || (av.descontoExtraDetalhe || []).length ? (
         av.planoAcaoResolvidoEm
@@ -1830,9 +1844,12 @@ function getModeloReguaPadrao(nome, peso) {
   return Array.from({ length: n }, (_, i) => ({ label: '', pontos: n - i }));
 }
 
+window._subAbaCriteriosProduto = 'ativos';
+
 function renderCriteriosProdutoTab() {
   const d = db();
   const wrap = document.getElementById('avaliar-produto-tab');
+  const arquivados = d.criteriosProduto.filter(c => c.arquivado_em).length;
   wrap.innerHTML = `
     <div class="card" style="margin-bottom:14px">
       <div class="card-title">Novo critério</div>
@@ -1843,18 +1860,30 @@ function renderCriteriosProdutoTab() {
       </div>
     </div>
     <div class="card">
-      <div class="card-title">Critérios cadastrados (${d.criteriosProduto.length})</div>
+      <div style="display:flex; gap:8px; margin-bottom:14px">
+        <button class="btn ${window._subAbaCriteriosProduto === 'ativos' ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="trocarSubAbaCriteriosProduto('ativos')">Critérios (${d.criteriosProduto.length - arquivados})</button>
+        <button class="btn ${window._subAbaCriteriosProduto === 'arquivados' ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="trocarSubAbaCriteriosProduto('arquivados')">Critérios arquivados (${arquivados})</button>
+      </div>
       <div id="criterios-produto-lista"></div>
     </div>
   `;
   renderCriteriosProdutoLista();
 }
 
+function trocarSubAbaCriteriosProduto(sub) {
+  window._subAbaCriteriosProduto = sub;
+  renderCriteriosProdutoTab();
+}
+
 function renderCriteriosProdutoLista() {
   const d = db();
   const wrap = document.getElementById('criterios-produto-lista');
-  if (!d.criteriosProduto.length) {
-    wrap.innerHTML = '<div class="empty-state"><p>Nenhum critério cadastrado ainda. Adicione acima (ex: Nota Fiscal, Prazo, Quantidade, Condições).</p></div>';
+  const naArquivados = window._subAbaCriteriosProduto === 'arquivados';
+  const lista = d.criteriosProduto.filter(c => !!c.arquivado_em === naArquivados);
+  if (!lista.length) {
+    wrap.innerHTML = naArquivados
+      ? '<div class="empty-state"><p>Nenhum critério arquivado.</p></div>'
+      : '<div class="empty-state"><p>Nenhum critério cadastrado ainda. Adicione acima (ex: Nota Fiscal, Prazo, Quantidade, Condições).</p></div>';
     return;
   }
   // "Já avaliado — travado" é só informativo: o trigger no banco
@@ -1865,7 +1894,7 @@ function renderCriteriosProdutoLista() {
   (d.avaliacoesProduto || []).forEach(av => (av.notas || []).forEach(n => { if (n.criterioId) idsUsados.add(n.criterioId); }));
 
   wrap.innerHTML = `<table><thead><tr><th>Critério</th><th style="width:120px">Peso</th><th style="width:90px">Ativo</th><th style="width:100px">Régua</th><th></th></tr></thead><tbody>
-    ${d.criteriosProduto.map(c => {
+    ${lista.map(c => {
       const arquivado = !!c.arquivado_em;
       const temAvaliacao = idsUsados.has(c.id);
       return `<tr>
@@ -1892,12 +1921,25 @@ function renderCriteriosProdutoLista() {
 // banco permite isso mesmo em critério já avaliado (só bloqueia mudança de
 // conteúdo: nome/peso/opções). Junto, desliga "ativo" pra sumir das 3 telas
 // de lançamento (novo/edição) sem precisar filtrar por arquivado_em nelas.
+//
+// Arquivar aqui também arquiva em cascata qualquer critério de Conferência
+// linkado a este (criterio_produto_id) — a pedido de Carlos: não faz
+// sentido um critério sumir do Avaliar e continuar aparecendo pra conferir
+// no Conferência, já que os dois são "a mesma coisa" nas duas telas.
+// Desarquivar NÃO reativa o lado da Conferência automaticamente (só a
+// direção Avaliar → Conferência é automática).
 async function arquivarCriterioProduto(id) {
-  if (!confirm('Arquivar este critério? Ele deixa de aparecer para novos lançamentos, mas continua existindo para avaliações já feitas.')) return;
-  const { error } = await supabaseClient.from('criterios_produto').update({ arquivado_em: new Date().toISOString(), ativo: false }).eq('id', id);
+  if (!confirm('Arquivar este critério? Ele deixa de aparecer para novos lançamentos (inclusive na Conferência, se houver um critério linkado a ele), mas continua existindo para avaliações já feitas.')) return;
+  const agora = new Date().toISOString();
+  const { error } = await supabaseClient.from('criterios_produto').update({ arquivado_em: agora, ativo: false }).eq('id', id);
   if (error) { toast('Erro ao arquivar: ' + error.message); return; }
+
+  const { error: erroConf } = await supabaseClient.from('criterios_conferencia').update({ arquivado_em: agora, ativo: false }).eq('criterio_produto_id', id);
+  if (erroConf) console.error('Falha ao arquivar critério de conferência linkado:', erroConf.message);
+
   addLog('criterio_produto_arquivado', `${currentUser.email} arquivou um critério de produto`);
   await carregarCriteriosProduto();
+  await carregarCriteriosConferencia();
   renderCriteriosProdutoLista();
 }
 

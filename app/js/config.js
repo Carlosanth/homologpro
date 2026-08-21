@@ -1,6 +1,6 @@
 // config.js
-// versão: 02
-// última atualização: 20/08/2026 06:30
+// versão: 03
+// última atualização: 21/08/2026 07:50
 
 // ============ PLANOS PADRÃO (Essencial/Profissional) — vem do Supabase ============
 // Fonte única de verdade: tabela planos_config (migration 009). Antes o
@@ -1921,7 +1921,17 @@ function renderLayoutSidebar(tipo) {
   }
 
   const varsDisponiveis = getVariaveisDoc();
-  const opcoesVars = Object.keys(varsDisponiveis).map(k => `<option value="${k}" ${b.variavel===k?'selected':''}>${varsDisponiveis[k].label}</option>`).join('');
+  // Trava simples: corpo_texto é um texto ÚNICO por documento+situação (o mesmo
+  // que sai no PDF real e no e-mail) — dois blocos apontando pra ele sempre vão
+  // mostrar/editar o mesmo conteúdo (não tem como ter dois "textos do status"
+  // independentes sem reescrever como o texto é armazenado). Em vez de deixar
+  // escolher e confundir depois, a opção fica desabilitada quando já está em uso
+  // em outro bloco — quem quiser um texto extra próprio usa "Texto fixo".
+  const corpoTextoJaUsado = blocos.some(x => x.id !== b.id && x.variavel === 'corpo_texto');
+  const opcoesVars = Object.keys(varsDisponiveis).map(k => {
+    const bloqueada = k === 'corpo_texto' && corpoTextoJaUsado && b.variavel !== 'corpo_texto';
+    return `<option value="${k}" ${b.variavel === k ? 'selected' : ''} ${bloqueada ? 'disabled' : ''}>${varsDisponiveis[k].label}${bloqueada ? ' (já em uso em outro bloco)' : ''}</option>`;
+  }).join('');
 
   wrap.innerHTML = `
     <div style="display:flex; align-items:center; justify-content:space-between">
@@ -1942,7 +1952,9 @@ function renderLayoutSidebar(tipo) {
 
     ${b.tipo === 'fixo'
       ? `<div class="blkedit-prop"><label>Texto</label><textarea onchange="atualizarBlocoLayout('${tipo}','conteudo',this.value)">${b.conteudo||''}</textarea></div>`
-      : `<div class="blkedit-prop"><label>Variável associada</label><select onchange="atualizarBlocoLayout('${tipo}','variavel',this.value)">${opcoesVars}</select></div>`}
+      : `<div class="blkedit-prop"><label>Variável associada</label><select onchange="atualizarBlocoLayout('${tipo}','variavel',this.value)">${opcoesVars}</select>
+          ${corpoTextoJaUsado && b.variavel !== 'corpo_texto' ? '<p style="font-size:10.5px; color:var(--text-muted); margin:4px 0 0">"Texto do status" já está em uso em outro bloco desse documento — use "Texto fixo" pra um texto extra independente.</p>' : ''}
+        </div>`}
 
     ${b.variavel === 'corpo_texto' ? renderEditorTextoDocumento(tipo) : ''}
 
@@ -1997,6 +2009,14 @@ function renderLayoutSidebar(tipo) {
 function atualizarBlocoLayout(tipo, campo, valor) {
   const b = layoutEditorState[tipo].blocos.find(x => x.id === layoutSelecionado[tipo]);
   if (!b) return;
+  // Segunda trava (a primeira é a opção desabilitada no <select> da sidebar):
+  // nunca deixa dois blocos ficarem apontando pra corpo_texto ao mesmo tempo,
+  // mesmo que a mudança venha de outro caminho que não o dropdown normal.
+  if (campo === 'variavel' && valor === 'corpo_texto' && layoutEditorState[tipo].blocos.some(x => x.id !== b.id && x.variavel === 'corpo_texto')) {
+    toast('"Texto do status" já está em uso em outro bloco desse documento.');
+    renderLayoutBlocks(tipo);
+    return;
+  }
   if (campo === 'align' && valor !== b.align) {
     // b.x significa coisas diferentes conforme o alinhamento: borda esquerda
     // (esquerda/justificado), centro (centralizado) ou borda direita (direita)

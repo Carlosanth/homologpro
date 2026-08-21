@@ -1,6 +1,6 @@
 // dashboard.js
-// versão: 01
-// última atualização: 18/08/2026 07:50
+// versão: 02
+// última atualização: 21/08/2026 07:50
 
 // ============ DASHBOARD ============
 // Cada bloco só aparece se o admin tiver acesso ao módulo relacionado
@@ -218,7 +218,7 @@ function renderAdDashboard() {
     // Intermediário/Ruim) é só uma classificação informativa do fornecedor,
     // não decide notificação.
     const produtoAtencaoLista = (d.avaliacoesProduto || []).filter(av =>
-      periodoDeData(av.data) === chaveMes &&
+      periodoDeData(av.data) === chaveMes && !av.planoAcaoResolvidoEm &&
       (getSituacao(av.notaGeral) === 'reprovado' || getSituacao(av.notaGeral) === 'parcial'));
 
     if (produtoAtencaoLista.length) {
@@ -692,10 +692,39 @@ function renderAdDashboard() {
       </div>
     </div>` : '';
 
+  // ---------- ROTINAS AUTOMÁTICAS (status rápido, sem entrar em Config) ----------
+  let rotinasAutomaticasHTML = '';
+  if (temAcessoModulo('config')) {
+    const NOTIF_MODO_LABEL = { desligado: 'Desligado', automatico: 'Automático', aprovacao: 'Por aprovação' };
+    const rotinas = [
+      { nome: 'Cobrança de documentos', ativo: !!d.cobrancaAutomaticaAtiva },
+      { nome: 'Cobrança de plano de ação', ativo: !!d.planoAcaoCobrancaAtiva },
+      { nome: 'Lembrete aos avaliadores', ativo: !!d.lembreteAvaliadorAtivo },
+      { nome: 'Notificação de avaliação', ativo: d.notifAvaliacaoModo !== 'desligado', rotulo: NOTIF_MODO_LABEL[d.notifAvaliacaoModo] || 'Desligado' },
+    ];
+    rotinasAutomaticasHTML = `
+      <div class="card">
+        <div class="card-title" style="display:flex; align-items:center; justify-content:space-between">
+          <span>Rotinas automáticas</span>
+          <button class="btn btn-secondary btn-sm" onclick="showAdPage('config'); setTimeout(() => document.querySelector('.config-tab-btn[onclick*=\\'cobranca\\']')?.click(), 0)">Configurar →</button>
+        </div>
+        ${rotinas.map(r => `
+          <div style="display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid var(--border); font-size:13px">
+            <span class="sup-status-dot ${r.ativo ? 'dot-ok' : 'dot-neutral'}" style="margin-top:0"></span>
+            <span style="flex:1">${r.nome}</span>
+            <span style="font-size:12px; font-weight:600; color:${r.ativo ? 'var(--success)' : 'var(--text-muted)'}">${r.rotulo || (r.ativo ? 'Ativo' : 'Inativo')}</span>
+          </div>
+        `).join('')}
+      </div>`;
+  }
+
   let adminGridHTML = '';
   if (assinaturaHTML || lixeiraHTML) {
     const doisCards = assinaturaHTML && lixeiraHTML;
     adminGridHTML = `<div class="admin-grid2"${doisCards ? '' : ' style="grid-template-columns:1fr"'}>${assinaturaHTML}${lixeiraHTML}</div>`;
+  }
+  if (rotinasAutomaticasHTML) {
+    adminGridHTML += `<div class="admin-grid2" style="grid-template-columns:1fr">${rotinasAutomaticasHTML}</div>`;
   }
 
   // ---------- ATIVIDADE RECENTE (mesmo dado que já alimenta o Log de auditoria) ----------
@@ -1010,9 +1039,7 @@ async function baixarPendenteAprovacao(pendenteId) {
   const d = db();
   const p = (d.documentosPendentesAprovacao || []).find(x => x.id === pendenteId);
   if (!p || !p.caminhoStorage) return;
-  try {
-    await r2Baixar(p.caminhoStorage, p.nomeArquivo || 'documento');
-  } catch (error) { toast('Erro ao abrir arquivo: ' + error.message); }
+  await visualizarAnexo(p.caminhoStorage, p.nomeArquivo || 'documento');
 }
 
 async function aprovarPendenteAprovacao(pendenteId) {

@@ -1,6 +1,6 @@
 // avaliacoes-recebidas.js
-// versão: 02
-// última atualização: 19/08/2026 21:09
+// versão: 03
+// última atualização: 21/08/2026 07:50
 
 // ============ AVALIAÇÕES RECEBIDAS ============
 let _abaAvaliacoesAdAtual = 'todas';
@@ -332,7 +332,7 @@ function verDetalheAvaliacao(id) {
     ${av.justificativa ? `<div style="margin-top:12px; padding:10px; background:var(--danger-bg); border-radius:8px; font-size:12px; color:var(--danger)"><b>Melhoria esperada:</b> ${av.justificativa}</div>` : ''}
     ${av.obs ? `<div style="margin-top:8px; font-size:12px; color:var(--text-sec)"><b>Observações:</b> ${av.obs}</div>` : ''}
     ${av.anexos && av.anexos.length ? `<div style="margin-top:10px"><b style="font-size:12px">Anexos:</b>${av.anexos.map(a => `<div class="anexo-item" style="display:flex; align-items:center; gap:5px">${ic('paperclip', 12)}${a.caminhoStorage ? `<a href="#" onclick="event.preventDefault(); visualizarAnexo('${a.caminhoStorage}', '${a.nome}')">${a.nome}</a>` : a.nome} <span style="color:var(--text-muted)">${a.tamanho}</span></div>`).join('')}</div>` : ''}
-    ${!av.semServico && sit === 'reprovado' ? blocoPlanoAcaoHtml('servico', av) : ''}
+    ${!av.semServico && (sit === 'reprovado' || sit === 'parcial') ? blocoPlanoAcaoHtml('servico', av) : ''}
     <div class="no-print" style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px">
       ${!av.semServico && (sit === 'reprovado' || sit === 'parcial') ? (
         av.planoAcaoResolvidoEm
