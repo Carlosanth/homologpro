@@ -1,8 +1,6 @@
 // relatorios-pdf.js
-// versão: 07
-// última atualização: 21/08/2026 (mesclagem: prazo em dias úteis via core.js
-// da v06 + motor de runs/negrito-itálico por trecho da v05, que tinha ficado
-// pra trás nessa versão)
+// versão: 08
+// última atualização: 21/08/2026 17:30
 
 // ============ RELATÓRIO & PDFs ============
 // ---------- RELATÓRIO & PDFs ----------
@@ -11,7 +9,6 @@ let _ultimoPeriodoAd = '';
 function renderAdRelatorio() {
   const mesAtual = new Date().getMonth() + 1;
   const anoAtual = new Date().getFullYear();
-  const textos = db().textos || {};
   const d = db();
   document.getElementById('ad-page-relatorio').innerHTML = `
     <div class="page-header"><div><h2>Relatório & PDFs</h2><p>Selecione o período e gere certificados e cartas automaticamente</p></div></div>
@@ -53,18 +50,6 @@ function renderAdRelatorio() {
       <button class="btn btn-primary" onclick="gerarRelatorioAd()">Calcular médias</button>
     </div>
     <div id="relatorio-resultado-ad"></div>
-    <div class="card" style="margin-top:16px">
-      <div class="card-title">Texto da notificação pontual ao fornecedor</div>
-      <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px">
-        Usado nos e-mails enviados ao clicar em "Ver / Notificar" no Dashboard — tanto pra avaliação de Serviço quanto pra Nota Fiscal (Produto).
-        A saudação (bom dia/boa tarde) e os dados (nota, critérios com problema, motivos) são preenchidos automaticamente — aqui é só a parte do texto.
-      </p>
-      <div class="form-group">
-        <label>Pedido de plano de ação (só entra quando a avaliação é reprovada)</label>
-        <textarea rows="2" onchange="salvarTextoDocumento('notif-plano-acao', this.value)">${textos['notif-plano-acao'] || ''}</textarea>
-      </div>
-      <p style="font-size:11px; color:var(--text-muted); margin-top:-4px">O prazo pro fornecedor enviar o plano de ação agora fica em Formulários → Catálogo → "Regras gerais de prazo e período".</p>
-    </div>
   `;
 }
 

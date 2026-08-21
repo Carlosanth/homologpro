@@ -1,6 +1,6 @@
 // conferencia.js
-// versão: 03
-// última atualização: 21/08/2026 07:50
+// versão: 04
+// última atualização: 21/08/2026 17:30
 
 // ============ MÓDULO CONFERÊNCIA ============
 // Formulário separado do de Avaliar Produto — pensado pra quem só confere
@@ -674,7 +674,7 @@ function renderCriteriosConferenciaTab() {
         <div class="sup-new-icon">+</div>
         <div class="sup-new-card-title-wrap">
           <div class="sup-new-card-title">Novo critério</div>
-          <div class="sup-new-card-subtitle">Sim/Não, Nota, Faixa numérica ou Texto livre.</div>
+          <div class="sup-new-card-subtitle">Sim/Não, Faixa numérica ou Texto livre.</div>
         </div>
         <div class="sup-new-chevron">⌄</div>
       </div>
@@ -685,7 +685,6 @@ function renderCriteriosConferenciaTab() {
           <label>Tipo</label>
           <select id="cc-tipo" onchange="atualizarCamposTipoCriterioConferencia()">
             <option value="sim_nao">Sim/Não (desconta ponto se "Não")</option>
-            <option value="nota">Nota de 0 a 10 (critério novo — pra puxar um já existente, use "Critérios disponíveis" acima)</option>
             <option value="faixa">Faixa numérica (mín/máx recomendado + valor recebido — ex: temperatura, umidade, peso)</option>
             <option value="texto">Texto livre (só informativo)</option>
           </select>

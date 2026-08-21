@@ -1,6 +1,6 @@
 // formularios.js
-// versão: 02
-// última atualização: 21/08/2026 07:50
+// versão: 03
+// última atualização: 21/08/2026 17:30
 
 // ============ FORMULÁRIOS ============
 function renderAdFormularios() {
@@ -43,6 +43,11 @@ function renderAdFormularios() {
           <div class="form-group" style="margin-bottom:0; display:flex; align-items:end">
             <button class="btn btn-primary" onclick="salvarPrazoPlanoAcaoFormularios()">Salvar</button>
           </div>
+        </div>
+
+        <div class="form-group" style="margin-top:14px; margin-bottom:0">
+          <label>Pedido de plano de ação${infoTip('Texto usado nos e-mails enviados ao clicar em "Ver / Notificar" no Dashboard — tanto pra avaliação de Serviço quanto pra Nota Fiscal (Produto). Só entra quando a avaliação é reprovada. A saudação (bom dia/boa tarde) e os dados (nota, critérios com problema, motivos) são preenchidos automaticamente — aqui é só a parte do texto.')}</label>
+          <textarea rows="2" onchange="salvarTextoDocumento('notif-plano-acao', this.value)">${(db().textos && db().textos['notif-plano-acao']) || ''}</textarea>
         </div>
       </div>
 
