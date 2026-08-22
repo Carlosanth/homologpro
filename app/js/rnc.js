@@ -154,7 +154,7 @@ function renderSecaoRncHtml(sec, i) {
           style="flex:1; border:none; outline:none; background:transparent; font-size:12px; font-weight:600; color:#1a1a1a">
         <select onchange="atualizarSecaoRncConstrucao(${i}, 'tipo', this.value)"
           style="font-size:10.5px; color:#666; border:1px solid #ccc; border-radius:2px; background:#fff; padding:1px 4px">
-          <option value="" ${!sec.tipo ? 'selected' : ''} disabled>Formato...</option>
+          <option value="" ${!sec.tipo ? 'selected' : ''} disabled>Selecione</option>
           ${TIPOS_SECAO_RNC.map(t => `<option value="${t.valor}" ${sec.tipo === t.valor ? 'selected' : ''}>${t.label}</option>`).join('')}
         </select>
         <button type="button" onclick="moverSecaoRncConstrucao(${i}, -1)" title="Mover para cima" ${i === 0 ? 'disabled' : ''}
@@ -170,8 +170,8 @@ function renderSecaoRncHtml(sec, i) {
           ${(sec.campos || []).map((campo, j) => renderCampoRncHtml(sec, i, campo, j)).join('')}
           <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px">
             ${sec.tipo === 'campos_diversos' ? '' : `<span style="display:inline-block; width:11px; height:11px; border:1px solid #bbb; flex-shrink:0"></span>`}
-            <input type="text" placeholder="+ nova opção" onkeyup="if(event.key==='Enter') onNovaOpcaoRncConfirmar(this, ${i})" onblur="onNovaOpcaoRncConfirmar(this, ${i})"
-              style="border:none; border-bottom:1px dashed #ccc; outline:none; background:transparent; font-size:12.5px; color:#888; flex:1; padding:2px 0">
+            <input type="text" placeholder="+ nova opção" readonly onfocus="onNovaOpcaoRncCriar(${i})"
+              style="border:none; border-bottom:1px dashed #ccc; outline:none; background:transparent; font-size:12.5px; color:#888; flex:1; padding:2px 0; cursor:text">
           </div>
         </div>
       `}
@@ -184,12 +184,13 @@ function renderCampoRncHtml(sec, secIndex, campo, campoIndex) {
   return `
     <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px">
       ${precisaTipoValor ? '' : `<span style="display:inline-block; width:11px; height:11px; border:1px solid #555; flex-shrink:0"></span>`}
-      <input type="text" value="${escapeHtml(campo.label || '')}" placeholder="${precisaTipoValor ? 'Rótulo (opcional — pode deixar em branco)' : 'Como essa opção aparece no formulário'}"
+      <input type="text" data-campo-label value="${escapeHtml(campo.label || '')}" placeholder="${precisaTipoValor ? 'Rótulo (opcional — pode deixar em branco)' : 'Como essa opção aparece no formulário'}"
         oninput="atualizarCampoRncConstrucaoSemRender(${secIndex}, ${campoIndex}, 'label', this.value)"
         style="flex:1; border:none; outline:none; background:transparent; font-size:12.5px; color:#1a1a1a; border-bottom:1px solid transparent" onfocus="this.style.borderBottomColor='#ccc'" onblur="this.style.borderBottomColor='transparent'">
       ${precisaTipoValor ? `
         <select onchange="atualizarCampoRncConstrucao(${secIndex}, ${campoIndex}, 'tipo_campo', this.value)"
           style="font-size:10.5px; color:#666; border:1px solid #ccc; border-radius:2px; background:#fff; padding:1px 4px">
+          <option value="" ${!campo.tipo_campo ? 'selected' : ''} disabled>Selecione</option>
           <option value="texto" ${campo.tipo_campo === 'texto' ? 'selected' : ''}>Texto</option>
           <option value="date" ${campo.tipo_campo === 'date' ? 'selected' : ''}>Data</option>
           <option value="usuario_ref" ${campo.tipo_campo === 'usuario_ref' ? 'selected' : ''}>Responsável</option>
@@ -200,20 +201,17 @@ function renderCampoRncHtml(sec, secIndex, campo, campoIndex) {
   `;
 }
 
-// Confirma a nova opção ao apertar Enter ou ao sair do campo (blur) — cria o
-// campo de verdade e a linha "+ nova opção" reaparece em branco embaixo,
-// pronta pra continuar digitando, igual escrever direto na folha.
-function onNovaOpcaoRncConfirmar(inputEl, secIndex) {
-  const valor = inputEl.value.trim();
-  if (!valor) return;
-  inputEl.value = ''; // evita duplicar caso o blur dispare de novo durante a re-renderização
+// Cria a opção na hora que a linha "+ nova opção" recebe o foco (clique ou
+// tab), sem precisar digitar nada antes — o campo de verdade nasce em
+// branco e o foco pula direto pra ele, pronto pra digitar.
+function onNovaOpcaoRncCriar(secIndex) {
   const sec = _secoesRncEmConstrucao[secIndex];
-  const tipoDefault = sec.tipo === 'campos_diversos' ? 'texto' : undefined;
-  sec.campos.push({ id: gerarIdCampoRnc(), label: valor, tipo_campo: tipoDefault });
+  sec.campos.push({ id: gerarIdCampoRnc(), label: '', tipo_campo: undefined });
   rerenderConstrutorModeloRnc();
   setTimeout(() => {
     const secaoEl = document.querySelectorAll('[data-secao-index]')[secIndex];
-    const novoInput = secaoEl && secaoEl.querySelector('input[placeholder="+ nova opção"]');
+    const campos = secaoEl && secaoEl.querySelectorAll('[data-campo-label]');
+    const novoInput = campos && campos[campos.length - 1];
     if (novoInput) novoInput.focus();
   }, 0);
 }
@@ -245,7 +243,7 @@ function atualizarSecaoRncConstrucao(i, campo, valor) {
     // rótulo pode ficar em branco (aí usa o título da seção na hora de
     // mostrar), assim não precisa digitar o mesmo nome duas vezes.
     if (valor === 'campos_diversos' && !_secoesRncEmConstrucao[i].campos.length) {
-      _secoesRncEmConstrucao[i].campos.push({ id: gerarIdCampoRnc(), label: '', tipo_campo: 'texto' });
+      _secoesRncEmConstrucao[i].campos.push({ id: gerarIdCampoRnc(), label: '', tipo_campo: undefined });
     }
     rerenderConstrutorModeloRnc(); // muda os campos disponíveis (ex: tipo_campo só existe em campos_diversos)
   }
@@ -256,8 +254,7 @@ function atualizarSecaoRncConstrucaoSemRender(i, campo, valor) {
   _secoesRncEmConstrucao[i][campo] = valor;
 }
 function addCampoRncConstrucao(secIndex) {
-  const tipoDefault = _secoesRncEmConstrucao[secIndex].tipo === 'campos_diversos' ? 'texto' : undefined;
-  _secoesRncEmConstrucao[secIndex].campos.push({ id: gerarIdCampoRnc(), label: '', tipo_campo: tipoDefault });
+  _secoesRncEmConstrucao[secIndex].campos.push({ id: gerarIdCampoRnc(), label: '', tipo_campo: undefined });
   rerenderConstrutorModeloRnc();
 }
 function removerCampoRncConstrucao(secIndex, campoIndex) {
